@@ -1,6 +1,9 @@
 from django.shortcuts import render, HttpResponse
 
 
-# Create your views here.
+# creamos la respuesta a la ruta homepage/1/
 def homepage(request):
-    return HttpResponse('homepage.html')
+    return render(request,'homepage.html')
+
+def login(request):
+    return render(request,'login.html')
