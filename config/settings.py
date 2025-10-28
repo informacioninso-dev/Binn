@@ -14,7 +14,7 @@ from pathlib import Path
 import os
 import config.db as db
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
+# contruimos una ruta base, es decir que esto dirige  a nivrl de config.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
@@ -56,7 +56,7 @@ ROOT_URLCONF = 'config.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [ os.path.join(BASE_DIR,'templates'),],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
