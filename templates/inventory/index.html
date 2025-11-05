@@ -1,6 +1,82 @@
 {% extends 'layouts/app.html' %}
-{% block title %} Inventario· Panel{% endblock %}
+{% block title %}Inventario · Panel{% endblock %}
+
+{% block app_header %}
+  <div class="mb-4 flex items-center justify-between">
+    <h1 class="text-2xl font-bold">Inventario</h1>
+    <a href="{% url 'inventory:product_create' %}"
+       class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+      Nuevo producto
+    </a>
+  </div>
+{% endblock %}
+
 {% block app_content %}
-  <h1 class="text-2xl font-bold mb-4">Inventario</h1>
-  <p class="text-gray-600">Vista inicial del módulo Finanzas.</p>
+  <form class="mb-4 flex gap-2">
+    <input name="q" value="{{ request.GET.q }}" placeholder="Buscar por código o nombre…"
+           class="w-full max-w-sm rounded-lg border px-3 py-2">
+    <button class="rounded-lg border px-3 py-2">Buscar</button>
+  </form>
+
+  <div class="rounded-2xl border bg-white">
+    <div class="border-b px-4 py-3">
+      <h2 class="font-semibold">Productos</h2>
+    </div>
+    <div class="overflow-x-auto p-4">
+      <table class="min-w-full text-sm">
+        <thead>
+          <tr class="text-left text-gray-600">
+            <th class="px-3 py-2">Código</th>
+            <th class="px-3 py-2">Nombre</th>
+            <th class="px-3 py-2">Precio unitario</th>
+            <th class="px-3 py-2">Tasa de impuesto</th>
+            <th class="px-3 py-2">Costo unitario</th>
+            <th class="px-3 py-2">Proveedor</th>
+            <th class="px-3 py-2">Categoría</th>
+            <th class="px-3 py-2">Marca</th>
+            <th class="px-3 py-2 text-right">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in page %}
+            <tr class="border-t">
+              <td class="px-3 py-2">{{ p.code }}</td>
+              <td class="px-3 py-2">{{ p.name }}</td>
+              <td class="px-3 py-2">{{ p.unit_price|floatformat:2 }}</td>
+              <td class="px-3 py-2">{{ p.tax_rate|floatformat:2 }}</td>
+              <td class="px-3 py-2">{{ p.unit_cost|floatformat:2 }}</td>
+              <td class="px-3 py-2">{{ p.provider }}</td>
+              <td class="px-3 py-2">{{ p.category }}</td>
+              <td class="px-3 py-2">{{ p.brand }}</td>
+              <td class="px-3 py-2 text-right">
+                <a href="{% url 'inventory:product_update' p.pk %}"
+                   class="rounded border px-2 py-1 text-xs hover:bg-gray-50">Editar</a>
+                <form method="post" action="{% url 'inventory:product_toggle' p.pk %}" class="inline">
+                  {% csrf_token %}
+                  <button class="rounded border px-2 py-1 text-xs hover:bg-gray-50">
+                    {{ p.is_active|yesno:"Inactivar,Activar" }}
+                  </button>
+                </form>
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="9" class="px-3 py-6 text-center text-gray-500">Sin datos</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      {# Paginación #}
+      <div class="mt-4 flex items-center gap-2">
+        {% if page.has_previous %}
+          <a class="px-2 border rounded" href="?page={{ page.previous_page_number }}&q={{ request.GET.q }}">«</a>
+        {% endif %}
+        <span class="text-sm">Página {{ page.number }} de {{ page.paginator.num_pages }}</span>
+        {% if page.has_next %}
+          <a class="px-2 border rounded" href="?page={{ page.next_page_number }}&q={{ request.GET.q }}">»</a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
 {% endblock %}
