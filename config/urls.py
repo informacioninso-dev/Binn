@@ -24,7 +24,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('dashboard/', views.dashboard, name='dashboard'),
     path('inventory/', include(('inventory.urls', 'inventory'), namespace='inventory')),
-    #path('finance/', include(('finance.urls', 'finance'), namespace='finance')),
-    #path('billing/', include(('billing.urls', 'billing'), namespace='billing')),
-    #path('production/', include(('production.urls', 'production'), namespace='production')),
+    path('finance/', include(('finance.urls', 'finance'), namespace='finance')),
+    path('billing/', include(('billing.urls', 'billing'), namespace='billing')),
+    path('production/', include(('production.urls', 'production'), namespace='production')),
 ]
