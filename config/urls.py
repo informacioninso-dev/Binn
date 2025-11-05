@@ -17,7 +17,7 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path , include
 from core.dashboard import views
-
+from django.contrib.auth import views as auth_views
 
 
 urlpatterns = [
@@ -27,4 +27,9 @@ urlpatterns = [
     path('finance/', include(('finance.urls', 'finance'), namespace='finance')),
     path('billing/', include(('billing.urls', 'billing'), namespace='billing')),
     path('production/', include(('production.urls', 'production'), namespace='production')),
+        # Auth (login/logout)
+    path('accounts/login/',auth_views.LoginView.as_view(template_name='auth/login.html'),name='login'),
+    path('accounts/logout/',auth_views.LogoutView.as_view(), name='logout'),
 ]
+
+
