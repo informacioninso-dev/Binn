@@ -1,0 +1,62 @@
+{# templates/pages/dashboard.html #}
+{% extends 'layouts/app.html' %}
+{% block title %}Dashboard · Panel{% endblock %}
+
+{% block app_content %}
+  <h1 class="mb-4 text-2xl font-bold">Dashboard</h1>
+
+  <!-- Cards -->
+  <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div class="rounded-2xl border bg-white p-4">
+      <p class="text-sm text-gray-500">Stock total</p>
+      <p class="text-2xl font-semibold">{{ kpi_stock_total|default:'—' }}</p>
+    </div>
+    <div class="rounded-2xl border bg-white p-4">
+      <p class="text-sm text-gray-500">Ventas del mes</p>
+      <p class="text-2xl font-semibold">{{ kpi_ventas_mes|default:'—' }}</p>
+    </div>
+    <div class="rounded-2xl border bg-white p-4">
+      <p class="text-sm text-gray-500">Facturas pendientes</p>
+      <p class="text-2xl font-semibold">{{ kpi_facturas_pendientes|default:'—' }}</p>
+    </div>
+    <div class="rounded-2xl border bg-white p-4">
+      <p class="text-sm text-gray-500">Órdenes producción</p>
+      <p class="text-2xl font-semibold">{{ kpi_op_abiertas|default:'—' }}</p>
+    </div>
+  </div>
+
+  <!-- Tabla -->
+  <div class="rounded-2xl border bg-white">
+    <div class="border-b px-4 py-3">
+      <h2 class="font-semibold">Últimos movimientos</h2>
+    </div>
+    <div class="overflow-x-auto p-4">
+      <table class="min-w-full text-sm">
+        <thead>
+          <tr class="text-left text-gray-600">
+            <th class="px-3 py-2">Fecha</th>
+            <th class="px-3 py-2">Tipo</th>
+            <th class="px-3 py-2">Producto</th>
+            <th class="px-3 py-2">Cantidad</th>
+            <th class="px-3 py-2">Área</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in movimientos %}
+            <tr class="border-t">
+              <td class="px-3 py-2">{{ m.fecha|date:'d/m/Y' }}</td>
+              <td class="px-3 py-2">{{ m.tipo }}</td>
+              <td class="px-3 py-2">{{ m.producto }}</td>
+              <td class="px-3 py-2">{{ m.cantidad }}</td>
+              <td class="px-3 py-2">{{ m.area }}</td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="5" class="px-3 py-6 text-center text-gray-500">Sin datos</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endblock %}

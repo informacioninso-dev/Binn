@@ -1,0 +1,41 @@
+<!-- templates/base.html -->
+{% load static %}
+<!DOCTYPE html>
+<html lang="es" class="h-full">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>{% block title %}Mi ERP{% endblock %}</title>
+
+
+<!-- DEV: Tailwind vía CDN. Para producción usa build con tailwind.config.js -->
+<script src="https://cdn.tailwindcss.com"></script>
+
+
+<!-- Favicon/Icons -->
+<link rel="icon" href="{% static 'img/favicon.ico' %}" />
+
+
+<!-- Bloque para meter CSS extra por vista (p. ej. charts, libs) -->
+{% block head_extra %}{% endblock %}
+</head>
+<body class="min-h-screen bg-gray-50 text-gray-900">
+<!-- Contenedor general con barra superior y contenido -->
+<div class="flex min-h-screen flex-col">
+{% include 'partials/_navbar.html' %}
+
+
+<main id="content" class="container mx-auto w-full max-w-7xl flex-1 px-4 py-6">
+{% include 'partials/_flash.html' %}
+{% block content %}{% endblock %}
+</main>
+
+
+{% include 'partials/_footer.html' %}
+</div>
+
+
+<!-- Scripts globales -->
+{% block scripts %}{% endblock %}
+</body>
+</html>

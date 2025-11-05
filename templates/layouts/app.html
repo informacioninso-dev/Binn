@@ -1,0 +1,49 @@
+{# templates/layouts/app.html #}
+{% extends 'base.html' %}
+
+{# 
+  Layout con sidebar. 
+  Namespaces esperados: inventory, finance, finance, billing, production.
+  Este archivo SOLO define bloques y no abre bucles sin cerrar.
+#}
+
+{% block title %}Panel{% endblock %}
+
+{% block content %}
+  <div class="grid grid-cols-12 gap-6">
+    <!-- Sidebar -->
+    <aside class="col-span-12 md:col-span-3 lg:col-span-2">
+      <nav class="sticky top-4 space-y-1 rounded-xl border bg-white p-3">
+        {% with ns=request.resolver_match.namespace %}
+          <a href="{% url 'dashboard' %}"
+             class="block rounded-lg px-3 py-2 hover:bg-gray-100 {% if not ns %}bg-gray-100 font-medium{% endif %}">
+            Dashboard
+          </a>
+          <a href="{% url 'inventory:index' %}"
+             class="block rounded-lg px-3 py-2 hover:bg-gray-100 {% if ns == 'inventory' %}bg-gray-100 font-medium{% endif %}">
+            Inventario
+          </a>
+          <a href="{% url 'finance:index' %}"
+             class="block rounded-lg px-3 py-2 hover:bg-gray-100 {% if ns == 'finance' %}bg-gray-100 font-medium{% endif %}">
+            Finanzas
+          </a>
+          <a href="{% url 'billing:index' %}"
+             class="block rounded-lg px-3 py-2 hover:bg-gray-100 {% if ns == 'billing' %}bg-gray-100 font-medium{% endif %}">
+            Facturación
+          </a>
+          <a href="{% url 'production:index' %}"
+             class="block rounded-lg px-3 py-2 hover:bg-gray-100 {% if ns == 'production' %}bg-gray-100 font-medium{% endif %}">
+            Producción
+          </a>
+        {% endwith %}
+
+        {% block sidebar_extra %}{% endblock %}
+      </nav>
+    </aside>
+    <!-- Contenido principal -->
+    <section class="col-span-12 md:col-span-9 lg:col-span-10">
+      {% block app_header %}{% endblock %}
+      {% block app_content %}{% endblock %}
+    </section>
+  </div>
+{% endblock %}

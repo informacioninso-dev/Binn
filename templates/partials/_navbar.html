@@ -1,0 +1,16 @@
+{% load static %}
+<header class="bg-white/80 backdrop-blur border-b">
+  <div class="container mx-auto max-w-7xl px-4 py-3 flex items-center justify-between">
+    <a href="{% url 'dashboard' %}" class="flex items-center gap-3">
+      <img src="{% static 'img/logo.svg' %}" alt="Logo" class="h-8 w-8" />
+      <span class="font-semibold">Mi ERP</span>
+    </a>
+    <nav class="hidden md:flex items-center gap-6">
+      <a href="{% url 'dashboard' %}" class="hover:text-blue-600">Dashboard</a>
+      <a href="{% url 'inventory:index' %}" class="hover:text-blue-600">Inventario</a>
+      <a href="{% url 'finance:index' %}" class="hover:text-blue-600">Finanzas</a>
+      <a href="{% url 'billing:index' %}" class="hover:text-blue-600">Facturación</a>
+      <a href="{% url 'production:index' %}" class="hover:text-blue-600">Producción</a>
+    </nav>
+  </div>
+</header>

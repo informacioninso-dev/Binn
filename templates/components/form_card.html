@@ -1,0 +1,23 @@
+<!-- templates/components/form_card.html: componente de tarjeta con formulario -->
+<div class="rounded-2xl border bg-white p-4">
+<h3 class="mb-4 text-lg font-semibold">{{ title }}</h3>
+<form method="post" class="space-y-4">
+{% csrf_token %}
+{% for field in form %}
+<div>
+<label for="id_{{ field.name }}" class="mb-1 block text-sm font-medium">{{ field.label }}</label>
+{{ field|add_class:'w-full rounded-lg border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500' }}
+{% if field.help_text %}
+<p class="mt-1 text-xs text-gray-500">{{ field.help_text }}</p>
+{% endif %}
+{% for error in field.errors %}
+<p class="mt-1 text-xs text-red-600">{{ error }}</p>
+{% endfor %}
+</div>
+{% endfor %}
+<div class="flex items-center justify-end gap-3">
+<a href="{{ cancel_url|default:'#' }}" class="rounded-lg border px-4 py-2 text-sm hover:bg-gray-50">Cancelar</a>
+<button type="submit" class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">Guardar</button>
+</div>
+</form>
+</div>
