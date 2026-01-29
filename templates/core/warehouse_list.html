@@ -1,0 +1,49 @@
+{% extends 'layouts/app.html' %}
+
+{% block title %}Listado de Bodegas · Panel{% endblock %}
+
+{% block app_header %}
+  <h1 class="text-2xl font-bold">Listado de Bodegas</h1>
+{% endblock %}
+
+{% block app_content %}
+  <div class="bg-white p-6 rounded-lg shadow-md">
+    <table class="min-w-full text-sm">
+      <thead>
+        <tr>
+          <th class="px-4 py-2">Código</th>
+          <th class="px-4 py-2">Nombre</th>
+          <th class="px-4 py-2">Tipo</th>
+          <th class="px-4 py-2">Activa</th>
+          <th class="px-4 py-2">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for warehouse in warehouses %}
+          <tr>
+            <td class="px-4 py-2">{{ warehouse.code }}</td>
+            <td class="px-4 py-2">{{ warehouse.name }}</td>
+            <td class="px-4 py-2">{{ warehouse.get_type_display }}</td>
+            <td class="px-4 py-2">
+              {% if warehouse.is_active %}
+                <span class="text-green-500">Sí</span>
+              {% else %}
+                <span class="text-red-500">No</span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-2">
+              <a href="{% url 'core:warehouse_create' %}" class="text-blue-500">Editar</a>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="5" class="text-center">No hay bodegas registradas.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <div class="mt-4">
+      <a href="{% url 'core:warehouse_create' %}" class="btn btn-primary">Crear Nueva Bodega</a>
+    </div>
+  </div>
+{% endblock %}

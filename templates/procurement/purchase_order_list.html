@@ -1,0 +1,164 @@
+{# templates/procurement/purchase_order_list.html #}
+{% extends "layouts/app.html" %}
+{% load static %}
+
+{% block title %}Órdenes de compra · {{ block.super }}{% endblock %}
+
+{% block app_content %}
+  {% include "procurement/_nav.html" %}
+
+  <div class="mb-6 flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold">Órdenes de compra</h1>
+      <p class="text-sm text-gray-500">
+        Registro de órdenes de compra de materias primas e insumos.
+      </p>
+    </div>
+    <a href="{% url 'procurement:order_create' %}"
+       class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+      + Nueva orden
+    </a>
+  </div>
+
+  {# Filtros de búsqueda #}
+  <form method="get" class="mb-4 flex flex-wrap items-center gap-2 text-sm">
+    <input type="text"
+           name="q"
+           value="{{ request.GET.q }}"
+           placeholder="Buscar por número, proveedor o RUC…"
+           class="w-full max-w-xs rounded-lg border px-3 py-2">
+
+    <select name="status"
+            class="w-full max-w-xs rounded-lg border px-3 py-2">
+      <option value="">Todos los estados</option>
+      {% for value, label in status_choices %}
+        <option value="{{ value }}" {% if request.GET.status == value %}selected{% endif %}>
+          {{ label }}
+        </option>
+      {% endfor %}
+    </select>
+
+    <button type="submit"
+            class="rounded-lg border px-3 py-2 text-sm hover:bg-gray-50">
+      Filtrar
+    </button>
+  </form>
+
+  {% if orders %}
+    <div class="overflow-x-auto rounded-2xl border bg-white">
+      <table class="min-w-full text-sm">
+        <thead>
+          <tr class="border-b bg-gray-50 text-xs font-semibold text-gray-600">
+            <th class="px-3 py-2 text-left">Número</th>
+            <th class="px-3 py-2 text-left">Proveedor</th>
+            <th class="px-3 py-2 text-left">Fecha</th>
+            <th class="px-3 py-2 text-left">Estado</th>
+            <th class="px-3 py-2 text-right">Total aprox.</th>
+            <th class="px-3 py-2 text-center">Recepciones</th>
+            <th class="px-3 py-2 text-right">Acciones</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          {% for oc in orders %}
+            <tr class="hover:bg-gray-50">
+              {# Número de OC #}
+              <td class="px-3 py-2 align-top text-xs font-semibold text-gray-900">
+                {{ oc.number }}
+              </td>
+
+              {# Proveedor #}
+              <td class="px-3 py-2 align-top text-xs">
+                <div class="font-medium text-gray-900">
+                  {{ oc.supplier.trade_name|default:oc.supplier.legal_name }}
+                </div>
+                <div class="text-[11px] text-gray-500">
+                  {{ oc.supplier.identification }}
+                </div>
+              </td>
+
+              {# Fecha #}
+              <td class="px-3 py-2 align-top text-xs text-gray-700">
+                {{ oc.order_date|date:"d/m/Y" }}
+              </td>
+
+              {# Estado #}
+              <td class="px-3 py-2 align-top text-xs">
+                <span class="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-[11px]">
+                  {{ oc.get_status_display }}
+                </span>
+              </td>
+
+              {# Total aproximado (usa total_amount del modelo) #}
+              <td class="px-3 py-2 align-top text-right text-xs text-gray-900">
+                {{ oc.total_amount }} {{ oc.currency }}
+              </td>
+
+              {# Número de recepciones asociadas #}
+              <td class="px-3 py-2 align-top text-center text-xs text-gray-700">
+                {{ oc.receptions.count|default:"0" }}
+              </td>
+
+              {# Acciones #}
+              <td class="px-3 py-2 align-top text-right text-xs">
+                <div class="flex justify-end gap-1">
+                  <a href="{% url 'procurement:order_update' oc.pk %}"
+                     class="inline-block rounded-lg border px-2 py-1 hover:bg-gray-50">
+                    Editar
+                  </a>
+
+                  {# Botón para ir a recepción de materia prima vinculada a esta OC #}
+                  {% if oc.can_be_received %}
+                    <a href="{% url 'procurement:receptions_create' %}?po={{ oc.pk }}"
+                       class="inline-block rounded-lg border px-2 py-1 text-emerald-700 hover:bg-emerald-50">
+                      Recepcionar
+                    </a>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {# Paginación #}
+    {% if is_paginated %}
+      <div class="mt-4 flex items-center justify-between text-xs text-gray-600">
+        <div>
+          Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+        </div>
+        <div class="space-x-1">
+          {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}"
+               class="rounded-lg border px-2 py-1 hover:bg-gray-50">
+              Anterior
+            </a>
+          {% endif %}
+          {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}"
+               class="rounded-lg border px-2 py-1 hover:bg-gray-50">
+              Siguiente
+            </a>
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
+  {% else %}
+    <div class="rounded-2xl border border-dashed bg-white p-6 text-center text-sm text-gray-500">
+      No hay órdenes de compra registradas
+      {% if request.GET.q or request.GET.status %}
+        con los filtros actuales.
+        <a href="{% url 'procurement:order_list' %}"
+           class="ml-1 text-blue-600 hover:underline">
+          Limpiar filtros.
+        </a>
+      {% else %}
+        aún.
+      {% endif %}
+      <a href="{% url 'procurement:order_create' %}"
+         class="ml-1 text-blue-600 hover:underline">
+        Crear la primera orden.
+      </a>
+    </div>
+  {% endif %}
+{% endblock %}

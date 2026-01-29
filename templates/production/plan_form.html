@@ -1,0 +1,244 @@
+{% extends "layouts/app.html" %}
+{% load static %}
+
+{% block title %}Plan de producción · {{ block.super }}{% endblock %}
+
+{% block app_content %}
+{% include "production/_nav.html" %}
+
+  <div class="mb-6 flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold">
+        {% if form.instance.pk %}Editar plan de producción{% else %}Nuevo plan de producción{% endif %}
+      </h1>
+      <p class="text-sm text-gray-500">
+        Define el lote de producción por producto, fecha de fabricación y cantidad total a producir.
+      </p>
+    </div>
+    <a href="{% url 'production:plans_list' %}"
+       class="rounded-xl border px-4 py-2 text-sm hover:bg-gray-50">
+      Volver al listado
+    </a>
+  </div>
+
+  {% if form.non_field_errors %}
+    <div class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+      {% for error in form.non_field_errors %}
+        <p>{{ error }}</p>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <form method="post" class="space-y-6">
+    {% csrf_token %}
+
+    <div class="rounded-2xl border bg-white p-4 md:p-6 space-y-4">
+      <!-- Producto y lote -->
+      <div class="grid gap-4 md:grid-cols-2">
+        <div>
+          <label class="mb-1 block text-sm font-medium">
+            {{ form.product.label }}
+          </label>
+          {{ form.product }}
+          {% for error in form.product.errors %}
+            <p class="text-xs text-red-600">{{ error }}</p>
+          {% endfor %}
+          <p class="mt-1 text-[11px] text-gray-400">
+            El lote sugerido se genera a partir del prefijo configurado en el producto y la fecha de fabricación.
+          </p>
+        </div>
+
+        <div>
+          <label class="mb-1 block text-sm font-medium">
+            {{ form.lot_code.label }}
+          </label>
+          {{ form.lot_code }}
+          {% for error in form.lot_code.errors %}
+            <p class="text-xs text-red-600">{{ error }}</p>
+          {% endfor %}
+          <p class="mt-1 text-[11px] text-gray-400">
+            Puedes ajustar manualmente el código de lote si es necesario.
+          </p>
+        </div>
+      </div>
+
+      <!-- Fecha y cantidad -->
+      <div class="grid gap-4 md:grid-cols-2">
+        <div>
+          <label class="mb-1 block text-sm font-medium">
+            {{ form.manufacturing_date.label }}
+          </label>
+          {{ form.manufacturing_date }}
+          {% for error in form.manufacturing_date.errors %}
+            <p class="text-xs text-red-600">{{ error }}</p>
+          {% endfor %}
+        </div>
+
+        <div>
+          <label class="mb-1 block text-sm font-medium">
+            {{ form.quantity_planned.label }}
+          </label>
+          {{ form.quantity_planned }}
+          {% for error in form.quantity_planned.errors %}
+            <p class="text-xs text-red-600">{{ error }}</p>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Estado y notas -->
+      <div class="grid gap-4 md:grid-cols-2">
+        <div>
+          <label class="mb-1 block text-sm font-medium">
+            {{ form.status.label }}
+          </label>
+          {{ form.status }}
+          {% for error in form.status.errors %}
+            <p class="text-xs text-red-600">{{ error }}</p>
+          {% endfor %}
+        </div>
+
+        <div>
+          <label class="mb-1 block text-sm font-medium">
+            {{ form.notes.label }}
+          </label>
+          {{ form.notes }}
+          {% for error in form.notes.errors %}
+            <p class="text-xs text-red-600">{{ error }}</p>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="flex justify-end gap-3">
+      <a href="{% url 'production:plans_list' %}"
+         class="rounded-xl border px-4 py-2 text-sm hover:bg-gray-50">
+        Cancelar
+      </a>
+      <button type="submit"
+              class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+        {% if form.instance.pk %}Guardar cambios{% else %}Crear plan{% endif %}
+      </button>
+    </div>
+  </form>
+
+  {# 🔹 Pasamos el mapa product_id -> lot_prefix al JS #}
+  {% if lot_prefix_map %}
+    {{ lot_prefix_map|json_script:"lot-prefix-map" }}
+  {% endif %}
+
+  <script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const productSelect = document.getElementById("id_product");
+    const mfgInput = document.getElementById("id_manufacturing_date");
+    const lotInput = document.getElementById("id_lot_code");
+
+    if (!productSelect || !mfgInput || !lotInput) {
+      return;
+    }
+
+    let prefixMap = {};
+    const scriptEl = document.getElementById("lot-prefix-map");
+    if (scriptEl) {
+      try {
+        prefixMap = JSON.parse(scriptEl.textContent);
+      } catch (e) {
+        console.warn("No se pudo parsear lot_prefix_map:", e);
+      }
+    }
+
+    function buildLotCode() {
+      const productId = productSelect.value;
+      const prefix = prefixMap[productId] || "";
+
+      if (!prefix) {
+        return null;
+      }
+
+      const rawDate = (mfgInput.value || "").trim();
+      if (!rawDate) {
+        // Sin fecha → solo prefijo
+        return prefix;
+      }
+
+      let day, month, year;
+
+      // Caso 1: formato tipo "2026-01-17"
+      if (rawDate.includes("-")) {
+        const parts = rawDate.split("-");
+        if (parts.length >= 3) {
+          year = parts[0];
+          month = parts[1];
+          day = parts[2];
+        } else if (parts.length === 2) {
+          year = parts[0];
+          month = parts[1];
+        }
+      }
+      // Caso 2: formato tipo "17/01/2026"
+      else if (rawDate.includes("/")) {
+        const parts = rawDate.split("/");
+        if (parts.length >= 3) {
+          day = parts[0];
+          month = parts[1];
+          year = parts[2];
+        }
+      }
+
+      if (!year || !month) {
+        // Si no pudimos interpretar la fecha, devolvemos solo prefijo
+        return prefix;
+      }
+
+      const yy = year.toString().slice(-2);
+      const mm = month.toString().padStart(2, "0");
+
+      // Ej: CAP + 01 + 26 = CAP0126
+      return prefix + mm + yy;
+    }
+
+    function updateLot(fromEvent) {
+      const productId = productSelect.value;
+      const prefix = prefixMap[productId] || "";
+      if (!prefix) {
+        return;
+      }
+
+      const suggested = buildLotCode();
+      if (!suggested) {
+        return;
+      }
+
+      const current = lotInput.value || "";
+
+      // 🔹 Si el cambio fue de PRODUCTO → SIEMPRE regeneramos el lote
+      if (fromEvent === "product") {
+        lotInput.value = suggested;
+        return;
+      }
+
+      // 🔹 Si el cambio fue de FECHA:
+      // solo tocamos si está vacío o si ya comienza con el prefijo (para no pisar algo totalmente manual)
+      if (!current || current.startsWith(prefix)) {
+        lotInput.value = suggested;
+      }
+    }
+
+    // Cambio de producto → siempre recalcular lote
+    productSelect.addEventListener("change", function () {
+      updateLot("product");
+    });
+
+    // Cambio de fecha → actualizar si aplica
+    mfgInput.addEventListener("change", function () {
+      updateLot("date");
+    });
+
+    // Al cargar el formulario (nuevo plan) → si no hay lote, sugerimos uno
+    if (!lotInput.value) {
+      updateLot("init");
+    }
+  });
+</script>
+
+
+{% endblock %}

@@ -1,0 +1,39 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}Detalles del Pedido · {{ block.super }}{% endblock %}
+
+{% block app_content %}
+{% include "sales/_nav.html" %}
+
+<div class="mb-6">
+  <h1 class="text-2xl font-semibold">Detalles del Pedido {{ order.code }}</h1>
+
+  <p><strong>Cliente:</strong> {{ order.client.trade_name }}</p>
+  <p><strong>Estado:</strong> {{ order.get_status_display }}</p>
+  <p><strong>Fecha de Entrega:</strong> {{ order.delivery_date }}</p>
+  <p><strong>Notas:</strong> {{ order.notes }}</p>
+  
+  <h2 class="mt-6 text-xl font-semibold">Productos del Pedido</h2>
+  <table class="min-w-full mt-4 text-sm">
+    <thead>
+      <tr class="border-b bg-gray-50 text-xs font-semibold text-gray-600">
+        <th class="px-3 py-2 text-left">Producto</th>
+        <th class="px-3 py-2 text-right">Cantidad</th>
+        <th class="px-3 py-2 text-right">Precio Unitario</th>
+        <th class="px-3 py-2 text-right">Total</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-100">
+      {% for line in order.saleorderline_set.all %}
+        <tr>
+          <td class="px-3 py-2">{{ line.product.name }}</td>
+          <td class="px-3 py-2 text-right">{{ line.quantity }}</td>
+          <td class="px-3 py-2 text-right">{{ line.unit_price }}</td>
+          <td class="px-3 py-2 text-right">{{ line.total_price }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}

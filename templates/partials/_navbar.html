@@ -8,11 +8,6 @@
 
     <nav class="hidden md:flex items-center gap-6">
       {% if request.user.is_authenticated %}
-        <a href="{% url 'dashboard' %}" class="hover:text-blue-600">Dashboard</a>
-        <a href="{% url 'inventory:index' %}" class="hover:text-blue-600">Inventario</a>
-        <a href="{% url 'finance:index' %}" class="hover:text-blue-600">Finanzas</a>
-        <a href="{% url 'billing:index' %}" class="hover:text-blue-600">Facturación</a>
-        <a href="{% url 'production:index' %}" class="hover:text-blue-600">Producción</a>
 
         <span class="text-sm text-gray-600">Hola, {{ request.user.get_username }}</span>
         <a href="{% url 'password_change' %}" class="text-sm hover:underline">Cambiar contraseña</a>

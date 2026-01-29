@@ -38,7 +38,16 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
-    'django.contrib.staticfiles','core', 'inventory','finance','billing','production',
+    'django.contrib.staticfiles',
+    'core', 
+    'inventory',
+    'finance',
+    'sales',
+    'production',
+    'quality',
+    'procurement',
+    'partners',
+
 ]
 
 MIDDLEWARE = [
@@ -95,10 +104,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'es-ec'
 
-TIME_ZONE = 'America/Guayaquil'
-
-USE_I18N = True
-
+TIME_ZONE = "America/Guayaquil"
 USE_TZ = True
 
 

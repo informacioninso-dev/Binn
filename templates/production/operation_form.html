@@ -1,0 +1,122 @@
+{% extends "layouts/app.html" %}
+{% load static %}
+
+{% block title %}Operación de producción · {{ block.super }}{% endblock %}
+
+{% block app_content %}
+{% include "production/_nav.html" %}
+  <div class="mb-6 flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold">Operación de producción</h1>
+      <p class="text-sm text-gray-500">
+        Actualiza el estado, tiempos y cantidades de la operación.
+      </p>
+    </div>
+    <a href="{% url 'production:order_detail' object.order.pk %}"
+       class="rounded-xl border px-4 py-2 text-sm hover:bg-gray-50">
+      Volver a la orden {{ object.order.code }}
+    </a>
+  </div>
+
+  <div class="mb-4 rounded-2xl border bg-white p-4 md:p-6 text-sm">
+    <p class="text-xs text-gray-500 mb-1">Orden de producción</p>
+    <p class="text-sm font-medium mb-2">
+      {{ object.order.code }} – {{ object.order.product.code }} · {{ object.order.product.name }}
+    </p>
+
+    <p class="text-xs text-gray-500 mb-1">Paso de ruta</p>
+    <p class="text-sm">
+      Secuencia {{ object.sequence }} · {{ object.step.work_center.code }} – {{ object.step.name }}
+    </p>
+  </div>
+
+  {% if form.non_field_errors %}
+    <div class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+      {% for error in form.non_field_errors %}
+        <p>{{ error }}</p>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <form method="post" class="space-y-6">
+    {% csrf_token %}
+
+    <div class="rounded-2xl border bg-white p-4 md:p-6 space-y-4">
+      <div class="grid gap-4 md:grid-cols-2">
+        <div>
+          <label class="mb-1 block text-sm font-medium">
+            {{ form.status.label }}
+          </label>
+          {{ form.status }}
+          {% for error in form.status.errors %}
+            <p class="text-xs text-red-600">{{ error }}</p>
+          {% endfor %}
+        </div>
+        <div></div>
+      </div>
+
+      <div class="grid gap-4 md:grid-cols-2">
+        <div>
+          <label class="mb-1 block text-sm font-medium">
+            {{ form.started_at.label }}
+          </label>
+          {{ form.started_at }}
+          {% for error in form.started_at.errors %}
+            <p class="text-xs text-red-600">{{ error }}</p>
+          {% endfor %}
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium">
+            {{ form.finished_at.label }}
+          </label>
+          {{ form.finished_at }}
+          {% for error in form.finished_at.errors %}
+            <p class="text-xs text-red-600">{{ error }}</p>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="grid gap-4 md:grid-cols-2">
+        <div>
+          <label class="mb-1 block text-sm font-medium">
+            {{ form.quantity_input.label }}
+          </label>
+          {{ form.quantity_input }}
+          {% for error in form.quantity_input.errors %}
+            <p class="text-xs text-red-600">{{ error }}</p>
+          {% endfor %}
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium">
+            {{ form.quantity_output.label }}
+          </label>
+          {{ form.quantity_output }}
+          {% for error in form.quantity_output.errors %}
+            <p class="text-xs text-red-600">{{ error }}</p>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div>
+        <label class="mb-1 block text-sm font-medium">
+          {{ form.notes.label }}
+        </label>
+        {{ form.notes }}
+        {% for error in form.notes.errors %}
+          <p class="text-xs text-red-600">{{ error }}</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="flex justify-end gap-3">
+      <a href="{% url 'production:order_detail' object.order.pk %}"
+         class="rounded-xl border px-4 py-2 text-sm hover:bg-gray-50">
+        Cancelar
+      </a>
+      <button type="submit"
+              class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+        Guardar cambios
+      </button>
+    </div>
+  </form>
+{% endblock %}

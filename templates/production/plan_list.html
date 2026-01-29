@@ -1,0 +1,131 @@
+{# templates/production/plan_list.html #}
+{% extends "layouts/app.html" %}
+{% load static %}
+
+{% block title %}Planes de producción · {{ block.super }}{% endblock %}
+
+{% block app_content %}
+{% include "production/_nav.html" %}
+
+<div class="mb-6 flex items-center justify-between">
+  <div>
+    <h1 class="text-2xl font-semibold">Planes de producción</h1>
+    <p class="text-sm text-gray-500">
+      Lotes de producción por SKU, con su cantidad total planificada.
+    </p>
+  </div>
+  <a href="{% url 'production:plans_create' %}"
+     class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+    + Nuevo plan
+  </a>
+</div>
+
+{# 🔎 Filtros de búsqueda #}
+<form method="get" class="mb-4 grid gap-3 rounded-2xl border bg-white p-4 md:grid-cols-3">
+  <div>
+    <label class="mb-1 block text-xs font-medium text-gray-600">
+      Buscar (código plan, producto, lote)
+    </label>
+    <input type="text"
+           name="q"
+           value="{{ request.GET.q }}"
+           class="w-full rounded-lg border px-3 py-2 text-sm"
+           placeholder="Ej: PP-2026-0001, cabestrillo, CAP012026">
+  </div>
+
+  <div>
+    <label class="mb-1 block text-xs font-medium text-gray-600">
+      Estado
+    </label>
+    <select name="status"
+            class="w-full rounded-lg border px-3 py-2 text-sm">
+      <option value="">Todos</option>
+      {% for value, label in plan_status_choices %}
+        <option value="{{ value }}" {% if request.GET.status == value %}selected{% endif %}>
+          {{ label }}
+        </option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div class="flex items-end justify-start gap-2">
+    <button type="submit"
+            class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+      Aplicar filtros
+    </button>
+    <a href="{% url 'production:plans_list' %}"
+       class="rounded-xl border px-4 py-2 text-sm hover:bg-gray-50">
+      Limpiar
+    </a>
+  </div>
+</form>
+
+{% if page %}
+  <div class="overflow-x-auto rounded-2xl border bg-white">
+    <table class="min-w-full text-sm">
+      <thead>
+        <tr class="border-b bg-gray-50 text-xs font-semibold text-gray-600">
+          <th class="px-3 py-2 text-left">Código plan</th>
+          <th class="px-3 py-2 text-left">Producto</th>
+          <th class="px-3 py-2 text-left">Lote producción</th>
+          <th class="px-3 py-2 text-left">Fecha fabricación</th>
+          <th class="px-3 py-2 text-right">Cant. planificada</th>
+          <th class="px-3 py-2 text-right">Cant. pendiente</th>
+          <th class="px-3 py-2 text-left">Estado</th>
+          <th class="px-3 py-2 text-right">Acciones</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for plan in page %}
+          <tr class="hover:bg-gray-50">
+            <td class="px-3 py-2 text-xs font-semibold text-gray-900">
+              {{ plan.code }}
+            </td>
+            <td class="px-3 py-2 text-xs">
+              {{ plan.product.code }} – {{ plan.product.name }}
+            </td>
+            <td class="px-3 py-2 text-xs">
+              {{ plan.lot_code }}
+            </td>
+            <td class="px-3 py-2 text-xs">
+              {{ plan.manufacturing_date|date:"d/m/Y" }}
+            </td>
+            <td class="px-3 py-2 text-xs text-right">
+              {{ plan.quantity_planned }}
+            </td>
+            <td class="px-3 py-2 text-xs text-right">
+              {{ plan.quantity_pending }}
+            </td>
+            <td class="px-3 py-2 text-xs">
+              <span class="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-[11px]">
+                {{ plan.get_status_display }}
+              </span>
+            </td>
+            <td class="px-3 py-2 text-xs text-right space-x-2">
+              <a href="{% url 'production:plans_update' plan.pk %}"
+                 class="rounded-full border px-2 py-0.5 text-[11px] hover:bg-gray-50">
+                Editar
+              </a>
+
+              {% if plan.status == "ACTIVE" and plan.quantity_pending > 0 %}
+                <a href="{% url 'production:plans_create_order' plan.id %}"
+                   class="rounded-full bg-blue-600 px-2 py-0.5 text-[11px] font-medium text-white hover:bg-blue-700">
+                  Crear OP
+                </a>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <div class="rounded-2xl border border-dashed bg-white p-6 text-center text-sm text-gray-500">
+    No hay planes de producción registrados todavía.
+    <a href="{% url 'production:plans_create' %}"
+       class="ml-1 text-blue-600 hover:underline">
+      Crear el primer plan.
+    </a>
+  </div>
+{% endif %}
+{% endblock %}

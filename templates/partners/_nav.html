@@ -1,0 +1,18 @@
+{# templates/partners/_nav.html #}
+{% with url_name=request.resolver_match.url_name %}
+<nav class="mb-4 border-b border-gray-200">
+  <ul class="flex flex-wrap gap-4 text-sm">
+    <li>
+      <a href="{% url 'partners:index' %}"
+         class="pb-2 border-b-2 transition-colors
+         {% if url_name in 'index create update' %}
+            border-blue-600 text-blue-600
+         {% else %}
+            border-transparent text-gray-600 hover:text-blue-600
+         {% endif %}">
+        Socios (clientes / proveedores)
+      </a>
+    </li>
+  </ul>
+</nav>
+{% endwith %}

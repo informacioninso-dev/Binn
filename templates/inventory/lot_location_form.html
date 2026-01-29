@@ -1,0 +1,60 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}Mover lote{% endblock %}
+
+{% block app_header %}
+  <div class="flex flex-col gap-1">
+    <h1 class="text-2xl font-bold">Mover lote de bodega</h1>
+    <p class="text-sm text-gray-600">
+      Lote: {{ object.product.code }} - {{ object.product.name }} · {{ object.internal_lot }}
+    </p>
+  </div>
+{% endblock %}
+
+{% block app_content %}
+  <form method="post" class="space-y-6">
+    {% csrf_token %}
+
+    <div class="grid gap-4 md:grid-cols-2">
+      <div>
+        <label class="block text-sm font-medium mb-1">Bodega</label>
+        {{ form.warehouse }}
+        {% if form.warehouse.errors %}
+          <p class="mt-1 text-sm text-red-600">{{ form.warehouse.errors.0 }}</p>
+        {% endif %}
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Ubicación</label>
+        {{ form.location }}
+        {% if form.location.errors %}
+          <p class="mt-1 text-sm text-red-600">{{ form.location.errors.0 }}</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="flex gap-3">
+      <button type="submit"
+              class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+        Guardar
+      </button>
+      <a href="{% url 'inventory:index' %}"
+         class="rounded-lg border px-4 py-2 text-sm">
+        Cancelar
+      </a>
+    </div>
+  </form>
+
+  {# Opcional: recargar la página en GET con ?warehouse=ID para actualizar el combo de ubicaciones #}
+  <script>
+    (function () {
+      const warehouseSelect = document.getElementById("id_warehouse");
+      if (!warehouseSelect) return;
+
+      warehouseSelect.addEventListener("change", function () {
+        const url = new URL(window.location.href);
+        url.searchParams.set("warehouse", this.value || "");
+        window.location.href = url.toString();
+      });
+    })();
+  </script>
+{% endblock %}

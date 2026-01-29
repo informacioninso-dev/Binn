@@ -1,0 +1,20 @@
+{% extends 'layouts/app.html' %}
+
+{% block title %}Crear Ubicación · Panel{% endblock %}
+
+{% block app_header %}
+  <h1 class="text-2xl font-bold">Crear Ubicación</h1>
+{% endblock %}
+
+{% block app_content %}
+  <div class="bg-white p-6 rounded-lg shadow-md">
+    <form method="POST">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <div class="mt-4 flex justify-end gap-3">
+        <button type="submit" class="btn btn-primary">Guardar</button>
+        <a href="{% url 'core:location_list' %}" class="btn btn-secondary">Cancelar</a>
+      </div>
+    </form>
+  </div>
+{% endblock %}

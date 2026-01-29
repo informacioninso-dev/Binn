@@ -1,9 +1,28 @@
-from django.urls import path
-
-from core.views import dashboard
-
-# creo las rutas de la app homepage para poder llamarla en urls.py de config
-# aqui llamo a la vista homepage configurada en views.py de la app homepage
+from django.urls import path 
+from core.views import (
+    dashboard,
+  SettingsView , 
+  Warehouse, WarehouseListView,
+    LocationListView, 
+    TaxSchemeCreateView, 
+    TaxSchemeListView, 
+    UnitCreateView, 
+    UnitListView,
+    WarehouseCreateView,
+    LocationCreateView
+    )
+# Definición de las rutas de la aplicación core
+# Aquí se asocia la URL 'dashboard/' con la vista dashboard
+app_name = "core"
 urlpatterns = [
     path('dashboard/', dashboard),
+    path("settings/", SettingsView.as_view(), name="settings"),
+    path('taxscheme/create/', TaxSchemeCreateView.as_view(), name='taxscheme_create'),
+    path('taxscheme/list/', TaxSchemeListView.as_view(), name='taxscheme_list'),
+    path('unit/create/', UnitCreateView.as_view(), name='unit_create'),
+    path('unit/list/', UnitListView.as_view(), name='unit_list'),
+    path('warehouse/create/', WarehouseCreateView.as_view(), name='warehouse_create'),
+    path('warehouse/list/', WarehouseListView.as_view(), name='warehouse_list'),
+    path('location/create/', LocationCreateView.as_view(), name='location_create'),
+    path('location/list/', LocationListView.as_view(), name='location_list'),
 ]

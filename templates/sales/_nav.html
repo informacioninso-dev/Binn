@@ -1,0 +1,59 @@
+{% with url_name=request.resolver_match.url_name %}
+<nav class="mb-4 border-b border-gray-200">
+  <ul class="flex flex-wrap gap-4 text-sm">
+
+    {# Pedidos #}
+    <li>
+      <a href="{% url 'sales:order_list' %}"
+         class="pb-2 border-b-2 transition-colors
+         {% if url_name == 'order_list' %}  <!-- Verifica que la URL coincida con 'order_list' -->
+            border-blue-600 text-blue-600
+         {% else %}
+            border-transparent text-gray-600 hover:text-blue-600
+         {% endif %}">
+        Pedidos
+      </a>
+    </li>
+
+    {# Confirmación de Pedidos #}
+    <li>
+      <a href="{% url 'sales:order_list' %}"
+         class="pb-2 border-b-2 transition-colors
+         {% if url_name == 'confirm_order' %}  <!-- Cambia esto según el nombre correcto de la URL de confirmación -->
+            border-blue-600 text-blue-600
+         {% else %}
+            border-transparent text-gray-600 hover:text-blue-600
+         {% endif %}">
+        Confirmar Pedidos
+      </a>
+    </li>
+
+    {# Despachos #}
+    <li>
+      <a href="{% url 'sales:order_list' %}"
+         class="pb-2 border-b-2 transition-colors
+         {% if url_name == 'dispatch_list' %}  <!-- Cambia esto según la URL correcta para despachos -->
+            border-blue-600 text-blue-600
+         {% else %}
+            border-transparent text-gray-600 hover:text-blue-600
+         {% endif %}">
+        Despachos
+      </a>
+    </li>
+
+    {# Facturación #}
+    <li>
+      <a href="{% url 'sales:order_list' %}"
+         class="pb-2 border-b-2 transition-colors
+         {% if url_name == 'invoice_list' %}  <!-- Cambia esto según la URL de facturación -->
+            border-blue-600 text-blue-600
+         {% else %}
+            border-transparent text-gray-600 hover:text-blue-600
+         {% endif %}">
+        Facturación
+      </a>
+    </li>
+
+  </ul>
+</nav>
+{% endwith %}

@@ -1,0 +1,107 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}Nuevo Pedido · {{ block.super }}{% endblock %}
+
+{% block app_content %}
+{% include "sales/_nav.html" %}
+
+<div class="mb-6">
+  <h1 class="text-2xl font-semibold">Crear Nuevo Pedido</h1>
+
+  <form method="POST">
+    {% csrf_token %}
+    
+    <!-- CARD ENCABEZADO: Información del Cliente -->
+    <div class="rounded-xl bg-white p-4 mb-6">
+      <h2 class="text-lg font-semibold">Información del Cliente</h2>
+      <div class="mt-4 grid gap-4 md:grid-cols-2">
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Cliente</label>
+            {{ form.client }}
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Fecha de Entrega</label>
+            {{ form.delivery_date }}
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Método de Pago</label>
+            {{ form.payment_method }}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CARD DETALLE DE PRODUCTOS -->
+    <div class="rounded-xl bg-white p-4 mb-6">
+      <h2 class="text-lg font-semibold">Detalle de Productos</h2>
+      <div class="mt-4">
+        <div class="space-y-4">
+          <!-- Formset para las líneas de productos -->
+          {% for form in line_formset %}
+            <div class="flex justify-between items-center py-2">
+              <div class="flex items-center gap-2">
+                <label for="product_{{ form.prefix }}" class="text-sm">{{ form.product }}</label>
+                {{ form.product }}
+              </div>
+              <input type="number" name="quantity_{{ form.prefix }}" value="1" min="1" class="w-16 p-2 text-sm border rounded-md" />
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Botón para agregar más productos -->
+      <div class="mt-4">
+        <button type="button" id="add-product" class="rounded-xl border px-4 py-2 text-sm text-blue-600 hover:bg-blue-50">
+          + Añadir Producto
+        </button>
+      </div>
+    </div>
+
+    <!-- CARD TOTAL -->
+    <div class="rounded-xl bg-white p-4 mb-6">
+      <h2 class="text-lg font-semibold">Resumen de Pedido</h2>
+      <div class="mt-4">
+        <p><strong>Total:</strong> ${{ total_price|floatformat:2 }}</p>
+      </div>
+    </div>
+
+    <!-- BOTÓN -->
+    <div class="flex justify-end gap-3">
+      <a href="{% url 'sales:order_list' %}" class="rounded-xl border px-4 py-2 text-sm hover:bg-gray-50">
+        Cancelar
+      </a>
+      <button type="submit" class="rounded-xl bg-blue-600 px-6 py-2 text-sm font-medium text-white hover:bg-blue-700">
+        Crear Pedido
+      </button>
+    </div>
+  </form>
+</div>
+
+<!-- JS para agregar nuevas líneas dinámicamente -->
+<script>
+  document.getElementById('add-product').addEventListener('click', function() {
+    // Obtener el formulario vacío y el contenedor de productos
+    var formset = document.getElementById('product-list');
+    var totalForms = document.querySelector('[name="line_form-TOTAL_FORMS"]').value;
+    var newIndex = parseInt(totalForms);
+
+    // Clonar el formulario vacío
+    var newRow = formset.querySelector('.line-row').cloneNode(true);
+
+    // Modificar los nombres de los campos para que sean dinámicos
+    newRow.querySelectorAll('input').forEach(function(input) {
+      var name = input.name.replace('__prefix__', newIndex);
+      input.name = name;
+      input.id = name;
+    });
+
+    // Añadir la nueva fila al contenedor
+    formset.appendChild(newRow);
+
+    // Actualizar el total de formularios
+    document.querySelector('[name="line_form-TOTAL_FORMS"]').value = newIndex + 1;
+  });
+</script>
+
+{% endblock %}

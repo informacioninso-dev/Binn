@@ -1,0 +1,79 @@
+{% extends "layouts/app.html" %}
+{% load static %}
+
+{% block title %}Planos de fabricación · {{ block.super }}{% endblock %}
+
+{% block app_content %}
+{% include "production/_nav.html" %}
+<div class="mb-6 flex items-center justify-between">
+  <div>
+    <h1 class="text-2xl font-semibold">Planos de fabricación (BOM)</h1>
+    <p class="text-sm text-gray-500">
+      Configura la estructura de materiales para cada producto terminado.
+    </p>
+  </div>
+  <a href="{% url 'production:bom_create' %}"
+     class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+    + Nuevo BOM
+  </a>
+</div>
+
+<div class="rounded-2xl border bg-white">
+  <div class="border-b px-4 py-3">
+    <h2 class="font-semibold text-sm">Listado de BOM</h2>
+  </div>
+
+  <div class="overflow-x-auto">
+    <table class="min-w-full text-sm">
+      <thead>
+        <tr class="border-b text-left text-gray-600">
+          <th class="px-3 py-2">Código producto</th>
+          <th class="px-3 py-2">Producto terminado</th>
+          <th class="px-3 py-2">Revisión</th>
+          <th class="px-3 py-2">Descripción</th>
+          <th class="px-3 py-2">Estado</th>
+          <th class="px-3 py-2">N° componentes</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for bom in page %}
+          <tr class="border-t">
+            <td class="px-3 py-2 font-mono text-xs">
+              {{ bom.product_finished.code }}
+            </td>
+            <td class="px-3 py-2">
+              {{ bom.product_finished.name }}
+            </td>
+            <td class="px-3 py-2">
+              {{ bom.revision }}
+            </td>
+            <td class="px-3 py-2 text-gray-700">
+              {{ bom.description|default:"—" }}
+            </td>
+            <td class="px-3 py-2">
+              {% if bom.is_active %}
+                <span class="inline-flex rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
+                  Activo
+                </span>
+              {% else %}
+                <span class="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+                  Inactivo
+                </span>
+              {% endif %}
+            </td>
+            <td class="px-3 py-2 text-center">
+              {{ bom.lines.count }}
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="6" class="px-3 py-6 text-center text-gray-500">
+              No hay BOM configurados todavía.
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

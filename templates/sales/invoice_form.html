@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+
+{% block content %}
+  <h1 class="text-xl font-bold mb-4">Crear Factura para el Pedido: {{ order.code }}</h1>
+
+  <form method="post" class="bg-white p-6 rounded-lg shadow-md">
+    {% csrf_token %}
+    <div class="mb-4">
+      <label for="id_invoice_code" class="block text-sm font-medium text-gray-700">Código de Factura</label>
+      {{ form.invoice_code }}
+    </div>
+
+    <div class="mb-4">
+      <label for="id_total_amount" class="block text-sm font-medium text-gray-700">Monto Total</label>
+      {{ form.total_amount }}
+    </div>
+
+    <div class="mb-4">
+      <label for="id_sri_status" class="block text-sm font-medium text-gray-700">Estado SRI</label>
+      {{ form.sri_status }}
+    </div>
+
+    <div class="mb-4">
+      <label for="id_xml_data" class="block text-sm font-medium text-gray-700">Datos XML</label>
+      {{ form.xml_data }}
+    </div>
+
+    <div>
+      <button type="submit" class="text-white bg-blue-500 hover:bg-blue-700 px-4 py-2 rounded-md">Crear Factura</button>
+    </div>
+  </form>
+{% endblock %}

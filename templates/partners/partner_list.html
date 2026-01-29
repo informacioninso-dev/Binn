@@ -1,0 +1,137 @@
+{# templates/partners/partner_list.html #}
+{% extends "layouts/app.html" %}
+{% load static %}
+
+{% block title %}Socios · {{ block.super }}{% endblock %}
+
+{% block app_content %}
+  {% include "partners/_nav.html" %}
+
+  <div class="mb-6 flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold">Socios (clientes y proveedores)</h1>
+      <p class="text-sm text-gray-500">
+        Maestro de socios para compras, ventas y gestión de proveedores calificados.
+      </p>
+    </div>
+
+    <a href="{% url 'partners:create' %}"
+       class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+      + Nuevo socio
+    </a>
+  </div>
+
+  <form method="get" class="mb-4 flex flex-wrap items-center gap-2 text-sm">
+    <input type="text"
+           name="q"
+           value="{{ request.GET.q }}"
+           placeholder="Buscar por nombre, código o identificación…"
+           class="w-full max-w-xs rounded-lg border px-3 py-2">
+    <button type="submit"
+            class="rounded-lg border px-3 py-2 text-sm hover:bg-gray-50">
+      Buscar
+    </button>
+  </form>
+
+  {% if partners %}
+    <div class="overflow-x-auto rounded-2xl border bg-white">
+      <table class="min-w-full text-sm">
+        <thead>
+          <tr class="border-b bg-gray-50 text-xs font-semibold text-gray-600">
+            <th class="px-3 py-2 text-left">Código</th>
+            <th class="px-3 py-2 text-left">Nombre</th>
+            <th class="px-3 py-2 text-left">Identificación</th>
+            <th class="px-3 py-2 text-left">Rol</th>
+            <th class="px-3 py-2 text-left">Crédito</th>
+            <th class="px-3 py-2 text-left">Proveedor ISO 13485</th>
+            <th class="px-3 py-2 text-right">Acciones</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          {% for p in partners %}
+            <tr class="hover:bg-gray-50">
+              <td class="px-3 py-2 align-top text-xs font-medium text-gray-900">
+                {{ p.code }}
+              </td>
+              <td class="px-3 py-2 align-top text-xs">
+                <div class="font-medium text-gray-900">
+                  {{ p.trade_name|default:p.legal_name }}
+                </div>
+                <div class="text-[11px] text-gray-500">
+                  {{ p.legal_name }}
+                </div>
+              </td>
+              <td class="px-3 py-2 align-top text-xs text-gray-700">
+                {{ p.get_identification_type_display }}:
+                <span class="font-medium">{{ p.identification }}</span>
+              </td>
+              <td class="px-3 py-2 align-top text-[11px] text-gray-700">
+                {% if p.is_customer %}<span class="inline-block rounded-full bg-blue-50 px-2 py-0.5 mr-1">Cliente</span>{% endif %}
+                {% if p.is_supplier %}<span class="inline-block rounded-full bg-emerald-50 px-2 py-0.5 mr-1">Proveedor</span>{% endif %}
+                {% if p.is_public_entity %}<span class="inline-block rounded-full bg-amber-50 px-2 py-0.5">Entidad pública</span>{% endif %}
+                {% if not p.is_customer and not p.is_supplier and not p.is_public_entity %}
+                  <span class="text-gray-400">Sin rol definido</span>
+                {% endif %}
+              </td>
+              <td class="px-3 py-2 align-top text-[11px] text-gray-700">
+                Máx: {{ p.credit_limit|default:"0" }}<br>
+                Disp.: {{ p.credit_available|default:"0" }}
+              </td>
+              <td class="px-3 py-2 align-top text-center text-[11px]">
+                {% if p.is_qualified_supplier %}
+                  <span class="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-700">
+                    Calificado
+                  </span>
+                  {% if p.qualification_level %}
+                    <div class="mt-0.5 text-gray-600">
+                      Nivel: {{ p.qualification_level }}
+                    </div>
+                  {% endif %}
+                {% else %}
+                  <span class="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-gray-600">
+                    No calificado
+                  </span>
+                {% endif %}
+              </td>
+              <td class="px-3 py-2 align-top text-right text-xs">
+                <a href="{% url 'partners:update' p.pk %}"
+                   class="rounded-lg border px-2 py-1 hover:bg-gray-50">
+                  Editar
+                </a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if is_paginated %}
+      <div class="mt-4 flex items-center justify-between text-xs text-gray-600">
+        <div>
+          Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+        </div>
+        <div class="space-x-1">
+          {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}"
+               class="rounded-lg border px-2 py-1 hover:bg-gray-50">
+              Anterior
+            </a>
+          {% endif %}
+          {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}"
+               class="rounded-lg border px-2 py-1 hover:bg-gray-50">
+              Siguiente
+            </a>
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
+  {% else %}
+    <div class="rounded-2xl border border-dashed bg-white p-6 text-center text-sm text-gray-500">
+      Aún no has registrado socios.
+      <a href="{% url 'partners:create' %}" class="ml-1 text-blue-600 hover:underline">
+        Crear el primer socio.
+      </a>
+    </div>
+  {% endif %}
+{% endblock %}

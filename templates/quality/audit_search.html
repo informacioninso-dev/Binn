@@ -1,0 +1,51 @@
+{% extends "layouts/app.html" %}
+{% load static %}
+
+{% block title %}Panel de auditoría · {{ block.super }}{% endblock %}
+
+{% block app_content %}
+  <div class="mb-6">
+    <h1 class="text-2xl font-semibold">Panel de auditoría de lote</h1>
+    <p class="text-sm text-gray-500">
+      Ingresa el código de lote de producto terminado para revisar su trazabilidad completa.
+    </p>
+  </div>
+
+  {% if messages %}
+    <div class="mb-4 space-y-2">
+      {% for message in messages %}
+        <div class="rounded-xl border px-4 py-3 text-sm
+                    {% if message.tags == 'error' %}
+                      border-red-200 bg-red-50 text-red-700
+                    {% elif message.tags == 'success' %}
+                      border-emerald-200 bg-emerald-50 text-emerald-700
+                    {% else %}
+                      border-gray-200 bg-gray-50 text-gray-700
+                    {% endif %}">
+          {{ message }}
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <form method="post" class="max-w-md space-y-4">
+    {% csrf_token %}
+    <div>
+      <label class="mb-1 block text-sm font-medium">
+        Código interno de lote
+      </label>
+      <input type="text"
+             name="internal_lot"
+             class="w-full rounded-lg border px-3 py-2 text-sm"
+             placeholder="Ej: BINNSO-0001-0126">
+      <p class="mt-1 text-xs text-gray-500">
+        Usa el código interno que generas al cerrar la orden de producción.
+      </p>
+    </div>
+
+    <button type="submit"
+            class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+      Buscar lote
+    </button>
+  </form>
+{% endblock %}

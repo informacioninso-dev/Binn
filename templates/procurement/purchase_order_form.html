@@ -1,0 +1,429 @@
+{% extends "layouts/app.html" %}
+{% load static %}
+
+{% block title %}
+  {% if object %}
+    Editar orden de compra · {{ block.super }}
+  {% else %}
+    Nueva orden de compra · {{ block.super }}
+  {% endif %}
+{% endblock %}
+
+{% block app_content %}
+  {% include "procurement/_nav.html" %}
+
+  <div class="mb-6 flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold">
+        {% if object %}Editar orden de compra{% else %}Nueva orden de compra{% endif %}
+      </h1>
+      <p class="text-sm text-gray-500">
+        Registra órdenes de compra a proveedores para materias primas y suministros.
+      </p>
+    </div>
+    <a href="{% url 'procurement:order_list' %}"
+       class="rounded-xl border px-4 py-2 text-sm hover:bg-gray-50">
+      Volver a órdenes
+    </a>
+  </div>
+
+  {# Errores generales del formulario principal #}
+  {% if form.non_field_errors %}
+    <div class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+      {% for error in form.non_field_errors %}
+        <p>{{ error }}</p>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <form method="post" class="space-y-6">
+    {% csrf_token %}
+
+    {# CARD 1: Datos generales de la orden #}
+    <div class="rounded-2xl border bg-white p-4 md:p-6">
+      <h2 class="mb-4 text-lg font-semibold text-gray-900">
+        Datos generales de la orden
+      </h2>
+
+      <div class="grid gap-4 md:grid-cols-3">
+        <div class="space-y-4 md:col-span-2">
+          <div class="grid gap-4 md:grid-cols-2">
+            <div>
+              <label class="mb-1 block text-sm font-medium">
+                {{ form.supplier.label }}
+              </label>
+              {{ form.supplier }}
+              {% for error in form.supplier.errors %}
+                <p class="text-xs text-red-600">{{ error }}</p>
+              {% endfor %}
+              <p class="mt-1 text-[11px] text-gray-500">
+                Solo se muestran socios marcados como <strong>proveedores</strong>.
+              </p>
+            </div>
+
+            <div>
+              <label class="mb-1 block text-sm font-medium">
+                Número de orden
+              </label>
+              {% if object %}
+                <div class="rounded-lg border bg-gray-50 px-3 py-2 text-sm text-gray-800">
+                  {{ object.number }}
+                </div>
+              {% else %}
+                <div class="rounded-lg border bg-gray-50 px-3 py-2 text-sm text-gray-500">
+                  Se generará automáticamente al guardar.
+                </div>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="grid gap-4 md:grid-cols-3">
+            <div>
+              <label class="mb-1 block text-sm font-medium">
+                Fecha de emisión
+              </label>
+              {% if object %}
+                <div class="rounded-lg border bg-gray-50 px-3 py-2 text-sm text-gray-800">
+                  {{ object.order_date|date:"d/m/Y" }}
+                </div>
+              {% else %}
+                <div class="rounded-lg border bg-gray-50 px-3 py-2 text-sm text-gray-500">
+                  Se asignará la fecha actual al guardar.
+                </div>
+              {% endif %}
+            </div>
+
+            <div>
+              <label class="mb-1 block text-sm font-medium">
+                {{ form.status.label }}
+              </label>
+              {{ form.status }}
+              {% for error in form.status.errors %}
+                <p class="text-xs text-red-600">{{ error }}</p>
+              {% endfor %}
+            </div>
+
+            <div>
+              <label class="mb-1 block text-sm font-medium">
+                {{ form.currency.label }}
+              </label>
+              {{ form.currency }}
+              {% for error in form.currency.errors %}
+                <p class="text-xs text-red-600">{{ error }}</p>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+
+        <div class="space-y-4">
+          <div>
+            <label class="mb-1 block text-sm font-medium">
+              Total aproximado
+            </label>
+            <div class="rounded-lg border bg-gray-50 px-3 py-2 text-sm text-gray-800">
+              {% if object %}
+                {{ object.total_amount }} {{ object.currency }}
+              {% else %}
+                0.00 {{ form.initial.currency|default:"USD" }}
+              {% endif %}
+            </div>
+            <p class="mt-1 text-[11px] text-gray-500">
+              El total se recalcula al guardar, en base a las líneas de la orden.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {# CARD 2: Líneas de la orden #}
+    <div class="rounded-2xl border bg-white p-4 md:p-6">
+      <div class="mb-4 flex items-center justify-between">
+        <h2 class="text-lg font-semibold text-gray-900">
+          Líneas de la orden
+        </h2>
+        <button type="button"
+                id="add-line"
+                class="rounded-xl border px-3 py-1.5 text-xs font-medium hover:bg-gray-50">
+          + Agregar línea
+        </button>
+      </div>
+
+      {{ line_formset.management_form }}
+
+      {# Mostrar errores generales del formset #}
+      {% if line_formset.non_form_errors %}
+        <div class="mb-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+          {% for error in line_formset.non_form_errors %}
+            <p>{{ error }}</p>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-xs md:text-sm">
+          <thead>
+            <tr class="border-b bg-gray-50 text-[11px] font-semibold text-gray-600">
+              <th class="px-2 py-1">Producto</th>
+              <th class="px-2 py-1">Descripción</th>
+              <th class="px-2 py-1 text-right">Cantidad</th>
+              <th class="px-2 py-1 text-center">Unidad</th>
+              <th class="px-2 py-1 text-right">Precio unitario</th>
+              <th class="px-2 py-1 text-right">Subtotal</th>
+              <th class="px-2 py-1 text-center">Eliminar</th>
+            </tr>
+          </thead>
+          <tbody id="lines-body">
+            {% for line_form in line_formset %}
+              <tr class="border-b last:border-0 line-row">
+                {# Producto #}
+                <td class="px-2 py-1 align-top">
+                  {{ line_form.product }}
+                  {% for error in line_form.product.errors %}
+                    <p class="mt-0.5 text-[10px] text-red-600">{{ error }}</p>
+                  {% endfor %}
+                </td>
+
+                {# Descripción #}
+                <td class="px-2 py-1 align-top">
+                  {{ line_form.description }}
+                  {% for error in line_form.description.errors %}
+                    <p class="mt-0.5 text-[10px] text-red-600">{{ error }}</p>
+                  {% endfor %}
+                </td>
+
+                {# Cantidad #}
+                <td class="px-2 py-1 align-top text-right">
+                  {{ line_form.quantity }}
+                  {% for error in line_form.quantity.errors %}
+                    <p class="mt-0.5 text-[10px] text-red-600">{{ error }}</p>
+                  {% endfor %}
+                </td>
+                               {# Unidad #}
+                <td class="px-2 py-1 align-top text-center">
+                  {{ line_form.unit }}  <!-- Asegúrate de que este campo esté aquí -->
+                  {% for error in line_form.unit.errors %}
+                    <p class="mt-0.5 text-[10px] text-red-600">{{ error }}</p>
+                  {% endfor %}
+                </td>
+                
+                {# Precio unitario #}
+                <td class="px-2 py-1 align-top text-right">
+                  {{ line_form.unit_price }}
+                  {% for error in line_form.unit_price.errors %}
+                    <p class="mt-0.5 text-[10px] text-red-600">{{ error }}</p>
+                  {% endfor %}
+                </td>
+
+
+                {# Subtotal (solo visual, se recalcula en JS) #}
+                <td class="px-2 py-1 align-top text-right">
+                  <span class="line-subtotal text-xs md:text-sm text-gray-900">
+                    0.00
+                  </span>
+                </td>
+
+                {# Checkbox de eliminar (si existe) #}
+                <td class="px-2 py-1 align-top text-center">
+                  {% if line_form.DELETE %}
+                    {{ line_form.DELETE }}
+                    <span class="ml-1 text-[10px] text-gray-500">Borrar</span>
+                  {% endif %}
+                </td>
+
+                {# Hidden fields (id, etc.) #}
+                {% for hidden in line_form.hidden_fields %}
+                  {{ hidden }}
+                {% endfor %}
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="mt-4 flex justify-end text-sm">
+        <div class="rounded-xl bg-gray-50 px-4 py-2">
+          <span class="text-gray-600">Total de la orden:</span>
+          <span id="order-total" class="ml-2 font-semibold text-gray-900">0.00</span>
+        </div>
+      </div>
+
+      <p class="mt-3 text-[11px] text-gray-500">
+        El total se calcula como la suma de (cantidad × precio unitario) por cada línea.
+      </p>
+    </div>
+
+    <div class="flex justify-end gap-3">
+      <a href="{% url 'procurement:order_list' %}"
+         class="rounded-xl border px-4 py-2 text-sm hover:bg-gray-50">
+        Cancelar
+      </a>
+      <button type="submit"
+              class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+        {% if object %}Guardar cambios{% else %}Crear orden{% endif %}
+      </button>
+    </div>
+  </form>
+
+  {# Fila plantilla oculta para nuevas líneas (usa empty_form del formset) #}
+  <table class="hidden">
+    <tbody>
+      <tr id="empty-line-row" class="line-row">
+        <td class="px-2 py-1 align-top">
+          {{ line_formset.empty_form.product }}
+        </td>
+        <td class="px-2 py-1 align-top">
+          {{ line_formset.empty_form.description }}
+        </td>
+        <td class="px-2 py-1 align-top text-right">
+          {{ line_formset.empty_form.quantity }}
+        </td>
+        <td class="px-2 py-1 align-top text-center">
+          {{ line_formset.empty_form.unit }}
+        </td>
+        <td class="px-2 py-1 align-top text-right">
+          {{ line_formset.empty_form.unit_price }}
+        </td>
+        <td class="px-2 py-1 align-top text-right">
+          <span class="line-subtotal text-xs md:text-sm text-gray-900">
+            0.00
+          </span>
+        </td>
+        <td class="px-2 py-1 align-top text-center">
+          {% if line_formset.empty_form.DELETE %}
+            {{ line_formset.empty_form.DELETE }}
+            <span class="ml-1 text-[10px] text-gray-500">Borrar</span>
+          {% endif %}
+        </td>
+        {% for hidden in line_formset.empty_form.hidden_fields %}
+          {{ hidden }}
+        {% endfor %}
+      </tr>
+    </tbody>
+  </table>
+  <script>
+  document.addEventListener("DOMContentLoaded", function () {
+      const addBtn = document.getElementById("add-line");
+      const body = document.getElementById("lines-body");
+      const emptyRow = document.getElementById("empty-line-row");
+      const prefix = "{{ line_formset.prefix }}";
+      const totalFormsInput = document.getElementById(`id_${prefix}-TOTAL_FORMS`);
+      const orderTotalEl = document.getElementById("order-total");
+
+      // Mapa producto → info
+      let productsMap = {};
+      try {
+        productsMap = JSON.parse("{{ products_json|escapejs }}") || {};
+      } catch (e) {
+        console.warn("Error parseando products_json:", e);
+        productsMap = {};
+      }
+
+      if (!addBtn || !body || !emptyRow || !totalFormsInput) {
+        return;
+      }
+
+      function recalcLine(row) {
+        const qtyInput = row.querySelector('input[name$="-quantity"]');
+        const priceInput = row.querySelector('input[name$="-unit_price"]');
+        const subtotalEl = row.querySelector(".line-subtotal");
+
+        const qty = parseFloat(qtyInput && qtyInput.value.replace(",", ".")) || 0;
+        const price = parseFloat(priceInput && priceInput.value.replace(",", ".")) || 0;
+        const subtotal = qty * price;
+
+        if (subtotalEl) {
+          subtotalEl.textContent = subtotal.toFixed(4);
+        }
+      }
+
+      function recalcOrderTotal() {
+        let total = 0;
+        document.querySelectorAll(".line-subtotal").forEach(function (el) {
+          const value = parseFloat(el.textContent.replace(",", ".")) || 0;
+          total += value;
+        });
+        if (orderTotalEl) {
+          orderTotalEl.textContent = total.toFixed(4);
+        }
+      }
+
+      function hookRowEvents(row) {
+        // Cantidad / precio → subtotal
+        const inputs = row.querySelectorAll(
+          'input[name$="-quantity"], input[name$="-unit_price"]'
+        );
+        inputs.forEach(function (input) {
+          input.addEventListener("input", function () {
+            recalcLine(row);
+            recalcOrderTotal();
+          });
+        });
+
+        // ⭐ AUTOSELECCIONAR UNIDAD BASE AL ELEGIR PRODUCTO
+        const productSelect = row.querySelector('select[name$="-product"]');
+        const unitSelect = row.querySelector('select[name$="-unit"]');
+
+        if (productSelect && unitSelect) {
+          function updateUnit() {
+            const prodId = productSelect.value;
+            const data = productsMap[prodId] || null;
+
+            if (data && data.base_unit_id) {
+              // ⭐ AUTOSELECCIONAR UNIDAD BASE
+              unitSelect.value = data.base_unit_id;
+              console.log(`Producto ${prodId}: Unidad base ${data.base_unit_id} seleccionada automáticamente`);
+            } else {
+              unitSelect.selectedIndex = 0; // Primera opción (vacía)
+            }
+          }
+
+          productSelect.addEventListener("change", updateUnit);
+
+          // Inicial si ya viene producto seleccionado
+          if (productSelect.value) {
+            updateUnit();
+          }
+        }
+      }
+
+      // Hook de filas iniciales
+      document.querySelectorAll("#lines-body .line-row").forEach(function (row) {
+        hookRowEvents(row);
+        recalcLine(row);
+      });
+      recalcOrderTotal();
+
+      // Botón "Agregar línea"
+      addBtn.addEventListener("click", function () {
+        const currentCount = parseInt(totalFormsInput.value, 10) || 0;
+        const newIndex = currentCount;
+
+        const newRow = emptyRow.cloneNode(true);
+        newRow.id = "";
+        newRow.classList.add("line-row");
+
+        newRow.querySelectorAll("input, select, textarea").forEach(function (el) {
+          if (el.name) {
+            el.name = el.name.replace("__prefix__", newIndex);
+          }
+          if (el.id) {
+            el.id = el.id.replace("__prefix__", newIndex);
+          }
+
+          if (el.type === "checkbox" || el.type === "radio") {
+            el.checked = false;
+          } else {
+            el.value = "";
+          }
+        });
+
+        body.appendChild(newRow);
+        totalFormsInput.value = newIndex + 1;
+
+        hookRowEvents(newRow);
+        recalcLine(newRow);
+        recalcOrderTotal();
+      });
+  });
+  </script>
+{% endblock %}

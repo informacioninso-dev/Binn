@@ -1,0 +1,459 @@
+{% extends "layouts/app.html" %}
+{% load static %}
+
+{% block title %}Recepción de materia prima · {{ block.super }}{% endblock %}
+
+{% block app_content %}
+{% include "procurement/_nav.html" %}
+<div class="mb-6 flex items-center justify-between">
+  <div>
+    <h1 class="text-2xl font-semibold">Recepción de materia prima</h1>
+    <p class="text-sm text-gray-500">
+      Registra el ingreso de materias primas a bodega de cuarentena conforme ISO&nbsp;13485.
+    </p>
+  </div>
+  <a href="{% url 'procurement:receptions_list' %}"
+     class="rounded-xl border px-4 py-2 text-sm hover:bg-gray-50">
+    Ver recepciones
+  </a>
+</div>
+
+<form method="post" class="space-y-6">
+  {% csrf_token %}
+  
+  {% if purchase_order %}
+    <input type="hidden" name="purchase_order_id" value="{{ purchase_order.id }}">
+
+    <div class="mb-4 rounded-xl bg-blue-50 px-4 py-3 text-xs text-blue-900">
+      <p class="font-semibold">
+        Orden de compra relacionada: {{ purchase_order.number }}
+      </p>
+      <p class="mt-1">
+        Proveedor:
+        {{ purchase_order.supplier.trade_name|default:purchase_order.supplier.legal_name }}
+        · Fecha OC:
+        {{ purchase_order.order_date|date:"d/m/Y" }}
+        {% if purchase_order.status %}
+          · Estado: {{ purchase_order.get_status_display }}
+        {% endif %}
+      </p>
+    </div>
+  {% endif %}
+
+  <!-- CARD ENCABEZADO -->
+  <div class="rounded-2xl border bg-white p-4 md:p-6">
+    <h2 class="mb-4 text-lg font-semibold">Datos generales de la recepción</h2>
+
+    <div class="grid gap-4 md:grid-cols-2">
+      <!-- Columna 1 -->
+      <div class="space-y-4">
+        <div>
+          <label class="mb-1 block text-sm font-medium">
+            {{ header_form.supplier_name.label }}
+          </label>
+          {{ header_form.supplier_name }}
+          {% for error in header_form.supplier_name.errors %}
+            <p class="text-xs text-red-600">{{ error }}</p>
+          {% endfor %}
+        </div>
+
+        <div>
+          <label class="mb-1 block text-sm font-medium">
+            {{ header_form.supplier_ruc.label }}
+          </label>
+          {{ header_form.supplier_ruc }}
+          {% for error in header_form.supplier_ruc.errors %}
+            <p class="text-xs text-red-600">{{ error }}</p>
+          {% endfor %}
+        </div>
+
+        <div>
+          <label class="mb-1 block text-sm font-medium">
+            {{ header_form.document_type.label }}
+          </label>
+          {{ header_form.document_type }}
+          {% for error in header_form.document_type.errors %}
+            <p class="text-xs text-red-600">{{ error }}</p>
+          {% endfor %}
+        </div>
+
+        <div>
+          <label class="mb-1 block text-sm font-medium">
+            {{ header_form.document_number.label }}
+          </label>
+          {{ header_form.document_number }}
+          {% for error in header_form.document_number.errors %}
+            <p class="text-xs text-red-600">{{ error }}</p>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Columna 2 -->
+      <div class="space-y-4">
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="mb-1 block text-sm font-medium">
+              {{ header_form.reception_date.label }}
+            </label>
+            {{ header_form.reception_date }}
+            {% for error in header_form.reception_date.errors %}
+              <p class="text-xs text-red-600">{{ error }}</p>
+            {% endfor %}
+          </div>
+          <div>
+            <label class="mb-1 block text-sm font-medium">
+              {{ header_form.arrival_time.label }}
+            </label>
+            {{ header_form.arrival_time }}
+            {% for error in header_form.arrival_time.errors %}
+              <p class="text-xs text-red-600">{{ error }}</p>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div>
+          <label class="mb-1 block text-sm font-medium">
+            {{ header_form.transport_company.label }}
+          </label>
+          {{ header_form.transport_company }}
+          {% for error in header_form.transport_company.errors %}
+            <p class="text-xs text-red-600">{{ error }}</p>
+          {% endfor %}
+        </div>
+
+        <div>
+          <label class="mb-1 block text-sm font-medium">
+            {{ header_form.transport_plate.label }}
+          </label>
+          {{ header_form.transport_plate }}
+          {% for error in header_form.transport_plate.errors %}
+            <p class="text-xs text-red-600">{{ error }}</p>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-4 grid gap-4 md:grid-cols-4">
+      <div>
+        <label class="mb-1 block text-sm font-medium">
+          {{ header_form.temperature_recorded.label }}
+        </label>
+        {{ header_form.temperature_recorded }}
+        {% for error in header_form.temperature_recorded.errors %}
+          <p class="text-xs text-red-600">{{ error }}</p>
+        {% endfor %}
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium">
+          {{ header_form.num_boxes.label }}
+        </label>
+        {{ header_form.num_boxes }}
+        {% for error in header_form.num_boxes.errors %}
+          <p class="text-xs text-red-600">{{ error }}</p>
+        {% endfor %}
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium">
+          {{ header_form.gross_weight.label }}
+        </label>
+        {{ header_form.gross_weight }}
+        {% for error in header_form.gross_weight.errors %}
+          <p class="text-xs text-red-600">{{ error }}</p>
+        {% endfor %}
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium">
+          {{ header_form.net_weight.label }}
+        </label>
+        {{ header_form.net_weight }}
+        {% for error in header_form.net_weight.errors %}
+          <p class="text-xs text-red-600">{{ error }}</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="mt-4">
+      <label class="mb-1 block text-sm font-medium">
+        {{ header_form.observations.label }}
+      </label>
+      {{ header_form.observations }}
+      {% for error in header_form.observations.errors %}
+        <p class="text-xs text-red-600">{{ error }}</p>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- CARD DETALLE DE PRODUCTOS -->
+  <div class="rounded-2xl border bg-white p-4 md:p-6">
+    <div class="mb-4 flex items-center justify-between">
+      <h2 class="text-lg font-semibold">Detalle de materias primas</h2>
+      <button type="button"
+              id="add-line"
+              class="rounded-xl border px-3 py-1.5 text-sm hover:bg-gray-50">
+        + Agregar línea
+      </button>
+    </div>
+
+    <!-- management_form del formset -->
+    {{ line_formset.management_form }}
+
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead>
+          <tr class="border-b text-left text-gray-600">
+            <th class="px-2 py-1">Código</th>
+            <th class="px-2 py-1">Producto</th>
+            <th class="px-2 py-1">Cant. recibida</th>
+            <th class="px-2 py-1">Unidad</th>
+            <th class="px-2 py-1">Costo unit.</th>
+            <th class="px-2 py-1">Lote prov.</th>
+            <th class="px-2 py-1">F. caducidad</th>
+            <th class="px-2 py-1">Zona</th>
+            <th class="px-2 py-1">Notas</th>
+          </tr>
+        </thead>
+        <tbody id="lines-body">
+          {% for form in line_formset %}
+            <tr class="border-t line-row">
+              <td class="px-2 py-1">
+                {{ form.product_code }}
+                {% for error in form.product_code.errors %}
+                  <p class="text-xs text-red-600">{{ error }}</p>
+                {% endfor %}
+              </td>
+              <td class="px-2 py-1">
+                {{ form.product }}
+                {% for error in form.product.errors %}
+                  <p class="text-xs text-red-600">{{ error }}</p>
+                {% endfor %}
+              </td>
+              <td class="px-2 py-1">
+                {{ form.received_quantity }}
+                {% for error in form.received_quantity.errors %}
+                  <p class="text-xs text-red-600">{{ error }}</p>
+                {% endfor %}
+              </td>
+              <!-- ⭐ CAMPO UNIDAD -->
+              <td class="px-2 py-1">
+                {{ form.unit }}
+                {% for error in form.unit.errors %}
+                  <p class="text-xs text-red-600">{{ error }}</p>
+                {% endfor %}
+              </td>
+              <td class="px-2 py-1">
+                {{ form.unit_cost }}
+                {% for error in form.unit_cost.errors %}
+                  <p class="text-xs text-red-600">{{ error }}</p>
+                {% endfor %}
+              </td>
+              <td class="px-2 py-1">
+                {{ form.supplier_lot }}
+                {% for error in form.supplier_lot.errors %}
+                  <p class="text-xs text-red-600">{{ error }}</p>
+                {% endfor %}
+              </td>
+              <td class="px-2 py-1">
+                {{ form.expiry_date  }}
+                {% for error in form.expiry_date.errors %}
+                  <p class="text-sm text-red-600">{{ error }}</p>
+                {% endfor %}
+              </td>
+              <td class="px-2 py-1">
+                {{ form.storage_area }}
+                {% for error in form.storage_area.errors %}
+                  <p class="text-xs text-red-600">{{ error }}</p>
+                {% endfor %}
+              </td>
+              <td class="px-2 py-1">
+                {{ form.line_notes }}
+                {% for error in form.line_notes.errors %}
+                  <p class="text-xs text-red-600">{{ error }}</p>
+                {% endfor %}
+              </td>
+            </tr>
+          {% empty %}
+            <!-- Si no hay forms, JS puede agregar la primera fila -->
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- fila oculta base para JS (usa empty_form del formset) -->
+    <table class="hidden">
+      <tbody>
+        <tr id="empty-form-row" class="line-row hidden">
+          <td class="px-2 py-1">
+            {{ line_formset.empty_form.product_code }}
+          </td>
+          <td class="px-2 py-1">
+            {{ line_formset.empty_form.product }}
+          </td>
+          <td class="px-2 py-1">
+            {{ line_formset.empty_form.received_quantity }}
+          </td>
+          <!-- ⭐ CAMPO UNIDAD EN EMPTY FORM -->
+          <td class="px-2 py-1">
+            {{ line_formset.empty_form.unit }}
+          </td>
+          <td class="px-2 py-1">
+            {{ line_formset.empty_form.unit_cost }}
+          </td>
+          <td class="px-2 py-1">
+            {{ line_formset.empty_form.supplier_lot }}
+          </td>
+          <td class="px-2 py-1">
+            {{ line_formset.empty_form.expiry_date  }}
+          </td>
+          <td class="px-2 py-1">
+            {{ line_formset.empty_form.storage_area }}
+          </td>
+          <td class="px-2 py-1">
+            {{ line_formset.empty_form.line_notes }}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="flex justify-end gap-3">
+    <a href="{% url 'procurement:receptions_list' %}"
+       class="rounded-xl border px-4 py-2 text-sm hover:bg-gray-50">
+      Cancelar
+    </a>
+    <button type="submit"
+            class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+      Guardar recepción
+    </button>
+  </div>
+</form>
+
+<!-- Catálogo de productos RAW activos -->
+<script>
+  const RAW_PRODUCTS = {{ products_json|safe }};
+</script>
+
+<!-- ⭐ JS MEJORADO: Autoseleccionar unidad base del producto -->
+<script>
+  (function() {
+    const addBtn = document.getElementById("add-line");
+    const body = document.getElementById("lines-body");
+    const totalFormsInput = document.querySelector('[name="{{ line_formset.prefix }}-TOTAL_FORMS"]');
+    const emptyRow = document.getElementById("empty-form-row");
+
+    if (!body || !totalFormsInput || !emptyRow) return;
+
+    function attachSyncHandlers(row, isNewRow) {
+      const codeInput = row.querySelector('[data-role="product-code"]');
+      const productSelect = row.querySelector('[data-role="product-select"]');
+      const unitSelect = row.querySelector('select[name*="-unit"]');
+
+      if (!productSelect) return;
+
+      function setFromProductId(productId, forceUnit) {
+        const id = parseInt(productId);
+        if (!id) {
+          if (unitSelect) unitSelect.value = "";
+          if (codeInput) codeInput.value = "";
+          return;
+        }
+
+        const p = RAW_PRODUCTS.find(p => p.id === id);
+        if (p) {
+          if (codeInput) codeInput.value = p.code;
+
+          // Solo cambiar unidad si es una acción del usuario (forceUnit=true)
+          // NO sobreescribir si ya viene pre-seleccionada del servidor
+          if (forceUnit && unitSelect && p.base_unit_id) {
+            unitSelect.value = p.base_unit_id;
+          }
+        }
+      }
+
+      function setFromCode(code) {
+        if (!code) {
+          productSelect.value = "";
+          if (unitSelect) unitSelect.value = "";
+          return;
+        }
+
+        const p = RAW_PRODUCTS.find(p => p.code === code);
+        if (p) {
+          productSelect.value = String(p.id);
+
+          // Acción del usuario → sí cambiar unidad
+          if (unitSelect && p.base_unit_id) {
+            unitSelect.value = p.base_unit_id;
+          }
+        } else {
+          productSelect.value = "";
+          if (unitSelect) unitSelect.value = "";
+        }
+      }
+
+      // Evento: escribir código y salir del campo
+      if (codeInput) {
+        codeInput.addEventListener("blur", function() {
+          const code = codeInput.value.trim();
+          setFromCode(code);
+        });
+      }
+
+      // Evento: cambiar producto por nombre (acción del usuario → forceUnit=true)
+      productSelect.addEventListener("change", function() {
+        const id = productSelect.value;
+        if (!id) {
+          if (codeInput) codeInput.value = "";
+          if (unitSelect) unitSelect.value = "";
+          return;
+        }
+        setFromProductId(id, true);
+      });
+
+      // Inicial: solo sincronizar código, NO pisar la unidad pre-seleccionada
+      if (productSelect.value) {
+        setFromProductId(productSelect.value, isNewRow);
+      } else if (codeInput && codeInput.value.trim()) {
+        setFromCode(codeInput.value.trim());
+      }
+    }
+
+    // Handlers para filas existentes (NO pisar unidad pre-seleccionada)
+    body.querySelectorAll("tr.line-row").forEach(function(row) {
+      attachSyncHandlers(row, false);
+    });
+
+    // Botón para agregar nuevas filas
+    if (addBtn) {
+      addBtn.addEventListener("click", function() {
+        const currentCount = parseInt(totalFormsInput.value, 10);
+        const newIndex = currentCount;
+
+        const newRow = emptyRow.cloneNode(true);
+        newRow.id = "";
+        newRow.classList.remove("hidden");
+
+        newRow.querySelectorAll("input, select, textarea").forEach(function(el) {
+          if (el.name) el.name = el.name.replace("__prefix__", newIndex);
+          if (el.id) el.id = el.id.replace("__prefix__", newIndex);
+
+          if (el.tagName === "INPUT" || el.tagName === "TEXTAREA") {
+            if (el.type === "checkbox" || el.type === "radio") {
+              el.checked = false;
+            } else {
+              el.value = "";
+            }
+          } else if (el.tagName === "SELECT") {
+            el.selectedIndex = 0;
+          }
+        });
+
+        body.appendChild(newRow);
+        totalFormsInput.value = newIndex + 1;
+
+        attachSyncHandlers(newRow, true);
+      });
+    }
+  })();
+</script>
+
+{% endblock %}

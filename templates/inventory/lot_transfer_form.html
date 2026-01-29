@@ -1,0 +1,77 @@
+{% extends 'layouts/app.html' %}
+
+{% block title %}Transferir Lote{% endblock %}
+
+{% block app_header %}
+    <h1 class="text-2xl font-bold mb-2">Transferir Lote</h1>
+    <p class="text-sm text-gray-600">Lote: {{ lot.internal_lot }} - {{ lot.product.name }}</p>
+{% endblock %}
+
+{% block app_content %}
+  <form method="post" class="space-y-6">
+    {% csrf_token %}
+
+    {% if messages %}
+      {% for message in messages %}
+        <div class="rounded border px-3 py-2 text-sm mb-2
+                    {% if message.tags == 'error' %}border-red-200 bg-red-50 text-red-700
+                    {% else %}border-green-200 bg-green-50 text-green-700{% endif %}">
+          {{ message }}
+        </div>
+      {% endfor %}
+    {% endif %}
+
+    <!-- Formulario de transferencia -->
+    <div class="rounded-2xl border bg-white p-4 space-y-4">
+      <h2 class="text-lg font-semibold">Datos de transferencia</h2>
+      
+      <div class="grid gap-4 md:grid-cols-2">
+        <div>
+          <label class="block text-sm font-medium mb-1">Bodega de destino</label>
+          {{ form.warehouse }}
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">Ubicación de destino</label>
+          {{ form.location }}
+        </div>
+      </div>
+
+      <div class="flex gap-2">
+        <button class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+          Transferir
+        </button>
+        <a href="{% url 'inventory:lot_detail' pk=lot.pk %}"
+           class="rounded-lg border px-4 py-2 text-sm">
+          Cancelar
+        </a>
+      </div>
+    </div>
+  </form>
+
+  <script>
+    // Este script actualiza las ubicaciones al cambiar la bodega
+    document.getElementById("id_warehouse").addEventListener("change", function() {
+      const warehouseId = this.value;
+      const locationSelect = document.getElementById("id_location");
+
+      // Hacemos la solicitud AJAX para obtener las ubicaciones de la bodega seleccionada
+      fetch(`/inventory/get_locations/${warehouseId}/`)
+        .then(response => response.json())
+        .then(data => {
+          // Limpiamos las opciones actuales de la ubicación
+          locationSelect.innerHTML = '<option value="">-- Selecciona una ubicación --</option>';
+
+          // Agregamos las nuevas ubicaciones al select
+          data.locations.forEach(location => {
+            const option = document.createElement("option");
+            option.value = location.id;
+            option.textContent = location.name;
+            locationSelect.appendChild(option);
+          });
+        })
+        .catch(error => {
+          console.error('Error al cargar ubicaciones:', error);
+        });
+    });
+  </script>
+{% endblock %}

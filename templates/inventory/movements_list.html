@@ -1,0 +1,85 @@
+{% extends 'layouts/app.html' %}
+
+{% block title %}Movimientos de inventario · Panel{% endblock %}
+
+{% block app_header %}
+  <div class="mb-4 flex items-center justify-between">
+    <h1 class="text-2xl font-bold">Movimientos de inventario</h1>
+    <a href="{% url 'inventory:movements_create' %}"
+       class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+      Nuevo movimiento
+    </a>
+  </div>
+{% endblock %}
+
+{% block app_content %}
+{# ⬇️ Submenú del módulo Inventario ⬇️ #}
+  {% include 'inventory/_nav.html' %}
+  <div class="rounded-2xl border bg-white">
+    <div class="border-b px-4 py-3">
+      <h2 class="font-semibold">Kardex (últimos movimientos)</h2>
+    </div>
+    <div class="overflow-x-auto p-4">
+      <table class="min-w-full text-sm">
+        <thead>
+          <tr class="text-left text-gray-600">
+            <th class="px-3 py-2">Fecha</th>
+            <th class="px-3 py-2">Producto</th>
+            <th class="px-3 py-2">Tipo</th>
+            <th class="px-3 py-2">Cantidad Ingresada</th>
+            <th class="px-3 py-2">Cantidad Base</th>
+            <th class="px-3 py-2">Área</th>
+            <th class="px-3 py-2">Referencia</th>
+            <th class="px-3 py-2">Stock Disponible</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in page %}
+            <tr class="border-t">
+              <td class="px-3 py-2">{{ m.date|date:"d/m/Y H:i" }}</td>
+              <td class="px-3 py-2">{{ m.product.code }} - {{ m.product.name }}</td>
+              <td class="px-3 py-2">{{ m.get_movement_type_display }}</td>
+              <td class="px-3 py-2">
+                {% if m.quantity_displayed and m.unit_displayed %}
+                  {{ m.quantity_displayed }} {{ m.unit_displayed.code }}
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+              <td class="px-3 py-2">{{ m.quantity }} {{ m.product.base_unit.code }}</td>
+              <td class="px-3 py-2">{{ m.area|default:"—" }}</td>
+              <td class="px-3 py-2">{{ m.reference|default:"—" }}</td>
+              <td class="px-3 py-2">
+                {% if m.movement_type == "IN" %}
+                  {{ m.product.stock.quantity }} {{ m.product.base_unit.code }}
+                {% else %}
+                  {% with stock=m.product.stock.quantity %}
+                    {% if m.movement_type == "OUT" %}
+                      {{ stock|add:"-m.quantity" }} {{ m.product.base_unit.code }}
+                    {% else %}
+                      {{ stock }} {{ m.product.base_unit.code }}
+                    {% endif %}
+                  {% endwith %}
+                {% endif %}
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="8" class="px-3 py-6 text-center text-gray-500">Sin movimientos</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <div class="mt-4 flex items-center gap-2">
+        {% if page.has_previous %}
+          <a class="px-2 border rounded" href="?page={{ page.previous_page_number }}">«</a>
+        {% endif %}
+        <span class="text-sm">Página {{ page.number }} de {{ page.paginator.num_pages }}</span>
+        {% if page.has_next %}
+          <a class="px-2 border rounded" href="?page={{ page.next_page_number }}">»</a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+{% endblock %}

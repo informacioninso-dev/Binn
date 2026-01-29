@@ -1,0 +1,60 @@
+{# templates/quality/_nav.html #}
+{% with url_name=request.resolver_match.url_name %}
+<nav class="mb-4 border-b border-gray-200">
+  <ul class="flex flex-wrap gap-4 text-sm">
+
+    {# Lotes / QA pendientes #}
+    <li>
+      <a href="{% url 'quality:pending_lots' %}"
+         class="pb-2 border-b-2 transition-colors
+         {% if url_name == 'pending_lots' %}
+            border-blue-600 text-blue-600
+         {% else %}
+            border-transparent text-gray-600 hover:text-blue-600
+         {% endif %}">
+        Lotes / QA pendientes
+      </a>
+    </li>
+
+    {# Inspecciones registradas #}
+    <li>
+      <a href="{% url 'quality:inspection_list' %}"
+         class="pb-2 border-b-2 transition-colors
+         {% if 'inspection' in url_name %}
+            border-blue-600 text-blue-600
+         {% else %}
+            border-transparent text-gray-600 hover:text-blue-600
+         {% endif %}">
+        Inspecciones
+      </a>
+    </li>
+
+      {# Planes de QA #}
+    <li>
+      <a href="{% url 'quality:qa_plan_list' %}"
+         class="pb-2 border-b-2 transition-colors
+         {% if 'qa_plan' in url_name or 'plan' in url_name %}
+            border-blue-600 text-blue-600
+         {% else %}
+            border-transparent text-gray-600 hover:text-blue-600
+         {% endif %}">
+        Planes de QA
+      </a>
+    </li>
+
+   {# Auditoria por lotes #}
+    <li>
+      <a href="{% url 'quality:audit_home' %}"
+         class="pb-2 border-b-2 transition-colors
+         {% if 'home' in url_name  %}
+            border-blue-600 text-blue-600
+         {% else %}
+            border-transparent text-gray-600 hover:text-blue-600
+         {% endif %}">
+        Auditoria de Lotes
+      </a>
+    </li>
+
+  </ul>
+</nav>
+{% endwith %}

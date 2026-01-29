@@ -1,0 +1,775 @@
+============================================================
+CONTEXTO DEL PROYECTO DJANGO
+============================================================
+
+Proyecto: config
+Base de datos: django.db.backends.sqlite3
+Apps instaladas: 8
+
+
+============================================================
+MODELOS Y CAMPOS
+============================================================
+
+────────────────────────────────────────────────────────────
+APP: core
+────────────────────────────────────────────────────────────
+
+  Modelo: TaxScheme
+  Tabla: core_taxscheme
+
+  Campos:
+    • products (ManyToOneRel) [null=True] -> Product
+    • id (BigAutoField) [blank=True]
+    • created_at (DateTimeField) [blank=True]
+    • updated_at (DateTimeField) [blank=True]
+    • created_by (ForeignKey) [null=True] [blank=True] -> User
+    • updated_by (ForeignKey) [null=True] [blank=True] -> User
+    • code (CharField) [max_length=20]
+    • name (CharField) [max_length=100]
+    • rate (DecimalField)
+    • is_active (BooleanField)
+    • applies_sales (BooleanField)
+    • applies_purchases (BooleanField)
+
+  Métodos custom: DoesNotExist, Meta, MultipleObjectsReturned, adelete, arefresh_from_db, asave, clean_fields, date_error_message, from_db, get_constraints
+
+
+  Modelo: Unit
+  Tabla: core_unit
+
+  Campos:
+    • products (ManyToOneRel) [null=True] -> Product
+    • inventorymove (ManyToOneRel) [null=True] -> InventoryMove
+    • purchase_lines (ManyToOneRel) [null=True] -> PurchaseOrderLine
+    • rawmaterialreceptionline (ManyToOneRel) [null=True] -> RawMaterialReceptionLine
+    • id (BigAutoField) [blank=True]
+    • created_at (DateTimeField) [blank=True]
+    • updated_at (DateTimeField) [blank=True]
+    • created_by (ForeignKey) [null=True] [blank=True] -> User
+    • updated_by (ForeignKey) [null=True] [blank=True] -> User
+    • code (CharField) [max_length=10]
+    • name (CharField) [max_length=50]
+    • category (CharField) [max_length=10]
+    • factor_to_base (DecimalField)
+    • is_active (BooleanField)
+
+  Métodos custom: DoesNotExist, Meta, MultipleObjectsReturned, adelete, arefresh_from_db, asave, clean_fields, date_error_message, from_db, get_category_display
+
+
+  Modelo: Warehouse
+  Tabla: core_warehouse
+
+  Campos:
+    • locations (ManyToOneRel) [null=True] -> Location
+    • lots (ManyToOneRel) [null=True] -> Lot
+    • lot_balances (ManyToOneRel) [null=True] -> LotBalance
+    • moves (ManyToOneRel) [null=True] -> InventoryMove
+    • moves_from_wh (ManyToOneRel) [null=True] -> InventoryMove
+    • moves_to_wh (ManyToOneRel) [null=True] -> InventoryMove
+    • work_centers (ManyToOneRel) [null=True] -> WorkCenter
+    • id (BigAutoField) [blank=True]
+    • created_at (DateTimeField) [blank=True]
+    • updated_at (DateTimeField) [blank=True]
+    • created_by (ForeignKey) [null=True] [blank=True] -> User
+    • updated_by (ForeignKey) [null=True] [blank=True] -> User
+    • code (CharField) [max_length=20]
+    • name (CharField) [max_length=100]
+    • type (CharField) [max_length=20]
+    • is_active (BooleanField)
+    • is_default_quarantine (BooleanField)
+    • is_default_for_raw (BooleanField)
+    • is_default_fg_released (BooleanField)
+
+  Métodos custom: DoesNotExist, Meta, MultipleObjectsReturned, adelete, arefresh_from_db, asave, clean_fields, date_error_message, from_db, get_constraints
+
+
+  Modelo: Location
+  Tabla: core_location
+
+  Campos:
+    • lots (ManyToOneRel) [null=True] -> Lot
+    • lot_balances (ManyToOneRel) [null=True] -> LotBalance
+    • moves (ManyToOneRel) [null=True] -> InventoryMove
+    • moves_from (ManyToOneRel) [null=True] -> InventoryMove
+    • moves_to (ManyToOneRel) [null=True] -> InventoryMove
+    • id (BigAutoField) [blank=True]
+    • created_at (DateTimeField) [blank=True]
+    • updated_at (DateTimeField) [blank=True]
+    • created_by (ForeignKey) [null=True] [blank=True] -> User
+    • updated_by (ForeignKey) [null=True] [blank=True] -> User
+    • warehouse (ForeignKey) -> Warehouse
+    • code (CharField) [max_length=30]
+    • name (CharField) [max_length=100] [null=True] [blank=True]
+    • description (CharField) [max_length=255] [null=True] [blank=True]
+    • row (CharField) [max_length=10] [null=True] [blank=True]
+    • rack (CharField) [max_length=10] [null=True] [blank=True]
+    • level (CharField) [max_length=10] [null=True] [blank=True]
+    • is_active (BooleanField)
+
+  Métodos custom: DoesNotExist, Meta, MultipleObjectsReturned, adelete, arefresh_from_db, asave, clean_fields, date_error_message, from_db, get_constraints
+
+
+────────────────────────────────────────────────────────────
+APP: inventory
+────────────────────────────────────────────────────────────
+
+  Modelo: Product
+  Tabla: inventory_product
+
+  Campos:
+    • stock (OneToOneRel) [null=True] -> Stock
+    • lots (ManyToOneRel) [null=True] -> Lot
+    • moves (ManyToOneRel) [null=True] -> InventoryMove
+    • sale_order_lines (ManyToOneRel) [null=True] -> SaleOrderLine
+    • routes (ManyToOneRel) [null=True] -> ProductRoute
+    • boms (ManyToOneRel) [null=True] -> BillOfMaterial
+    • bom_components (ManyToOneRel) [null=True] -> BillOfMaterialLine
+    • production_orders (ManyToOneRel) [null=True] -> ProductionOrder
+    • production_plans (ManyToOneRel) [null=True] -> ProductionPlan
+    • as_component_in_plans (ManyToOneRel) [null=True] -> ProductionPlanRawLot
+    • qa_plans (ManyToOneRel) [null=True] -> QAPlan
+    • purchase_lines (ManyToOneRel) [null=True] -> PurchaseOrderLine
+    • reception_lines (ManyToOneRel) [null=True] -> RawMaterialReceptionLine
+    • id (BigAutoField) [blank=True]
+    • created_at (DateTimeField) [blank=True]
+    • updated_at (DateTimeField) [blank=True]
+    • created_by (ForeignKey) [null=True] [blank=True] -> User
+    • updated_by (ForeignKey) [null=True] [blank=True] -> User
+    • product_type (CharField) [max_length=10]
+    • code (CharField) [max_length=50]
+    • code_2 (CharField) [max_length=50] [null=True] [blank=True]
+    • name (CharField) [max_length=200]
+    • base_unit (ForeignKey) -> Unit
+    • unit_price (DecimalField)
+    • unit_cost (DecimalField) [null=True] [blank=True]
+    • tax_scheme (ForeignKey) [null=True] [blank=True] -> TaxScheme
+    • provider (CharField) [max_length=200] [null=True] [blank=True]
+    • category (CharField) [max_length=100] [null=True] [blank=True]
+    • brand (CharField) [max_length=100] [null=True] [blank=True]
+    • attribute1 (CharField) [max_length=100] [null=True] [blank=True]
+    • attribute2 (CharField) [max_length=100] [null=True] [blank=True]
+    • is_active (BooleanField)
+    • lot_prefix (CharField) [max_length=20] [null=True] [blank=True]
+    • use_date_in_lot (BooleanField)
+
+  Métodos custom: DoesNotExist, Meta, MultipleObjectsReturned, adelete, arefresh_from_db, asave, clean_fields, date_error_message, from_db, get_constraints
+
+
+  Modelo: Stock
+  Tabla: inventory_stock
+
+  Campos:
+    • id (BigAutoField) [blank=True]
+    • created_at (DateTimeField) [blank=True]
+    • updated_at (DateTimeField) [blank=True]
+    • created_by (ForeignKey) [null=True] [blank=True] -> User
+    • updated_by (ForeignKey) [null=True] [blank=True] -> User
+    • product (OneToOneField) -> Product
+    • quantity (DecimalField)
+
+  Métodos custom: DoesNotExist, Meta, MultipleObjectsReturned, adelete, arefresh_from_db, asave, clean_fields, date_error_message, from_db, get_constraints
+
+
+  Modelo: Lot
+  Tabla: inventory_lot
+
+  Campos:
+    • balances (ManyToOneRel) [null=True] -> LotBalance
+    • moves (ManyToOneRel) [null=True] -> InventoryMove
+    • dispatches (ManyToOneRel) [null=True] -> SaleDispatch
+    • as_finished_in_orders (ManyToOneRel) [null=True] -> ProductionOrder
+    • operations_as_input (ManyToOneRel) [null=True] -> ProductionOperation
+    • operations_as_output (ManyToOneRel) [null=True] -> ProductionOperation
+    • used_in_plans (ManyToOneRel) [null=True] -> ProductionPlanRawLot
+    • inspections (ManyToOneRel) [null=True] -> QualityInspection
+    • id (BigAutoField) [blank=True]
+    • created_at (DateTimeField) [blank=True]
+    • updated_at (DateTimeField) [blank=True]
+    • created_by (ForeignKey) [null=True] [blank=True] -> User
+    • updated_by (ForeignKey) [null=True] [blank=True] -> User
+    • product (ForeignKey) -> Product
+    • internal_lot (CharField) [max_length=50]
+    • supplier_lot (CharField) [max_length=50] [null=True] [blank=True]
+    • quantity_initial (DecimalField)
+    • warehouse (ForeignKey) [null=True] [blank=True] -> Warehouse
+    • location (ForeignKey) [null=True] [blank=True] -> Location
+    • manufacturing_date (DateField) [null=True] [blank=True]
+    • expiry_date (DateField) [null=True] [blank=True]
+    • origin_reference (CharField) [max_length=100] [null=True] [blank=True]
+    • status (CharField) [max_length=20]
+
+  Métodos custom: DoesNotExist, Meta, MultipleObjectsReturned, adelete, arefresh_from_db, asave, clean_fields, date_error_message, from_db, get_constraints
+
+
+  Modelo: LotBalance
+  Tabla: inventory_lotbalance
+
+  Campos:
+    • id (BigAutoField) [blank=True]
+    • created_at (DateTimeField) [blank=True]
+    • updated_at (DateTimeField) [blank=True]
+    • created_by (ForeignKey) [null=True] [blank=True] -> User
+    • updated_by (ForeignKey) [null=True] [blank=True] -> User
+    • lot (ForeignKey) -> Lot
+    • warehouse (ForeignKey) -> Warehouse
+    • location (ForeignKey) -> Location
+    • qty (DecimalField)
+
+  Métodos custom: DoesNotExist, Meta, MultipleObjectsReturned, adelete, arefresh_from_db, asave, clean_fields, date_error_message, from_db, get_constraints
+
+
+  Modelo: InventoryMove
+  Tabla: inventory_inventorymove
+
+  Campos:
+    • id (BigAutoField) [blank=True]
+    • created_at (DateTimeField) [blank=True]
+    • updated_at (DateTimeField) [blank=True]
+    • created_by (ForeignKey) [null=True] [blank=True] -> User
+    • updated_by (ForeignKey) [null=True] [blank=True] -> User
+    • product (ForeignKey) -> Product
+    • lot (ForeignKey) [null=True] [blank=True] -> Lot
+    • movement_type (CharField) [max_length=3]
+    • date (DateTimeField) [blank=True]
+    • quantity (DecimalField)
+    • unit_displayed (ForeignKey) [null=True] -> Unit
+    • quantity_displayed (DecimalField) [null=True]
+    • unit_cost (DecimalField) [null=True] [blank=True]
+    • reference (CharField) [max_length=100] [null=True] [blank=True]
+    • warehouse (ForeignKey) [null=True] [blank=True] -> Warehouse
+    • location (ForeignKey) [null=True] [blank=True] -> Location
+    • area (CharField) [max_length=100] [null=True] [blank=True]
+    • notes (TextField) [null=True] [blank=True]
+    • reason (CharField) [max_length=30] [null=True] [blank=True]
+    • from_location (ForeignKey) [null=True] [blank=True] -> Location
+    • to_location (ForeignKey) [null=True] [blank=True] -> Location
+    • from_warehouse (ForeignKey) [null=True] [blank=True] -> Warehouse
+    • to_warehouse (ForeignKey) [null=True] [blank=True] -> Warehouse
+
+  Métodos custom: DoesNotExist, Meta, MultipleObjectsReturned, adelete, arefresh_from_db, asave, clean_fields, date_error_message, from_db, get_constraints
+
+
+────────────────────────────────────────────────────────────
+APP: finance
+────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────
+APP: sales
+────────────────────────────────────────────────────────────
+
+  Modelo: SaleOrder
+  Tabla: sales_saleorder
+
+  Campos:
+    • lines (ManyToOneRel) [null=True] -> SaleOrderLine
+    • dispatches (ManyToOneRel) [null=True] -> SaleDispatch
+    • invoices (ManyToOneRel) [null=True] -> SaleInvoice
+    • id (BigAutoField) [blank=True]
+    • created_by (ForeignKey) [null=True] [blank=True] -> User
+    • updated_by (ForeignKey) [null=True] [blank=True] -> User
+    • code (CharField) [max_length=50]
+    • client (ForeignKey) -> Partner
+    • status (CharField) [max_length=20]
+    • created_at (DateTimeField) [blank=True]
+    • updated_at (DateTimeField) [blank=True]
+    • delivery_date (DateField)
+    • notes (TextField) [null=True] [blank=True]
+    • payment_method (CharField) [max_length=50] [null=True] [blank=True]
+
+  Métodos custom: DoesNotExist, Meta, MultipleObjectsReturned, adelete, arefresh_from_db, asave, clean_fields, date_error_message, from_db, get_constraints
+
+
+  Modelo: SaleOrderLine
+  Tabla: sales_saleorderline
+
+  Campos:
+    • id (BigAutoField) [blank=True]
+    • created_at (DateTimeField) [blank=True]
+    • updated_at (DateTimeField) [blank=True]
+    • created_by (ForeignKey) [null=True] [blank=True] -> User
+    • updated_by (ForeignKey) [null=True] [blank=True] -> User
+    • order (ForeignKey) -> SaleOrder
+    • product (ForeignKey) -> Product
+    • quantity (DecimalField)
+    • unit_price (DecimalField)
+    • total_price (DecimalField)
+
+  Métodos custom: DoesNotExist, Meta, MultipleObjectsReturned, adelete, arefresh_from_db, asave, clean_fields, date_error_message, from_db, get_constraints
+
+
+  Modelo: SaleDispatch
+  Tabla: sales_saledispatch
+
+  Campos:
+    • id (BigAutoField) [blank=True]
+    • created_at (DateTimeField) [blank=True]
+    • updated_at (DateTimeField) [blank=True]
+    • created_by (ForeignKey) [null=True] [blank=True] -> User
+    • updated_by (ForeignKey) [null=True] [blank=True] -> User
+    • order (ForeignKey) -> SaleOrder
+    • dispatched_date (DateTimeField) [blank=True]
+    • total_amount (DecimalField)
+    • status (CharField) [max_length=20]
+    • lot (ForeignKey) -> Lot
+
+  Métodos custom: DoesNotExist, Meta, MultipleObjectsReturned, adelete, arefresh_from_db, asave, clean_fields, date_error_message, from_db, get_constraints
+
+
+  Modelo: SaleInvoice
+  Tabla: sales_saleinvoice
+
+  Campos:
+    • id (BigAutoField) [blank=True]
+    • created_at (DateTimeField) [blank=True]
+    • updated_at (DateTimeField) [blank=True]
+    • created_by (ForeignKey) [null=True] [blank=True] -> User
+    • updated_by (ForeignKey) [null=True] [blank=True] -> User
+    • order (ForeignKey) -> SaleOrder
+    • invoice_code (CharField) [max_length=50]
+    • issue_date (DateTimeField) [blank=True]
+    • total_amount (DecimalField)
+    • status (CharField) [max_length=20]
+    • sri_status (CharField) [max_length=20]
+    • xml_data (TextField)
+
+  Métodos custom: DoesNotExist, Meta, MultipleObjectsReturned, adelete, arefresh_from_db, asave, clean_fields, date_error_message, from_db, generate_invoice_xml
+
+
+────────────────────────────────────────────────────────────
+APP: production
+────────────────────────────────────────────────────────────
+
+  Modelo: ProductRoute
+  Tabla: production_productroute
+
+  Campos:
+    • production_orders (ManyToOneRel) [null=True] -> ProductionOrder
+    • steps (ManyToOneRel) [null=True] -> ProductRouteStep
+    • id (BigAutoField) [blank=True]
+    • created_at (DateTimeField) [blank=True]
+    • updated_at (DateTimeField) [blank=True]
+    • created_by (ForeignKey) [null=True] [blank=True] -> User
+    • updated_by (ForeignKey) [null=True] [blank=True] -> User
+    • product (ForeignKey) -> Product
+    • name (CharField) [max_length=100]
+    • is_active (BooleanField)
+    • notes (TextField) [null=True] [blank=True]
+
+  Métodos custom: DoesNotExist, Meta, MultipleObjectsReturned, adelete, arefresh_from_db, asave, clean_fields, date_error_message, from_db, get_constraints
+
+
+  Modelo: BillOfMaterial
+  Tabla: production_billofmaterial
+
+  Campos:
+    • lines (ManyToOneRel) [null=True] -> BillOfMaterialLine
+    • production_orders (ManyToOneRel) [null=True] -> ProductionOrder
+    • id (BigAutoField) [blank=True]
+    • created_at (DateTimeField) [blank=True]
+    • updated_at (DateTimeField) [blank=True]
+    • created_by (ForeignKey) [null=True] [blank=True] -> User
+    • updated_by (ForeignKey) [null=True] [blank=True] -> User
+    • product_finished (ForeignKey) -> Product
+    • revision (CharField) [max_length=10]
+    • description (TextField) [null=True] [blank=True]
+    • is_active (BooleanField)
+
+  Métodos custom: DoesNotExist, Meta, MultipleObjectsReturned, adelete, arefresh_from_db, asave, clean_fields, date_error_message, from_db, get_constraints
+
+
+  Modelo: BillOfMaterialLine
+  Tabla: production_billofmaterialline
+
+  Campos:
+    • id (BigAutoField) [blank=True]
+    • created_at (DateTimeField) [blank=True]
+    • updated_at (DateTimeField) [blank=True]
+    • created_by (ForeignKey) [null=True] [blank=True] -> User
+    • updated_by (ForeignKey) [null=True] [blank=True] -> User
+    • bom (ForeignKey) -> BillOfMaterial
+    • component (ForeignKey) -> Product
+    • quantity (DecimalField)
+    • scrap_rate (DecimalField)
+    • sequence (PositiveIntegerField)
+
+  Métodos custom: DoesNotExist, Meta, MultipleObjectsReturned, adelete, arefresh_from_db, asave, clean_fields, date_error_message, from_db, get_constraints
+
+
+  Modelo: ProductionOrder
+  Tabla: production_productionorder
+
+  Campos:
+    • operations (ManyToOneRel) [null=True] -> ProductionOperation
+    • id (BigAutoField) [blank=True]
+    • created_at (DateTimeField) [blank=True]
+    • updated_at (DateTimeField) [blank=True]
+    • created_by (ForeignKey) [null=True] [blank=True] -> User
+    • updated_by (ForeignKey) [null=True] [blank=True] -> User
+    • code (CharField) [max_length=50]
+    • product (ForeignKey) -> Product
+    • quantity_planned (DecimalField)
+    • quantity_produced (DecimalField)
+    • route (ForeignKey) [null=True] [blank=True] -> ProductRoute
+    • bom (ForeignKey) [null=True] [blank=True] -> BillOfMaterial
+    • finished_lot (ForeignKey) [null=True] [blank=True] -> Lot
+    • start_date (DateField) [null=True] [blank=True]
+    • end_date (DateField) [null=True] [blank=True]
+    • status (CharField) [max_length=20]
+    • origin_type (CharField) [max_length=20]
+    • origin_reference (CharField) [max_length=100] [null=True] [blank=True]
+    • plan (ForeignKey) [null=True] [blank=True] -> ProductionPlan
+    • notes (TextField) [null=True] [blank=True]
+
+  Métodos custom: DoesNotExist, Meta, MultipleObjectsReturned, adelete, arefresh_from_db, asave, clean_fields, date_error_message, from_db, get_constraints
+
+
+  Modelo: WorkCenter
+  Tabla: production_workcenter
+
+  Campos:
+    • route_steps (ManyToOneRel) [null=True] -> ProductRouteStep
+    • qa_plans (ManyToOneRel) [null=True] -> QAPlan
+    • id (BigAutoField) [blank=True]
+    • created_at (DateTimeField) [blank=True]
+    • updated_at (DateTimeField) [blank=True]
+    • created_by (ForeignKey) [null=True] [blank=True] -> User
+    • updated_by (ForeignKey) [null=True] [blank=True] -> User
+    • code (CharField) [max_length=30]
+    • name (CharField) [max_length=100]
+    • description (CharField) [max_length=255] [null=True] [blank=True]
+    • default_warehouse (ForeignKey) [null=True] [blank=True] -> Warehouse
+    • capacity_per_hour (DecimalField) [null=True] [blank=True]
+    • is_active (BooleanField)
+
+  Métodos custom: DoesNotExist, Meta, MultipleObjectsReturned, adelete, arefresh_from_db, asave, clean_fields, date_error_message, from_db, get_constraints
+
+
+  Modelo: ProductRouteStep
+  Tabla: production_productroutestep
+
+  Campos:
+    • operations (ManyToOneRel) [null=True] -> ProductionOperation
+    • qa_plans (ManyToOneRel) [null=True] -> QAPlan
+    • id (BigAutoField) [blank=True]
+    • created_at (DateTimeField) [blank=True]
+    • updated_at (DateTimeField) [blank=True]
+    • created_by (ForeignKey) [null=True] [blank=True] -> User
+    • updated_by (ForeignKey) [null=True] [blank=True] -> User
+    • route (ForeignKey) -> ProductRoute
+    • sequence (PositiveIntegerField)
+    • work_center (ForeignKey) -> WorkCenter
+    • name (CharField) [max_length=100]
+    • description (CharField) [max_length=255] [null=True] [blank=True]
+    • expected_duration_min (PositiveIntegerField) [null=True] [blank=True]
+    • requires_qa (BooleanField)
+    • is_active (BooleanField)
+
+  Métodos custom: DoesNotExist, Meta, MultipleObjectsReturned, adelete, arefresh_from_db, asave, clean_fields, date_error_message, from_db, get_constraints
+
+
+  Modelo: ProductionOperation
+  Tabla: production_productionoperation
+
+  Campos:
+    • inspections (ManyToOneRel) [null=True] -> QualityInspection
+    • id (BigAutoField) [blank=True]
+    • created_at (DateTimeField) [blank=True]
+    • updated_at (DateTimeField) [blank=True]
+    • created_by (ForeignKey) [null=True] [blank=True] -> User
+    • updated_by (ForeignKey) [null=True] [blank=True] -> User
+    • order (ForeignKey) -> ProductionOrder
+    • step (ForeignKey) -> ProductRouteStep
+    • sequence (PositiveIntegerField)
+    • input_lot (ForeignKey) [null=True] [blank=True] -> Lot
+    • output_lot (ForeignKey) [null=True] [blank=True] -> Lot
+    • quantity_input (DecimalField) [null=True] [blank=True]
+    • quantity_output (DecimalField) [null=True] [blank=True]
+    • started_at (DateTimeField) [null=True] [blank=True]
+    • finished_at (DateTimeField) [null=True] [blank=True]
+    • status (CharField) [max_length=20]
+    • notes (TextField) [null=True] [blank=True]
+
+  Métodos custom: DoesNotExist, Meta, MultipleObjectsReturned, adelete, arefresh_from_db, asave, clean_fields, date_error_message, from_db, get_constraints
+
+
+  Modelo: ProductionPlan
+  Tabla: production_productionplan
+
+  Campos:
+    • orders (ManyToOneRel) [null=True] -> ProductionOrder
+    • raw_lots (ManyToOneRel) [null=True] -> ProductionPlanRawLot
+    • id (BigAutoField) [blank=True]
+    • created_at (DateTimeField) [blank=True]
+    • updated_at (DateTimeField) [blank=True]
+    • created_by (ForeignKey) [null=True] [blank=True] -> User
+    • updated_by (ForeignKey) [null=True] [blank=True] -> User
+    • code (CharField) [max_length=30]
+    • product (ForeignKey) -> Product
+    • lot_code (CharField) [max_length=50]
+    • manufacturing_date (DateField)
+    • quantity_planned (DecimalField)
+    • status (CharField) [max_length=20]
+    • notes (TextField) [null=True] [blank=True]
+
+  Métodos custom: DoesNotExist, Meta, MultipleObjectsReturned, adelete, arefresh_from_db, asave, clean_fields, date_error_message, from_db, get_constraints
+
+
+  Modelo: ProductionPlanRawLot
+  Tabla: production_productionplanrawlot
+
+  Campos:
+    • id (BigAutoField) [blank=True]
+    • plan (ForeignKey) -> ProductionPlan
+    • lot (ForeignKey) -> Lot
+    • quantity_planned (DecimalField) [null=True] [blank=True]
+    • component (ForeignKey) -> Product
+
+  Métodos custom: DoesNotExist, MultipleObjectsReturned, adelete, arefresh_from_db, asave, clean_fields, date_error_message, from_db, get_constraints, get_deferred_fields
+
+
+────────────────────────────────────────────────────────────
+APP: quality
+────────────────────────────────────────────────────────────
+
+  Modelo: QAPlan
+  Tabla: quality_qaplan
+
+  Campos:
+    • parameters (ManyToOneRel) [null=True] -> QAParameterTemplate
+    • inspections (ManyToOneRel) [null=True] -> QualityInspection
+    • id (BigAutoField) [blank=True]
+    • created_at (DateTimeField) [blank=True]
+    • updated_at (DateTimeField) [blank=True]
+    • created_by (ForeignKey) [null=True] [blank=True] -> User
+    • updated_by (ForeignKey) [null=True] [blank=True] -> User
+    • name (CharField) [max_length=100]
+    • product (ForeignKey) [null=True] [blank=True] -> Product
+    • stage (CharField) [max_length=10]
+    • work_center (ForeignKey) [null=True] [blank=True] -> WorkCenter
+    • route_step (ForeignKey) [null=True] [blank=True] -> ProductRouteStep
+    • is_active (BooleanField)
+
+  Métodos custom: DoesNotExist, Meta, MultipleObjectsReturned, adelete, arefresh_from_db, asave, clean_fields, date_error_message, from_db, get_applicable_plan
+
+
+  Modelo: QAParameterTemplate
+  Tabla: quality_qaparametertemplate
+
+  Campos:
+    • id (BigAutoField) [blank=True]
+    • created_at (DateTimeField) [blank=True]
+    • updated_at (DateTimeField) [blank=True]
+    • created_by (ForeignKey) [null=True] [blank=True] -> User
+    • updated_by (ForeignKey) [null=True] [blank=True] -> User
+    • plan (ForeignKey) -> QAPlan
+    • code (CharField) [max_length=50]
+    • label (CharField) [max_length=100]
+    • unit (CharField) [max_length=20] [null=True] [blank=True]
+    • data_type (CharField) [max_length=10]
+    • min_value (DecimalField) [null=True] [blank=True]
+    • max_value (DecimalField) [null=True] [blank=True]
+    • is_required (BooleanField)
+    • order (PositiveIntegerField)
+
+  Métodos custom: DataType, DoesNotExist, Meta, MultipleObjectsReturned, adelete, arefresh_from_db, asave, clean_fields, date_error_message, from_db
+
+
+  Modelo: QualityInspection
+  Tabla: quality_qualityinspection
+
+  Campos:
+    • id (BigAutoField) [blank=True]
+    • created_at (DateTimeField) [blank=True]
+    • updated_at (DateTimeField) [blank=True]
+    • created_by (ForeignKey) [null=True] [blank=True] -> User
+    • updated_by (ForeignKey) [null=True] [blank=True] -> User
+    • lot (ForeignKey) -> Lot
+    • stage (CharField) [max_length=10]
+    • operation (ForeignKey) [null=True] [blank=True] -> ProductionOperation
+    • plan (ForeignKey) [null=True] [blank=True] -> QAPlan
+    • inspected_at (DateTimeField) [null=True] [blank=True]
+    • inspected_by (ForeignKey) [null=True] [blank=True] -> User
+    • checklist (JSONField) [null=True] [blank=True]
+    • result (CharField) [max_length=20] [null=True] [blank=True]
+    • notes (TextField) [null=True] [blank=True]
+
+  Métodos custom: DoesNotExist, Meta, MultipleObjectsReturned, adelete, arefresh_from_db, asave, clean_fields, date_error_message, from_db, get_constraints
+
+
+────────────────────────────────────────────────────────────
+APP: procurement
+────────────────────────────────────────────────────────────
+
+  Modelo: PurchaseOrder
+  Tabla: procurement_purchaseorder
+
+  Campos:
+    • lines (ManyToOneRel) [null=True] -> PurchaseOrderLine
+    • receptions (ManyToOneRel) [null=True] -> RawMaterialReception
+    • id (BigAutoField) [blank=True]
+    • created_at (DateTimeField) [blank=True]
+    • updated_at (DateTimeField) [blank=True]
+    • updated_by (ForeignKey) [null=True] [blank=True] -> User
+    • number (CharField) [max_length=20]
+    • supplier (ForeignKey) -> Partner
+    • order_date (DateField)
+    • status (CharField) [max_length=20]
+    • currency (CharField) [max_length=5]
+    • total_amount (DecimalField)
+    • created_by (ForeignKey) [null=True] [blank=True] -> User
+
+  Métodos custom: DoesNotExist, Meta, MultipleObjectsReturned, adelete, arefresh_from_db, asave, clean_fields, date_error_message, from_db, get_constraints
+
+
+  Modelo: PurchaseOrderLine
+  Tabla: procurement_purchaseorderline
+
+  Campos:
+    • id (BigAutoField) [blank=True]
+    • order (ForeignKey) -> PurchaseOrder
+    • product (ForeignKey) -> Product
+    • description (CharField) [max_length=255] [blank=True]
+    • quantity (DecimalField)
+    • unit_price (DecimalField)
+    • unit (ForeignKey) -> Unit
+    • line_total (DecimalField)
+
+  Métodos custom: DoesNotExist, MultipleObjectsReturned, adelete, arefresh_from_db, asave, clean_fields, date_error_message, from_db, get_constraints, get_deferred_fields
+
+
+  Modelo: RawMaterialReception
+  Tabla: procurement_rawmaterialreception
+
+  Campos:
+    • lines (ManyToOneRel) [null=True] -> RawMaterialReceptionLine
+    • id (BigAutoField) [blank=True]
+    • created_at (DateTimeField) [blank=True]
+    • updated_at (DateTimeField) [blank=True]
+    • created_by (ForeignKey) [null=True] [blank=True] -> User
+    • updated_by (ForeignKey) [null=True] [blank=True] -> User
+    • purchase_order (ForeignKey) [null=True] [blank=True] -> PurchaseOrder
+    • code (CharField) [max_length=50]
+    • supplier_name (CharField) [max_length=200]
+    • supplier_ruc (CharField) [max_length=20] [null=True] [blank=True]
+    • document_type (CharField) [max_length=50] [null=True] [blank=True]
+    • document_number (CharField) [max_length=50] [null=True] [blank=True]
+    • reception_date (DateField)
+    • arrival_time (TimeField) [null=True] [blank=True]
+    • transport_company (CharField) [max_length=200] [null=True] [blank=True]
+    • transport_plate (CharField) [max_length=20] [null=True] [blank=True]
+    • temperature_recorded (DecimalField) [null=True] [blank=True]
+    • num_boxes (PositiveIntegerField) [null=True] [blank=True]
+    • gross_weight (DecimalField) [null=True] [blank=True]
+    • net_weight (DecimalField) [null=True] [blank=True]
+    • status (CharField) [max_length=20]
+    • observations (TextField) [null=True] [blank=True]
+
+  Métodos custom: DoesNotExist, Meta, MultipleObjectsReturned, adelete, arefresh_from_db, asave, clean_fields, date_error_message, from_db, get_constraints
+
+
+  Modelo: RawMaterialReceptionLine
+  Tabla: procurement_rawmaterialreceptionline
+
+  Campos:
+    • id (BigAutoField) [blank=True]
+    • reception (ForeignKey) -> RawMaterialReception
+    • product (ForeignKey) -> Product
+    • expected_quantity (DecimalField) [null=True] [blank=True]
+    • received_quantity (DecimalField)
+    • unit_cost (DecimalField) [null=True] [blank=True]
+    • unit (ForeignKey) -> Unit
+    • supplier_lot (CharField) [max_length=50] [null=True] [blank=True]
+    • internal_lot (CharField) [max_length=50] [null=True] [blank=True]
+    • expiry_date (DateField) [null=True] [blank=True]
+    • storage_area (CharField) [max_length=100] [null=True] [blank=True]
+    • notes (TextField) [null=True] [blank=True]
+
+  Métodos custom: DoesNotExist, MultipleObjectsReturned, adelete, arefresh_from_db, asave, clean_fields, date_error_message, from_db, get_constraints, get_deferred_fields
+
+
+────────────────────────────────────────────────────────────
+APP: partners
+────────────────────────────────────────────────────────────
+
+  Modelo: Partner
+  Tabla: partners_partner
+
+  Campos:
+    • sale_orders (ManyToOneRel) [null=True] -> SaleOrder
+    • purchase_orders (ManyToOneRel) [null=True] -> PurchaseOrder
+    • id (BigAutoField) [blank=True]
+    • created_at (DateTimeField) [blank=True]
+    • updated_at (DateTimeField) [blank=True]
+    • created_by (ForeignKey) [null=True] [blank=True] -> User
+    • updated_by (ForeignKey) [null=True] [blank=True] -> User
+    • code (CharField) [max_length=20]
+    • alt_code (CharField) [max_length=20] [null=True] [blank=True]
+    • identification_type (CharField) [max_length=20]
+    • identification (CharField) [max_length=20]
+    • trade_name (CharField) [max_length=150] [blank=True]
+    • legal_name (CharField) [max_length=200]
+    • category (CharField) [max_length=10] [blank=True]
+    • company_type (CharField) [max_length=20]
+    • is_customer (BooleanField)
+    • is_supplier (BooleanField)
+    • is_public_entity (BooleanField)
+    • credit_limit (DecimalField)
+    • credit_available (DecimalField)
+    • credit_used (DecimalField)
+    • credit_terms_days (PositiveIntegerField)
+    • retention_profile (CharField) [max_length=20]
+    • branch_name (CharField) [max_length=100] [blank=True]
+    • address (CharField) [max_length=255] [blank=True]
+    • city (CharField) [max_length=100] [blank=True]
+    • province (CharField) [max_length=100] [blank=True]
+    • country (CharField) [max_length=100] [blank=True]
+    • contact_name (CharField) [max_length=150] [blank=True]
+    • contact_email (EmailField) [max_length=254] [blank=True]
+    • contact_phone (CharField) [max_length=50] [blank=True]
+    • website (URLField) [max_length=200] [blank=True]
+    • is_qualified_supplier (BooleanField)
+    • qualification_level (CharField) [max_length=50] [blank=True]
+    • qualification_date (DateField) [null=True] [blank=True]
+    • qualification_notes (TextField) [blank=True]
+    • notes (TextField) [blank=True]
+    • is_active (BooleanField)
+
+  Métodos custom: DoesNotExist, Meta, MultipleObjectsReturned, adelete, arefresh_from_db, asave, clean_fields, date_error_message, from_db, get_category_display
+
+
+============================================================
+URLS PRINCIPALES
+============================================================
+
+  • admin/
+  • 
+  • inventory/
+  • finance/
+  • sales/
+  • production/
+  • core/
+  • quality/
+  • accounts/login/
+  • accounts/logout/
+  • accounts/password/change/
+  • accounts/password/change/done/
+  • accounts/password/reset/
+  • accounts/password/reset/done/
+  • accounts/reset/<uidb64>/<token>/
+  • accounts/reset/done/
+  • partners/
+  • procurement/
+
+============================================================
+APPS DEL PROYECTO
+============================================================
+
+  • core
+  • inventory
+  • finance
+  • sales
+  • production
+  • quality
+  • procurement
+  • partners

@@ -1,0 +1,168 @@
+{% extends "layouts/app.html" %}
+{% load static %}
+
+{% block title %}Orden de producción · {{ block.super }}{% endblock %}
+
+{% block app_content %}
+{% include "production/_nav.html" %}
+
+  <div class="mb-6 flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold">
+        {% if form.instance.pk %}
+          Editar orden de producción
+        {% else %}
+          Nueva orden de producción
+        {% endif %}
+      </h1>
+      <p class="text-sm text-gray-500">
+        Define qué producto vas a fabricar, en qué cantidad y con qué ruta/BOM.
+        {% with plan=form.instance.plan %}
+          {% if plan %}
+            <br>
+            Esta orden está vinculada al plan <span class="font-medium">{{ plan.code }}</span>
+            y al lote de producción <span class="font-medium">{{ plan.lot_code }}</span>.
+          {% endif %}
+        {% endwith %}
+      </p>
+    </div>
+    <a href="{% url 'production:orders_list' %}"
+       class="rounded-xl border px-4 py-2 text-sm hover:bg-gray-50">
+      Volver al listado
+    </a>
+  </div>
+
+  {% if form.non_field_errors %}
+    <div class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+      {% for error in form.non_field_errors %}
+        <p>{{ error }}</p>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  {# 🔹 Panel informativo del Plan de Producción (si existe) #}
+  {% with plan=form.instance.plan %}
+    {% if plan %}
+      <div class="mb-4 rounded-2xl border bg-white px-4 py-4 md:px-6 md:py-5">
+        <h2 class="mb-2 text-sm font-semibold text-gray-800">
+          Plan de producción asociado
+        </h2>
+        <dl class="grid gap-2 text-xs md:grid-cols-4">
+          <div>
+            <dt class="text-gray-500">Código del plan</dt>
+            <dd class="font-medium text-gray-900">{{ plan.code }}</dd>
+          </div>
+          <div>
+            <dt class="text-gray-500">Lote de producción</dt>
+            <dd class="font-medium text-gray-900">{{ plan.lot_code }}</dd>
+          </div>
+          <div>
+            <dt class="text-gray-500">Fecha de fabricación</dt>
+            <dd class="font-medium text-gray-900">
+              {{ plan.manufacturing_date|date:"d/m/Y" }}
+            </dd>
+          </div>
+          <div>
+            <dt class="text-gray-500">Cantidad plan lote / pendiente</dt>
+            <dd class="font-medium text-gray-900">
+              {{ plan.quantity_planned }} u · pend.: {{ plan.quantity_pending }} u
+            </dd>
+          </div>
+        </dl>
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <form method="post" class="space-y-6">
+    {% csrf_token %}
+
+    <div class="rounded-2xl border bg-white p-4 md:p-6 space-y-4">
+      <div class="grid gap-4 md:grid-cols-2">
+        <div>
+          <label class="mb-1 block text-sm font-medium">
+            {{ form.product.label }}
+          </label>
+          {{ form.product }}
+          {% for error in form.product.errors %}
+            <p class="text-xs text-red-600">{{ error }}</p>
+          {% endfor %}
+        </div>
+
+        <div>
+          <label class="mb-1 block text-sm font-medium">
+            {{ form.quantity_planned.label }}
+          </label>
+          {{ form.quantity_planned }}
+          {% for error in form.quantity_planned.errors %}
+            <p class="text-xs text-red-600">{{ error }}</p>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="grid gap-4 md:grid-cols-2">
+        <div>
+          <label class="mb-1 block text-sm font-medium">
+            {{ form.route.label }}
+          </label>
+          {{ form.route }}
+          {% for error in form.route.errors %}
+            <p class="text-xs text-red-600">{{ error }}</p>
+          {% endfor %}
+        </div>
+
+        <div>
+          <label class="mb-1 block text-sm font-medium">
+            {{ form.bom.label }}
+          </label>
+          {{ form.bom }}
+          {% for error in form.bom.errors %}
+            <p class="text-xs text-red-600">{{ error }}</p>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="grid gap-4 md:grid-cols-2">
+        <div>
+          <label class="mb-1 block text-sm font-medium">
+            {{ form.start_date.label }}
+          </label>
+          {{ form.start_date }}
+          {% for error in form.start_date.errors %}
+            <p class="text-xs text-red-600">{{ error }}</p>
+          {% endfor %}
+        </div>
+
+        <div>
+          <label class="mb-1 block text-sm font-medium">
+            {{ form.end_date.label }}
+          </label>
+          {{ form.end_date }}
+          {% for error in form.end_date.errors %}
+            <p class="text-xs text-red-600">{{ error }}</p>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div>
+        <label class="mb-1 block text-sm font-medium">
+          {{ form.notes.label }}
+        </label>
+        {{ form.notes }}
+        {% for error in form.notes.errors %}
+          <p class="text-xs text-red-600">{{ error }}</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="flex justify-end gap-3">
+      <a href="{% url 'production:orders_list' %}"
+         class="rounded-xl border px-4 py-2 text-sm hover:bg-gray-50">
+        Cancelar
+      </a>
+      <button type="submit"
+              class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+        {% if form.instance.pk %}Guardar cambios{% else %}Crear orden{% endif %}
+      </button>
+    </div>
+  </form>
+{% endblock %}

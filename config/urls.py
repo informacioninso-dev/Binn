@@ -25,8 +25,10 @@ urlpatterns = [
     path('', views.dashboard, name='dashboard'),
     path('inventory/', include(('inventory.urls', 'inventory'), namespace='inventory')),
     path('finance/', include(('finance.urls', 'finance'), namespace='finance')),
-    path('billing/', include(('billing.urls', 'billing'), namespace='billing')),
+    path('sales/', include(('sales.urls', 'sales'), namespace='sales')),
     path('production/', include(('production.urls', 'production'), namespace='production')),
+    path("core/", include("core.urls", namespace="core")),
+    path('quality/', include('quality.urls',namespace="quality")),  
 
     # Auth (login/logout)
     path('accounts/login/',auth_views.LoginView.as_view(template_name='auth/login.html'),name='login'),
@@ -56,6 +58,10 @@ urlpatterns = [
     path('accounts/reset/done/', auth_views.PasswordResetCompleteView.as_view(
         template_name='auth/password_reset_complete.html'
     ), name='password_reset_complete'),
+
+    path("partners/", include("partners.urls", namespace="partners")),
+    path("procurement/", include("procurement.urls", namespace="procurement")),
+
 ]
 
 

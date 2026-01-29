@@ -1,0 +1,257 @@
+{# templates/partners/partner_form.html #}
+{% extends "layouts/app.html" %}
+{% load static %}
+
+{% block title %}
+  {% if object %}
+    Editar socio · {{ block.super }}
+  {% else %}
+    Nuevo socio · {{ block.super }}
+  {% endif %}
+{% endblock %}
+
+{% block app_content %}
+  {% include "partners/_nav.html" %}
+
+  <div class="mb-6 flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold">
+        {% if object %}Editar socio{% else %}Nuevo socio{% endif %}
+      </h1>
+      <p class="text-sm text-gray-500">
+        Registra proveedores, clientes y entidades públicas para usarlos en compras, ventas y
+        calificación de proveedores ISO&nbsp;13485.
+      </p>
+    </div>
+    <a href="{% url 'partners:index' %}"
+       class="rounded-xl border px-4 py-2 text-sm hover:bg-gray-50">
+      Volver al listado
+    </a>
+  </div>
+
+  {% if form.non_field_errors %}
+    <div class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+      {% for error in form.non_field_errors %}
+        <p>{{ error }}</p>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <form method="post" class="space-y-6">
+    {% csrf_token %}
+
+    {# 1. Identificación básica #}
+    <div class="rounded-2xl border bg-white p-4 md:p-6">
+      <h2 class="mb-4 text-lg font-semibold text-gray-900">Identificación</h2>
+      <div class="grid gap-4 md:grid-cols-3">
+        <div>
+          <label class="mb-1 block text-sm font-medium">{{ form.code.label }}</label>
+          {{ form.code }}
+          {% for error in form.code.errors %}<p class="text-xs text-red-600">{{ error }}</p>{% endfor %}
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium">{{ form.alt_code.label }}</label>
+          {{ form.alt_code }}
+          {% for error in form.alt_code.errors %}<p class="text-xs text-red-600">{{ error }}</p>{% endfor %}
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium">{{ form.identification_type.label }}</label>
+          {{ form.identification_type }}
+          {% for error in form.identification_type.errors %}<p class="text-xs text-red-600">{{ error }}</p>{% endfor %}
+        </div>
+      </div>
+
+      <div class="mt-4 grid gap-4 md:grid-cols-3">
+        <div>
+          <label class="mb-1 block text-sm font-medium">{{ form.identification.label }}</label>
+          {{ form.identification }}
+          {% for error in form.identification.errors %}<p class="text-xs text-red-600">{{ error }}</p>{% endfor %}
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium">{{ form.trade_name.label }}</label>
+          {{ form.trade_name }}
+          {% for error in form.trade_name.errors %}<p class="text-xs text-red-600">{{ error }}</p>{% endfor %}
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium">{{ form.legal_name.label }}</label>
+          {{ form.legal_name }}
+          {% for error in form.legal_name.errors %}<p class="text-xs text-red-600">{{ error }}</p>{% endfor %}
+        </div>
+      </div>
+
+      <div class="mt-4 grid gap-4 md:grid-cols-3">
+        <div>
+          <label class="mb-1 block text-sm font-medium">{{ form.company_type.label }}</label>
+          {{ form.company_type }}
+          {% for error in form.company_type.errors %}<p class="text-xs text-red-600">{{ error }}</p>{% endfor %}
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium">{{ form.category.label }}</label>
+          {{ form.category }}
+          {% for error in form.category.errors %}<p class="text-xs text-red-600">{{ error }}</p>{% endfor %}
+        </div>
+        <div class="flex items-center gap-3">
+          <div class="flex items-center gap-2">
+            {{ form.is_active }}
+            <label class="text-sm font-medium">{{ form.is_active.label }}</label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {# 2. Rol y crédito #}
+    <div class="rounded-2xl border bg-white p-4 md:p-6">
+      <h2 class="mb-4 text-lg font-semibold text-gray-900">Roles y condiciones de crédito</h2>
+
+      <div class="mb-4 flex flex-wrap gap-4 text-sm">
+        <label class="inline-flex items-center gap-2">
+          {{ form.is_customer }}
+          <span>Cliente</span>
+        </label>
+        <label class="inline-flex items-center gap-2">
+          {{ form.is_supplier }}
+          <span>Proveedor</span>
+        </label>
+        <label class="inline-flex items-center gap-2">
+          {{ form.is_public_entity }}
+          <span>Entidad pública</span>
+        </label>
+      </div>
+
+      <div class="grid gap-4 md:grid-cols-4">
+        <div>
+          <label class="mb-1 block text-sm font-medium">{{ form.credit_limit.label }}</label>
+          {{ form.credit_limit }}
+          {% for error in form.credit_limit.errors %}<p class="text-xs text-red-600">{{ error }}</p>{% endfor %}
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium">{{ form.credit_available.label }}</label>
+          {{ form.credit_available }}
+          {% for error in form.credit_available.errors %}<p class="text-xs text-red-600">{{ error }}</p>{% endfor %}
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium">{{ form.credit_used.label }}</label>
+          {{ form.credit_used }}
+          {% for error in form.credit_used.errors %}<p class="text-xs text-red-600">{{ error }}</p>{% endfor %}
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium">{{ form.credit_terms_days.label }}</label>
+          {{ form.credit_terms_days }}
+          {% for error in form.credit_terms_days.errors %}<p class="text-xs text-red-600">{{ error }}</p>{% endfor %}
+          <p class="mt-1 text-[11px] text-gray-500">Días de crédito (0 = contado).</p>
+        </div>
+      </div>
+
+      <div class="mt-4">
+        <label class="mb-1 block text-sm font-medium">{{ form.retention_profile.label }}</label>
+        {{ form.retention_profile }}
+        {% for error in form.retention_profile.errors %}<p class="text-xs text-red-600">{{ error }}</p>{% endfor %}
+      </div>
+    </div>
+
+    {# 3. Ubicación y contacto #}
+    <div class="rounded-2xl border bg-white p-4 md:p-6">
+      <h2 class="mb-4 text-lg font-semibold text-gray-900">Ubicación y contacto</h2>
+
+      <div class="grid gap-4 md:grid-cols-3">
+        <div>
+          <label class="mb-1 block text-sm font-medium">{{ form.branch_name.label }}</label>
+          {{ form.branch_name }}
+          {% for error in form.branch_name.errors %}<p class="text-xs text-red-600">{{ error }}</p>{% endfor %}
+        </div>
+        <div class="md:col-span-2">
+          <label class="mb-1 block text-sm font-medium">{{ form.address.label }}</label>
+          {{ form.address }}
+          {% for error in form.address.errors %}<p class="text-xs text-red-600">{{ error }}</p>{% endfor %}
+        </div>
+      </div>
+
+      <div class="mt-4 grid gap-4 md:grid-cols-3">
+        <div>
+          <label class="mb-1 block text-sm font-medium">{{ form.city.label }}</label>
+          {{ form.city }}
+          {% for error in form.city.errors %}<p class="text-xs text-red-600">{{ error }}</p>{% endfor %}
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium">{{ form.province.label }}</label>
+          {{ form.province }}
+          {% for error in form.province.errors %}<p class="text-xs text-red-600">{{ error }}</p>{% endfor %}
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium">{{ form.country.label }}</label>
+          {{ form.country }}
+          {% for error in form.country.errors %}<p class="text-xs text-red-600">{{ error }}</p>{% endfor %}
+        </div>
+      </div>
+
+      <div class="mt-4 grid gap-4 md:grid-cols-4">
+        <div>
+          <label class="mb-1 block text-sm font-medium">{{ form.contact_name.label }}</label>
+          {{ form.contact_name }}
+          {% for error in form.contact_name.errors %}<p class="text-xs text-red-600">{{ error }}</p>{% endfor %}
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium">{{ form.contact_email.label }}</label>
+          {{ form.contact_email }}
+          {% for error in form.contact_email.errors %}<p class="text-xs text-red-600">{{ error }}</p>{% endfor %}
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium">{{ form.contact_phone.label }}</label>
+          {{ form.contact_phone }}
+          {% for error in form.contact_phone.errors %}<p class="text-xs text-red-600">{{ error }}</p>{% endfor %}
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium">{{ form.website.label }}</label>
+          {{ form.website }}
+          {% for error in form.website.errors %}<p class="text-xs text-red-600">{{ error }}</p>{% endfor %}
+        </div>
+      </div>
+    </div>
+
+    {# 4. Calificación ISO 13485 #}
+    <div class="rounded-2xl border bg-white p-4 md:p-6">
+      <h2 class="mb-4 text-lg font-semibold text-gray-900">Calificación de proveedor (ISO 13485)</h2>
+
+      <div class="mb-3 flex items-center gap-2 text-sm">
+        {{ form.is_qualified_supplier }}
+        <label class="font-medium">{{ form.is_qualified_supplier.label }}</label>
+      </div>
+
+      <div class="grid gap-4 md:grid-cols-3">
+        <div>
+          <label class="mb-1 block text-sm font-medium">{{ form.qualification_level.label }}</label>
+          {{ form.qualification_level }}
+          {% for error in form.qualification_level.errors %}<p class="text-xs text-red-600">{{ error }}</p>{% endfor %}
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium">{{ form.qualification_date.label }}</label>
+          {{ form.qualification_date }}
+          {% for error in form.qualification_date.errors %}<p class="text-xs text-red-600">{{ error }}</p>{% endfor %}
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium">{{ form.qualification_notes.label }}</label>
+          {{ form.qualification_notes }}
+          {% for error in form.qualification_notes.errors %}<p class="text-xs text-red-600">{{ error }}</p>{% endfor %}
+        </div>
+      </div>
+    </div>
+
+    {# 5. Notas internas #}
+    <div class="rounded-2xl border bg-white p-4 md:p-6">
+      <h2 class="mb-4 text-lg font-semibold text-gray-900">Notas internas</h2>
+      {{ form.notes }}
+      {% for error in form.notes.errors %}<p class="text-xs text-red-600">{{ error }}</p>{% endfor %}
+    </div>
+
+    <div class="flex justify-end gap-3">
+      <a href="{% url 'partners:index' %}"
+         class="rounded-xl border px-4 py-2 text-sm hover:bg-gray-50">
+        Cancelar
+      </a>
+      <button type="submit"
+              class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+        {% if object %}Guardar cambios{% else %}Crear socio{% endif %}
+      </button>
+    </div>
+  </form>
+{% endblock %}

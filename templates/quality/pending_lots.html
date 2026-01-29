@@ -1,0 +1,232 @@
+{% extends "layouts/app.html" %}
+{% load static %}
+
+{% block title %}Lotes / QA pendientes · {{ block.super }}{% endblock %}
+
+{% block app_content %}
+  {% include "quality/_nav.html" %}
+
+  <div class="mb-6">
+    <h1 class="text-2xl font-semibold">Lotes / QA pendientes</h1>
+    <p class="text-sm text-gray-500">
+      Visión general de materia prima, producto en proceso y producto terminado con inspecciones de calidad pendientes.
+    </p>
+  </div>
+
+  {# 1) Materia prima (RAW) #}
+  <div class="mb-6 rounded-2xl border bg-white p-4 md:p-6">
+    <div class="mb-3 flex items-center justify-between">
+      <h2 class="text-lg font-semibold">
+        Materia prima pendiente de QA (RAW)
+      </h2>
+      <span class="text-xs text-gray-500">
+        {{ raw_lots_pending|length }} lote{{ raw_lots_pending|length|pluralize }}
+      </span>
+    </div>
+
+    {% if raw_lots_pending %}
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-left text-sm">
+          <thead class="border-b bg-gray-50 text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <tr>
+              <th class="px-3 py-2">Lote</th>
+              <th class="px-3 py-2">Producto</th>
+              <th class="px-3 py-2">Estado lote</th>
+              <th class="px-3 py-2 text-right">Acciones</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            {% for lot in raw_lots_pending %}
+              <tr class="hover:bg-gray-50">
+                <td class="px-3 py-2 align-top">
+                  <span class="font-medium text-gray-900">{{ lot.internal_lot }}</span>
+                </td>
+                <td class="px-3 py-2 align-top">
+                  <div class="text-gray-900 text-sm">
+                    {{ lot.product.name }}
+                  </div>
+                  <div class="text-xs text-gray-500">
+                    {{ lot.product.code }}
+                  </div>
+                </td>
+                <td class="px-3 py-2 align-top text-xs text-gray-600">
+                  {% if lot.get_status_display %}
+                    {{ lot.get_status_display }}
+                  {% else %}
+                    <span class="text-gray-400">Sin estado</span>
+                  {% endif %}
+                </td>
+                <td class="px-3 py-2 align-top text-right text-xs">
+                  <a href="{% url 'quality:inspection_create' %}?lot={{ lot.id }}&stage=RAW"
+                     class="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700">
+                    Registrar inspección
+                  </a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="text-sm text-gray-500">
+        No hay lotes de materia prima con QA pendiente.
+      </p>
+    {% endif %}
+  </div>
+
+  {# 2) Operaciones WIP con QA requerido #}
+  <div class="mb-6 rounded-2xl border bg-white p-4 md:p-6">
+    <div class="mb-3 flex items-center justify-between">
+      <h2 class="text-lg font-semibold">
+        Operaciones en proceso con QA pendiente (WIP)
+      </h2>
+      <span class="text-xs text-gray-500">
+        {{ wip_ops_pending|length }} operación{{ wip_ops_pending|length|pluralize }}
+      </span>
+    </div>
+
+    {% if wip_ops_pending %}
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-left text-sm">
+          <thead class="border-b bg-gray-50 text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <tr>
+              <th class="px-3 py-2">OP</th>
+              <th class="px-3 py-2">Lote (WIP)</th>
+              <th class="px-3 py-2">Producto</th>
+              <th class="px-3 py-2">Paso / Centro de trabajo</th>
+              <th class="px-3 py-2">Estado operación</th>
+              <th class="px-3 py-2 text-right">Acciones</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            {% for op in wip_ops_pending %}
+              <tr class="hover:bg-gray-50">
+                <td class="px-3 py-2 align-top text-xs text-gray-700">
+                  <div class="font-medium text-gray-900">
+                    {{ op.order.code }}
+                  </div>
+                  <div>
+                    Paso {{ op.sequence }}
+                  </div>
+                </td>
+                <td class="px-3 py-2 align-top">
+                  {% if op.input_lot %}
+                    <div class="text-sm text-gray-900">
+                      {{ op.input_lot.internal_lot }}
+                    </div>
+                  {% else %}
+                    <span class="text-xs text-gray-400">Sin lote de entrada</span>
+                  {% endif %}
+                </td>
+                <td class="px-3 py-2 align-top">
+                  {% if op.input_lot and op.input_lot.product %}
+                    <div class="text-sm text-gray-900">
+                      {{ op.input_lot.product.name }}
+                    </div>
+                    <div class="text-xs text-gray-500">
+                      {{ op.input_lot.product.code }}
+                    </div>
+                  {% else %}
+                    <span class="text-xs text-gray-400">Sin producto</span>
+                  {% endif %}
+                </td>
+                <td class="px-3 py-2 align-top text-xs text-gray-700">
+                  <div>
+                    {{ op.step.name }}
+                  </div>
+                  <div class="text-gray-500">
+                    Centro: {{ op.step.work_center.code }}
+                  </div>
+                </td>
+                <td class="px-3 py-2 align-top text-xs text-gray-600">
+                  {{ op.get_status_display }}
+                </td>
+                <td class="px-3 py-2 align-top text-right text-xs">
+                  {% if op.input_lot %}
+                    <a href="{% url 'quality:inspection_create' %}?lot={{ op.input_lot.id }}&stage=WIP&operation={{ op.id }}"
+                       class="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700">
+                      Registrar inspección
+                    </a>
+                  {% else %}
+                    <span class="text-gray-400">Sin lote asociado</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="text-sm text-gray-500">
+        No hay operaciones en proceso con QA pendiente.
+      </p>
+    {% endif %}
+  </div>
+
+  {# 3) Producto terminado (FG) #}
+  <div class="mb-6 rounded-2xl border bg-white p-4 md:p-6">
+    <div class="mb-3 flex items-center justify-between">
+      <h2 class="text-lg font-semibold">
+        Producto terminado pendiente de QA (FG)
+      </h2>
+      <span class="text-xs text-gray-500">
+        {{ fg_lots_pending|length }} lote{{ fg_lots_pending|length|pluralize }}
+      </span>
+    </div>
+
+    {% if fg_lots_pending %}
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-left text-sm">
+          <thead class="border-b bg-gray-50 text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <tr>
+              <th class="px-3 py-2">Lote</th>
+              <th class="px-3 py-2">Producto</th>
+              <th class="px-3 py-2">Estado lote</th>
+              <th class="px-3 py-2 text-right">Acciones</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            {% for lot in fg_lots_pending %}
+              <tr class="hover:bg-gray-50">
+                <td class="px-3 py-2 align-top">
+                  <span class="font-medium text-gray-900">{{ lot.internal_lot }}</span>
+                </td>
+                <td class="px-3 py-2 align-top">
+                  <div class="text-sm text-gray-900">
+                    {{ lot.product.name }}
+                  </div>
+                  <div class="text-xs text-gray-500">
+                    {{ lot.product.code }}
+                  </div>
+                </td>
+                <td class="px-3 py-2 align-top text-xs text-gray-600">
+                  {% if lot.get_status_display %}
+                    {{ lot.get_status_display }}
+                  {% else %}
+                    <span class="text-gray-400">Sin estado</span>
+                  {% endif %}
+                </td>
+                <td class="px-3 py-2 align-top text-right text-xs">
+                  <a href="{% url 'quality:inspection_create' %}?lot={{ lot.id }}&stage=FG"
+                     class="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700">
+                    Registrar inspección
+                  </a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="text-sm text-gray-500">
+        No hay lotes de producto terminado con QA pendiente.
+      </p>
+    {% endif %}
+  </div>
+
+  {% if not raw_lots_pending and not wip_ops_pending and not fg_lots_pending %}
+    <div class="mt-4 rounded-2xl border border-dashed bg-white p-6 text-center text-sm text-green-700">
+      ✅ Todo al día: no hay elementos pendientes de inspección de calidad.
+    </div>
+  {% endif %}
+{% endblock %}

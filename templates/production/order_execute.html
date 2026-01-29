@@ -1,0 +1,205 @@
+{# production/templates/production/order_execute.html #}
+{% extends "layouts/app.html" %}
+{% load static %}
+
+{% block title %}Ejecución OP {{ order.code }} · {{ block.super }}{% endblock %}
+
+{% block app_content %}
+  {% include "production/_nav.html" %}
+
+  <div class="mb-6 flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold">
+        Ejecución de orden de producción {{ order.code }}
+      </h1>
+      <p class="text-sm text-gray-500">
+        Ruta de producción para {{ order.product.code }} – {{ order.product.name }}.
+      </p>
+    </div>
+
+    <a href="{% url 'production:orders_list' %}"
+       class="rounded-xl border px-4 py-2 text-sm hover:bg-gray-50">
+      Volver al listado
+    </a>
+  </div>
+
+  {# Cabecera con datos clave de la OP #}
+  <div class="mb-6 grid gap-4 md:grid-cols-3">
+    <div class="rounded-2xl border bg-white p-4">
+      <p class="text-xs font-semibold text-gray-500">Producto</p>
+      <p class="text-sm font-medium text-gray-900">
+        {{ order.product.code }} – {{ order.product.name }}
+      </p>
+      {% if order.plan %}
+        <p class="mt-1 text-xs text-gray-500">
+          Lote de producción: <span class="font-semibold">{{ order.plan.lot_code }}</span><br>
+          Fecha fabricación: {{ order.plan.manufacturing_date|date:"d/m/Y" }}
+        </p>
+      {% endif %}
+    </div>
+
+    <div class="rounded-2xl border bg-white p-4">
+      <p class="text-xs font-semibold text-gray-500">Cantidades</p>
+      <p class="text-sm text-gray-900">
+        Planificada: <span class="font-semibold">{{ order.quantity_planned }}</span>
+      </p>
+      <p class="text-sm text-gray-900">
+        Producida: <span class="font-semibold">{{ order.quantity_produced }}</span>
+      </p>
+    </div>
+
+    <div class="rounded-2xl border bg-white p-4">
+      <p class="text-xs font-semibold text-gray-500">Estado</p>
+      <p class="mt-1 inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium">
+        {{ order.get_status_display }}
+      </p>
+      {% if order.start_date %}
+        <p class="mt-2 text-xs text-gray-600">
+          Inicio: {{ order.start_date|date:"d/m/Y" }}
+          {% if order.end_date %}
+            · Fin: {{ order.end_date|date:"d/m/Y" }}
+          {% endif %}
+        </p>
+      {% endif %}
+    </div>
+  </div>
+
+  {# Lista de operaciones / pasos de la ruta #}
+  <div class="rounded-2xl border bg-white">
+    <div class="border-b px-4 py-3 text-xs font-semibold text-gray-600">
+      Ruta de producción – pasos
+    </div>
+
+    {% if operations %}
+      <div class="divide-y divide-gray-100">
+        {% for op in operations %}
+          {# Determinamos si esta es la operación "actual" (primer paso no DONE) #}
+          {% if current_operation and op.pk == current_operation.pk %}
+            {% with is_current=True %}
+              <div class="flex flex-col gap-2 px-4 py-3 md:flex-row md:items-center md:justify-between bg-blue-50">
+                <div class="flex-1">
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs font-semibold uppercase tracking-wide text-blue-700">
+                      Paso {{ op.sequence }} · {{ op.step.name }}
+                    </span>
+                    <span class="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-medium text-blue-700">
+                      En ejecución actual
+                    </span>
+                  </div>
+                  <p class="text-xs text-gray-600">
+                    Centro de trabajo: {{ op.step.work_center.code }} – {{ op.step.work_center.name }}
+                  </p>
+                  {% if op.step.description %}
+                    <p class="mt-1 text-xs text-gray-500">
+                      {{ op.step.description }}
+                    </p>
+                  {% endif %}
+                  <p class="mt-1 text-[11px] text-gray-500">
+                    Estado: {{ op.get_status_display }}
+                    {% if op.started_at %}
+                      · Inicio: {{ op.started_at|date:"d/m/Y H:i" }}
+                    {% endif %}
+                    {% if op.finished_at %}
+                      · Fin: {{ op.finished_at|date:"d/m/Y H:i" }}
+                    {% endif %}
+                  </p>
+                </div>
+
+                <div class="mt-2 flex flex-col items-start gap-1 text-xs md:mt-0 md:items-end">
+                  <p class="text-gray-600">
+                    Cant. entrada:
+                    <span class="font-semibold">
+                      {{ op.quantity_input|default:"–" }}
+                    </span>
+                  </p>
+                  <p class="text-gray-600">
+                    Cant. salida:
+                    <span class="font-semibold">
+                      {{ op.quantity_output|default:"–" }}
+                    </span>
+                  </p>
+                  <a href="{% url 'production:operation_edit' op.pk %}"
+                     class="mt-1 inline-flex items-center rounded-xl bg-blue-600 px-3 py-1.5 text-[11px] font-medium text-white hover:bg-blue-700">
+                    Registrar avance
+                  </a>
+                </div>
+              </div>
+            {% endwith %}
+          {% else %}
+            {# Operaciones no actuales #}
+            <div class="flex flex-col gap-2 px-4 py-3 md:flex-row md:items-center md:justify-between {% if op.status == 'DONE' %}bg-gray-50{% endif %}">
+              <div class="flex-1">
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-semibold uppercase tracking-wide text-gray-700">
+                    Paso {{ op.sequence }} · {{ op.step.name }}
+                  </span>
+
+                  {# Badge de estado #}
+                  {% if op.status == "PENDING" %}
+                    <span class="inline-flex rounded-full bg-yellow-50 px-2 py-0.5 text-[11px] font-medium text-yellow-700">
+                      Pendiente
+                    </span>
+                  {% elif op.status == "IN_PROGRESS" %}
+                    <span class="inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">
+                      En proceso
+                    </span>
+                  {% elif op.status == "DONE" %}
+                    <span class="inline-flex rounded-full bg-green-50 px-2 py-0.5 text-[11px] font-medium text-green-700">
+                      Completado
+                    </span>
+                  {% endif %}
+                </div>
+
+                <p class="text-xs text-gray-600">
+                  Centro de trabajo: {{ op.step.work_center.code }} – {{ op.step.work_center.name }}
+                </p>
+                {% if op.step.description %}
+                  <p class="mt-1 text-xs text-gray-500">
+                    {{ op.step.description }}
+                  </p>
+                {% endif %}
+                <p class="mt-1 text-[11px] text-gray-500">
+                  Estado: {{ op.get_status_display }}
+                  {% if op.started_at %}
+                    · Inicio: {{ op.started_at|date:"d/m/Y H:i" }}
+                  {% endif %}
+                  {% if op.finished_at %}
+                    · Fin: {{ op.finished_at|date:"d/m/Y H:i" }}
+                  {% endif %}
+                </p>
+              </div>
+
+              <div class="mt-2 flex flex-col items-start gap-1 text-xs md:mt-0 md:items-end">
+                <p class="text-gray-600">
+                  Cant. entrada:
+                  <span class="font-semibold">
+                    {{ op.quantity_input|default:"–" }}
+                  </span>
+                </p>
+                <p class="text-gray-600">
+                  Cant. salida:
+                  <span class="font-semibold">
+                    {{ op.quantity_output|default:"–" }}
+                  </span>
+                </p>
+
+                {# Solo permitir editar si aún no está DONE y es la operación actual (por seguridad extra) #}
+                {% if current_operation and op.pk == current_operation.pk and op.status != "DONE" %}
+                  <a href="{% url 'production:operation_edit' op.pk %}"
+                     class="mt-1 inline-flex items-center rounded-xl bg-blue-600 px-3 py-1.5 text-[11px] font-medium text-white hover:bg-blue-700">
+                    Registrar avance
+                  </a>
+                {% endif %}
+              </div>
+            </div>
+          {% endif %}
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="px-4 py-6 text-center text-sm text-gray-500">
+        No hay operaciones generadas para esta orden. Libera la OP primero para generar la ruta.
+      </div>
+    {% endif %}
+  </div>
+
+{% endblock %}

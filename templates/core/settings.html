@@ -1,0 +1,205 @@
+{% extends 'layouts/app.html' %}
+
+{% block title %}Configuraciones · Panel{% endblock %}
+
+{% block app_header %}
+  <div class="mb-4">
+    <h1 class="text-2xl font-bold">Configuraciones</h1>
+    <p class="mt-1 text-sm text-gray-600">
+      Administra las bodegas, ubicaciones, unidades y esquemas tributarios del sistema.
+    </p>
+  </div>
+{% endblock %}
+
+{% block app_content %}
+  <div class="grid gap-6 lg:grid-cols-2">
+    
+    <!-- Tarjeta: Bodegas -->
+    <div class="rounded-2xl border bg-white p-4">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-lg font-semibold">Bodegas</h2>
+        <span class="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
+          {{ warehouse_count }} registradas
+        </span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-xs">
+          <thead>
+            <tr class="border-b text-left text-gray-600">
+              <th class="px-2 py-1">Código</th>
+              <th class="px-2 py-1">Nombre</th>
+              <th class="px-2 py-1">Tipo</th>
+              <th class="px-2 py-1">Activa</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for w in warehouses %}
+              <tr class="border-b">
+                <td class="px-2 py-1 font-mono text-[11px]">{{ w.code }}</td>
+                <td class="px-2 py-1 text-xs">{{ w.name }}</td>
+                <td class="px-2 py-1 text-xs">{{ w.get_type_display }}</td>
+                <td class="px-2 py-1 text-xs">
+                  {% if w.is_active %}
+                    <span class="rounded bg-green-50 px-2 py-0.5 text-[10px] text-green-700">Sí</span>
+                  {% else %}
+                    <span class="rounded bg-red-50 px-2 py-0.5 text-[10px] text-red-700">No</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="4" class="px-2 py-3 text-center text-xs text-gray-500">
+                  No hay bodegas configuradas aún.
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="mt-3 flex justify-end gap-2">
+        <a href="{% url 'core:warehouse_create' %}" class="text-xs rounded-lg border px-3 py-1 hover:bg-gray-50">Nueva bodega</a>
+      </div>
+    </div>
+
+    <!-- Tarjeta: Ubicaciones -->
+    <div class="rounded-2xl border bg-white p-4">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-lg font-semibold">Ubicaciones</h2>
+        <span class="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
+          {{ location_count }} registradas
+        </span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-xs">
+          <thead>
+            <tr class="border-b text-left text-gray-600">
+              <th class="px-2 py-1">Código</th>
+              <th class="px-2 py-1">Nombre</th>
+              <th class="px-2 py-1">Bodega</th>
+              <th class="px-2 py-1">Activa</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for loc in locations %}
+              <tr class="border-b">
+                <td class="px-2 py-1 font-mono text-[11px]">{{ loc.code }}</td>
+                <td class="px-2 py-1 text-xs">{{ loc.name }}</td>
+                <td class="px-2 py-1 text-xs">{{ loc.warehouse.name }}</td>
+                <td class="px-2 py-1 text-xs">
+                  {% if loc.is_active %}
+                    <span class="rounded bg-green-50 px-2 py-0.5 text-[10px] text-green-700">Sí</span>
+                  {% else %}
+                    <span class="rounded bg-red-50 px-2 py-0.5 text-[10px] text-red-700">No</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="4" class="px-2 py-3 text-center text-xs text-gray-500">
+                  No hay ubicaciones configuradas aún.
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="mt-3 flex justify-end gap-2">
+        <a href="{% url 'core:location_create' %}" class="text-xs rounded-lg border px-3 py-1 hover:bg-gray-50">Nueva ubicación</a>
+      </div>
+    </div>
+
+    <!-- Tarjeta: Unidades -->
+    <div class="rounded-2xl border bg-white p-4">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-lg font-semibold">Unidades</h2>
+        <span class="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
+          {{ unit_count }} registradas
+        </span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-xs">
+          <thead>
+            <tr class="border-b text-left text-gray-600">
+              <th class="px-2 py-1">Código</th>
+              <th class="px-2 py-1">Nombre</th>
+              <th class="px-2 py-1">Símbolo</th>
+              <th class="px-2 py-1">Activa</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for u in units %}
+              <tr class="border-b">
+                <td class="px-2 py-1 font-mono text-[11px]">{{ u.code }}</td>
+                <td class="px-2 py-1 text-xs">{{ u.name }}</td>
+                <td class="px-2 py-1 text-xs">{{ u.symbol }}</td>
+                <td class="px-2 py-1 text-xs">
+                  {% if u.is_active %}
+                    <span class="rounded bg-green-50 px-2 py-0.5 text-[10px] text-green-700">Sí</span>
+                  {% else %}
+                    <span class="rounded bg-red-50 px-2 py-0.5 text-[10px] text-red-700">No</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="4" class="px-2 py-3 text-center text-xs text-gray-500">
+                  No hay unidades configuradas aún.
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="mt-3 flex justify-end gap-2">
+        <a href="{% url 'core:unit_create' %}" class="text-xs rounded-lg border px-3 py-1 hover:bg-gray-50">Nueva unidad</a>
+      </div>
+    </div>
+
+    <!-- Tarjeta: Esquemas Tributarios -->
+    <div class="rounded-2xl border bg-white p-4">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-lg font-semibold">Esquemas Tributarios</h2>
+        <span class="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
+          {{ taxscheme_count }} registrados
+        </span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-xs">
+          <thead>
+            <tr class="border-b text-left text-gray-600">
+              <th class="px-2 py-1">Código</th>
+              <th class="px-2 py-1">Nombre</th>
+              <th class="px-2 py-1">Porcentaje</th>
+              <th class="px-2 py-1">Activa</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for ts in taxschemes %}
+              <tr class="border-b">
+                <td class="px-2 py-1 font-mono text-[11px]">{{ ts.code }}</td>
+                <td class="px-2 py-1 text-xs">{{ ts.name }}</td>
+                <td class="px-2 py-1 text-xs">{{ ts.rate }} %</td>
+                <td class="px-2 py-1 text-xs">
+                  {% if ts.is_active %}
+                    <span class="rounded bg-green-50 px-2 py-0.5 text-[10px] text-green-700">Sí</span>
+                  {% else %}
+                    <span class="rounded bg-red-50 px-2 py-0.5 text-[10px] text-red-700">No</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="4" class="px-2 py-3 text-center text-xs text-gray-500">
+                  No hay esquemas tributarios configurados.
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="mt-3 flex justify-end gap-2">
+        <a href="{% url 'core:taxscheme_create' %}" class="text-xs rounded-lg border px-3 py-1 hover:bg-gray-50">Nuevo esquema tributario</a>
+      </div>
+    </div>
+  </div>
+{% endblock %}

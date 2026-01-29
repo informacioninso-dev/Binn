@@ -1,0 +1,35 @@
+{# templates/partials/pagination.html #}
+{% if page_obj and page_obj.has_other_pages %}
+  <div class="mt-4 flex items-center justify-between text-xs text-gray-600 px-1">
+    <div>
+      Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+      · Mostrando
+      {{ page_obj.start_index }}–{{ page_obj.end_index }}
+      de {{ page_obj.paginator.count }} registros
+    </div>
+
+    <div class="inline-flex gap-1">
+      {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}"
+           class="rounded-lg border px-2 py-1 hover:bg-gray-50">
+          Anterior
+        </a>
+      {% else %}
+        <span class="rounded-lg border px-2 py-1 text-gray-400 cursor-not-allowed">
+          Anterior
+        </span>
+      {% endif %}
+
+      {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}"
+           class="rounded-lg border px-2 py-1 hover:bg-gray-50">
+          Siguiente
+        </a>
+      {% else %}
+        <span class="rounded-lg border px-2 py-1 text-gray-400 cursor-not-allowed">
+          Siguiente
+        </span>
+      {% endif %}
+    </div>
+  </div>
+{% endif %}
