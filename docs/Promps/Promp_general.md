@@ -320,8 +320,15 @@ APP: production
     • description (CharField) [max_length=255] [null=True] [blank=True]
     • default_warehouse (ForeignKey) [null=True] [blank=True] -> Warehouse
     • capacity_per_hour (DecimalField) [null=True] [blank=True]
+    • num_machines (PositiveIntegerField) [default=1]
+    • num_operators (PositiveIntegerField) [default=1]
+    • efficiency_factor (DecimalField) [default=1.0]
+    • setup_time_min (PositiveIntegerField) [default=0]
+    • hours_per_shift (DecimalField) [default=8.0]
+    • shifts_per_day (PositiveIntegerField) [default=1]
     • is_active (BooleanField)
     • id, created_at, updated_at, created_by, updated_by
+    • Property: available_minutes_per_day = hours_per_shift × shifts_per_day × num_machines × efficiency_factor × 60
 
   Modelo: ProductRouteStep
   Tabla: production_productroutestep
@@ -330,7 +337,8 @@ APP: production
     • work_center (ForeignKey) -> WorkCenter
     • name (CharField) [max_length=100]
     • description (CharField) [max_length=255] [null=True] [blank=True]
-    • expected_duration_min (PositiveIntegerField) [null=True] [blank=True]
+    • expected_duration_min (PositiveIntegerField) [null=True] [blank=True] — minutos por unidad de producto
+    • setup_time_min (PositiveIntegerField) [default=0] — setup específico del paso
     • requires_qa (BooleanField)
     • is_active (BooleanField)
     • id, created_at, updated_at, created_by, updated_by
@@ -342,10 +350,39 @@ APP: production
     • sequence (PositiveIntegerField)
     • input_lot, output_lot (ForeignKey) [null=True] [blank=True] -> Lot
     • quantity_input, quantity_output (DecimalField) [null=True] [blank=True]
-    • started_at, finished_at (DateTimeField) [null=True] [blank=True]
-    • status (CharField) [max_length=20]
+    • planned_start, planned_end (DateTimeField) [null=True] [blank=True] — fechas planificadas (calculadas al liberar)
+    • started_at, finished_at (DateTimeField) [null=True] [blank=True] — fechas reales
+    • status (CharField) [max_length=20] — PENDING / IN_PROGRESS / PAUSED / HOLD / DONE / REJECTED
+    • operator (ForeignKey) [null=True] [blank=True] -> User
+    • materials_consumed (BooleanField) [default=False]
     • notes (TextField) [null=True] [blank=True]
     • id, created_at, updated_at, created_by, updated_by
+
+  Modelo: OperationStatusLog
+  Tabla: production_operationstatuslog
+    • operation (ForeignKey) -> ProductionOperation
+    • from_status (CharField) [max_length=20] [null=True]
+    • to_status (CharField) [max_length=20]
+    • changed_at (DateTimeField) [auto_now_add=True]
+    • changed_by (ForeignKey) [null=True] -> User
+    • notes (TextField) [null=True]
+
+  Modelo: MaterialTransfer
+  Tabla: production_materialtransfer
+    • order (ForeignKey) -> ProductionOrder
+    • component (ForeignKey) -> Product
+    • lot (ForeignKey) -> Lot
+    • quantity_requested (DecimalField)
+    • quantity_confirmed (DecimalField) [null=True]
+    • from_warehouse (ForeignKey) -> Warehouse
+    • to_warehouse (ForeignKey) -> Warehouse
+    • status (CharField) [max_length=20] — PENDING / CONFIRMED / ADJUSTED
+    • confirmed_by (ForeignKey) [null=True] -> User
+    • confirmed_at (DateTimeField) [null=True]
+    • deviation_notes (TextField) [null=True]
+    • inventory_move (ForeignKey) [null=True] -> InventoryMove
+    • id, created_at, updated_at, created_by, updated_by
+    • Unique: (order, lot)
 
   Modelo: ProductionPlan
   Tabla: production_productionplan

@@ -3,9 +3,34 @@ from django.contrib.auth.models import Group, Permission
 
 ROLES = {
     "admin": {"*": ["*"]},  # todos los permisos
-    "operaciones": {"inventory": ["view_", "add_", "change_"], "production": ["view_", "add_", "change_"]},
-    "contabilidad": {"finance": ["view_", "add_", "change_"], "billing": ["view_", "add_", "change_"]},
-    "comercial": {"inventory": ["view_"], "billing": ["view_", "add_"]},
+    "operaciones": {
+        "inventory":   ["view_", "add_", "change_"],
+        "production":  ["view_", "add_", "change_"],
+        "procurement": ["view_", "add_", "change_"],
+        "quality":     ["view_", "add_", "change_"],
+        "partners":    ["view_"],
+        "core":        ["view_"],
+    },
+    "contabilidad": {
+        "finance":     ["view_", "add_", "change_"],
+        "billing":     ["view_", "add_", "change_"],
+        "partners":    ["view_"],
+        "core":        ["view_"],
+    },
+    "comercial": {
+        "inventory":   ["view_"],
+        "sales":       ["view_", "add_", "change_"],
+        "billing":     ["view_", "add_"],
+        "partners":    ["view_", "add_", "change_"],
+        "core":        ["view_"],
+    },
+    "calidad": {
+        "quality":     ["view_", "add_", "change_"],
+        "inventory":   ["view_"],
+        "production":  ["view_"],
+        "procurement": ["view_"],
+        "core":        ["view_"],
+    },
 }
 
 class Command(BaseCommand):

@@ -9,7 +9,8 @@ from django.urls import reverse_lazy
 from .services import confirm_order_service, add_product_to_order
 from django.forms import modelformset_factory
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db.models import Sum
+from core.mixins import ModulePermissionMixin
+from django.db.models import Q, Sum
 from django.shortcuts import render, redirect
 from django.views import View
 from .models import SaleOrder, SaleOrderLine, Product
@@ -17,7 +18,8 @@ from django.contrib import messages
 
 
 
-class SalesIndexView(LoginRequiredMixin, TemplateView):
+class SalesIndexView(LoginRequiredMixin, ModulePermissionMixin, TemplateView):
+    permission_required = "sales.view_saleorder"
     template_name = "sales/index.html"
 
 
@@ -68,7 +70,8 @@ class SaleOrderCreateView(View):
         return render(request, self.template_name, context)
 
 
-class SaleOrderDetailView(DetailView):
+class SaleOrderDetailView(LoginRequiredMixin, ModulePermissionMixin, DetailView):
+    permission_required = "sales.view_saleorder"
     model = SaleOrder
     template_name = 'sales/order_detail.html'
     context_object_name = 'order'
@@ -90,25 +93,39 @@ def add_product_to_order_view(request, pk):
 
 
 # Lista de pedidos
-class SaleOrderListView(ListView):
+class SaleOrderListView(LoginRequiredMixin, ModulePermissionMixin, ListView):
+    permission_required = "sales.view_saleorder"
     model = SaleOrder
     template_name = 'sales/order_list.html'
     context_object_name = 'page'
-    paginate_by = 10  # Paginación (10 pedidos por página)
+    paginate_by = 10
+
+    def get_queryset(self):
+        qs = SaleOrder.objects.select_related("client").order_by("-created_at")
+        q = self.request.GET.get("q", "").strip()
+        status = self.request.GET.get("status", "").strip()
+        if q:
+            qs = qs.filter(
+                Q(code__icontains=q)
+                | Q(client__trade_name__icontains=q)
+                | Q(client__legal_name__icontains=q)
+            )
+        if status:
+            qs = qs.filter(status=status)
+        return qs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-
-        # Agregar el total de cada pedido utilizando agregación
+        context["status_choices"] = SaleOrderStatus.choices
         for order in context['page']:
             order.total_amount = order.saleorderline_set.aggregate(
                 total_amount=Sum('total_price')
-            )['total_amount'] or 0  # Si no hay líneas de pedido, asignar 0
-
+            )['total_amount'] or 0
         return context
 
 # Crear nuevo pedido
-class SaleOrderCreateView(CreateView):
+class SaleOrderCreateView(LoginRequiredMixin, ModulePermissionMixin, CreateView):
+    permission_required = "sales.add_saleorder"
     model = SaleOrder
     form_class = SaleOrderForm
     template_name = 'sales/order_form.html'

@@ -64,10 +64,26 @@
     </div>
   </div>
 
+  {# Enlace a transferencias de MP #}
+  {% if order.plan %}
+    <div class="mb-4">
+      <a href="{% url 'production:order_transfers' order.pk %}"
+         class="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100">
+        Transferencias de materia prima
+        {% if pending_transfers_count %}
+          <span class="inline-flex rounded-full bg-yellow-400 px-2 py-0.5 text-[10px] font-bold text-white">
+            {{ pending_transfers_count }} pendiente{{ pending_transfers_count|pluralize:"s" }}
+          </span>
+        {% endif %}
+      </a>
+    </div>
+  {% endif %}
+
   {# Lista de operaciones / pasos de la ruta #}
   <div class="rounded-2xl border bg-white">
-    <div class="border-b px-4 py-3 text-xs font-semibold text-gray-600">
-      Ruta de producción – pasos
+    <div class="border-b px-4 py-3 flex items-center justify-between">
+      <span class="text-xs font-semibold text-gray-600">Ruta de producción – pasos</span>
+      <span class="text-[11px] text-gray-400">Los lotes WIP se generan al completar cada paso</span>
     </div>
 
     {% if operations %}
@@ -96,6 +112,12 @@
                   {% endif %}
                   <p class="mt-1 text-[11px] text-gray-500">
                     Estado: {{ op.get_status_display }}
+                    {% if op.operator %}
+                      · Operario: {{ op.operator.get_full_name|default:op.operator.username }}
+                    {% endif %}
+                    {% if op.planned_start %}
+                      · Plan: {{ op.planned_start|date:"d/m H:i" }}–{{ op.planned_end|date:"d/m H:i" }}
+                    {% endif %}
                     {% if op.started_at %}
                       · Inicio: {{ op.started_at|date:"d/m/Y H:i" }}
                     {% endif %}
@@ -103,6 +125,11 @@
                       · Fin: {{ op.finished_at|date:"d/m/Y H:i" }}
                     {% endif %}
                   </p>
+                  {% if op.step.requires_qa %}
+                    <p class="mt-1 text-[11px] font-medium text-purple-700">
+                      Este paso requiere aprobación QA antes de avanzar al siguiente.
+                    </p>
+                  {% endif %}
                 </div>
 
                 <div class="mt-2 flex flex-col items-start gap-1 text-xs md:mt-0 md:items-end">
@@ -143,9 +170,27 @@
                     <span class="inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">
                       En proceso
                     </span>
+                  {% elif op.status == "PAUSED" %}
+                    <span class="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-700">
+                      Pausada
+                    </span>
+                  {% elif op.status == "HOLD" %}
+                    <span class="inline-flex rounded-full bg-orange-50 px-2 py-0.5 text-[11px] font-medium text-orange-700">
+                      En espera QA
+                    </span>
                   {% elif op.status == "DONE" %}
                     <span class="inline-flex rounded-full bg-green-50 px-2 py-0.5 text-[11px] font-medium text-green-700">
                       Completado
+                    </span>
+                  {% elif op.status == "REJECTED" %}
+                    <span class="inline-flex rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-medium text-red-700">
+                      Rechazada
+                    </span>
+                  {% endif %}
+
+                  {% if op.step.requires_qa %}
+                    <span class="inline-flex rounded-full bg-purple-50 px-2 py-0.5 text-[11px] font-medium text-purple-700">
+                      QA
                     </span>
                   {% endif %}
                 </div>
@@ -160,6 +205,9 @@
                 {% endif %}
                 <p class="mt-1 text-[11px] text-gray-500">
                   Estado: {{ op.get_status_display }}
+                  {% if op.operator %}
+                    · Operario: {{ op.operator.get_full_name|default:op.operator.username }}
+                  {% endif %}
                   {% if op.started_at %}
                     · Inicio: {{ op.started_at|date:"d/m/Y H:i" }}
                   {% endif %}
@@ -182,12 +230,27 @@
                     {{ op.quantity_output|default:"–" }}
                   </span>
                 </p>
+                {% if op.input_lot %}
+                  <p class="text-[10px] text-gray-400">
+                    Lote entrada: {{ op.input_lot.internal_lot }}
+                  </p>
+                {% endif %}
+                {% if op.output_lot %}
+                  <p class="text-[10px] text-gray-400">
+                    Lote WIP: {{ op.output_lot.internal_lot }}
+                  </p>
+                {% endif %}
 
-                {# Solo permitir editar si aún no está DONE y es la operación actual (por seguridad extra) #}
+                {# Permitir editar si es la operación actual o está en HOLD (para QA) #}
                 {% if current_operation and op.pk == current_operation.pk and op.status != "DONE" %}
                   <a href="{% url 'production:operation_edit' op.pk %}"
                      class="mt-1 inline-flex items-center rounded-xl bg-blue-600 px-3 py-1.5 text-[11px] font-medium text-white hover:bg-blue-700">
                     Registrar avance
+                  </a>
+                {% elif op.status == "HOLD" %}
+                  <a href="{% url 'production:operation_edit' op.pk %}"
+                     class="mt-1 inline-flex items-center rounded-xl bg-orange-500 px-3 py-1.5 text-[11px] font-medium text-white hover:bg-orange-600">
+                    Aprobar QA
                   </a>
                 {% endif %}
               </div>
@@ -201,5 +264,44 @@
       </div>
     {% endif %}
   </div>
+
+  {# ── Log de auditoría ISO 13485 ── #}
+  {% if status_logs %}
+  <div class="mt-6 rounded-2xl border bg-white">
+    <div class="border-b px-4 py-3">
+      <span class="text-xs font-semibold text-gray-600">Registro de auditoría – Cambios de estado</span>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-[11px]">
+        <thead>
+          <tr class="border-b bg-gray-50 text-[10px] font-semibold text-gray-500">
+            <th class="px-3 py-2 text-left">Fecha/hora</th>
+            <th class="px-3 py-2 text-left">Operación</th>
+            <th class="px-3 py-2 text-left">De</th>
+            <th class="px-3 py-2 text-left">A</th>
+            <th class="px-3 py-2 text-left">Usuario</th>
+            <th class="px-3 py-2 text-left">Notas</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          {% for log in status_logs %}
+            <tr class="hover:bg-gray-50">
+              <td class="px-3 py-1.5 text-gray-600">{{ log.changed_at|date:"d/m/Y H:i:s" }}</td>
+              <td class="px-3 py-1.5 font-medium">Paso {{ log.operation.sequence }} · {{ log.operation.step.name }}</td>
+              <td class="px-3 py-1.5">
+                <span class="inline-flex rounded-full bg-gray-100 px-1.5 py-0.5">{{ log.from_status|default:"—" }}</span>
+              </td>
+              <td class="px-3 py-1.5">
+                <span class="inline-flex rounded-full bg-blue-50 px-1.5 py-0.5 text-blue-700">{{ log.to_status }}</span>
+              </td>
+              <td class="px-3 py-1.5 text-gray-600">{{ log.changed_by.get_full_name|default:log.changed_by.username }}</td>
+              <td class="px-3 py-1.5 text-gray-500">{{ log.notes|default:"" |truncatechars:80 }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
 
 {% endblock %}

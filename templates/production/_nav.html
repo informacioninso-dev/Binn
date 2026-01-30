@@ -51,6 +51,33 @@
          {% endif %}">
         Lista de materiales
       </a>
-    </ul>
+    </li>
+
+    {# Rutas de producción #}
+    <li>
+      <a href="{% url 'production:routes_list' %}"
+         class="pb-2 border-b-2 transition-colors
+         {% if 'route' in url_name %}
+            border-blue-600 text-blue-600
+         {% else %}
+            border-transparent text-gray-600 hover:text-blue-600
+         {% endif %}">
+        Rutas de producción
+      </a>
+    </li>
+
+    {# Estaciones de trabajo #}
+    <li>
+      <a href="{% url 'production:workcenters_list' %}"
+         class="pb-2 border-b-2 transition-colors
+         {% if 'workcenter' in url_name %}
+            border-blue-600 text-blue-600
+         {% else %}
+            border-transparent text-gray-600 hover:text-blue-600
+         {% endif %}">
+        Estaciones de trabajo
+      </a>
+    </li>
+  </ul>
 </nav>
 {% endwith %}

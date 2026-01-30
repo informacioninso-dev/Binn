@@ -1,18 +1,13 @@
-from django.urls import path 
+from django.urls import path
 from core.views import (
     dashboard,
-  SettingsView , 
-  Warehouse, WarehouseListView,
-    LocationListView, 
-    TaxSchemeCreateView, 
-    TaxSchemeListView, 
-    UnitCreateView, 
-    UnitListView,
-    WarehouseCreateView,
-    LocationCreateView
-    )
-# Definición de las rutas de la aplicación core
-# Aquí se asocia la URL 'dashboard/' con la vista dashboard
+    SettingsView,
+    TaxSchemeCreateView, TaxSchemeListView,
+    UnitCreateView, UnitListView,
+    WarehouseCreateView, WarehouseListView,
+    LocationCreateView, LocationListView,
+)
+
 app_name = "core"
 urlpatterns = [
     path('dashboard/', dashboard),

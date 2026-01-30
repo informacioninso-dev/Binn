@@ -13,7 +13,7 @@ from .models import (
     QAPlan,
     InspectionStage,
 )
-from inventory.models import Product, Lot
+from inventory.models import Product, Lot, LotStatus
 from production.models import WorkCenter, ProductRouteStep, ProductionOperation
 
 
@@ -133,8 +133,15 @@ class QualityInspectionForm(forms.ModelForm):
         # Placeholders en español
         if hasattr(self.fields["operation"], "empty_label"):
             self.fields["operation"].empty_label = "Sin operación (no aplica)"
-        if hasattr(self.fields["result"], "empty_label"):
-            self.fields["result"].empty_label = "— Selecciona un resultado —"
+        # Resultado: por defecto "Pendiente", opciones visibles: Aprobado, Rechazado, Cuarentena
+        self.fields["result"].choices = [
+            (LotStatus.PENDING.value, LotStatus.PENDING.label),
+            (LotStatus.APPROVED.value, LotStatus.APPROVED.label),
+            (LotStatus.REJECTED.value, LotStatus.REJECTED.label),
+            (LotStatus.QUARANTINE.value, LotStatus.QUARANTINE.label),
+        ]
+        if not self.instance.pk:
+            self.initial["result"] = LotStatus.PENDING.value
 
         # No permitimos que el usuario cambie inspected_by desde el form (lo setea la vista)
         if "inspected_by" in self.fields:

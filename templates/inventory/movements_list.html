@@ -15,6 +15,22 @@
 {% block app_content %}
 {# ⬇️ Submenú del módulo Inventario ⬇️ #}
   {% include 'inventory/_nav.html' %}
+
+  <form method="get" class="mb-4 flex flex-wrap items-center gap-2 text-sm">
+    <input type="text" name="q" value="{{ request.GET.q|default_if_none:'' }}"
+           placeholder="Buscar por producto o referencia…"
+           class="w-48 rounded-xl border px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+    <select name="type"
+            class="rounded-xl border px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+            onchange="this.form.submit()">
+      <option value="">Todos los tipos</option>
+      {% for value, label in type_choices %}
+        <option value="{{ value }}" {% if request.GET.type == value %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="rounded-xl border px-3 py-1.5 text-xs hover:bg-gray-50">Filtrar</button>
+  </form>
+
   <div class="rounded-2xl border bg-white">
     <div class="border-b px-4 py-3">
       <h2 class="font-semibold">Kardex (últimos movimientos)</h2>

@@ -7,13 +7,13 @@
 {% endblock %}
 
 {% block app_content %}
-  <div class="bg-white p-6 rounded-lg shadow-md">
+  <div class="bg-white p-6 rounded-2xl border">
     <form method="POST">
       {% csrf_token %}
       {{ form.as_p }}
       <div class="mt-4 flex justify-end gap-3">
-        <button type="submit" class="btn btn-primary">Guardar</button>
-        <a href="{% url 'core:warehouse_list' %}" class="btn btn-secondary">Cancelar</a>
+        <a href="{% url 'core:warehouse_list' %}" class="rounded-xl border px-4 py-2 text-sm hover:bg-gray-50">Cancelar</a>
+        <button type="submit" class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">Guardar</button>
       </div>
     </form>
   </div>

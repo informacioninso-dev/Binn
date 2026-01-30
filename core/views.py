@@ -1,28 +1,26 @@
-from django.contrib.auth.decorators import login_required # Asegura que el usuario esté autenticado
-from django.shortcuts import render # Importa la función para renderizar plantillas
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import render
 # core/views.py
 from django.views.generic import TemplateView, ListView
 from django.contrib.auth.mixins import LoginRequiredMixin
+from core.mixins import ModulePermissionMixin
 from .models import Warehouse, WarehouseType,TaxScheme,Location,Unit,UnitCategory
 from .forms import WarehouseForm,TaxSchemeForm,LocationForm,UnitForm
+from django.db import models
 from django.views.generic import View,TemplateView
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 
-@login_required # Asegura que solo usuarios autenticados puedan acceder a la vista
+@login_required
 def dashboard(request):
-    # Datos simulados para los KPIs y movimientos recientes (del backend o base de datos):
-    # Carga la vista de dashboard y renderiza a el html
-
     data = {
         'stock_total': 1250,
         'sales_this_month': '$ 13.250',
         'pending_invoices': 7,
         'open_work_orders': 3,
-        'last_movements': [], 
+        'last_movements': [],
     }
 
-    #  Contexto para pasar a la plantilla
     ctx = {
         'kpi_stock_total': data['stock_total'],
         'kpi_ventas_mes': data['sales_this_month'],
@@ -35,7 +33,8 @@ def dashboard(request):
 ##########################################################
 # vista general del modulo
 ##########################################################
-class SettingsView(LoginRequiredMixin, TemplateView):
+class SettingsView(LoginRequiredMixin, ModulePermissionMixin, TemplateView):
+    permission_required = "core.view_warehouse"
     template_name = "core/settings.html"
 
     def get_context_data(self, **kwargs):
@@ -60,7 +59,8 @@ class SettingsView(LoginRequiredMixin, TemplateView):
 # Vista para configurar esquema tributario
 ###############################################################
 
-class TaxSchemeCreateView(View):
+class TaxSchemeCreateView(LoginRequiredMixin, ModulePermissionMixin, View):
+    permission_required = "core.add_taxscheme"
     template_name = 'core/taxscheme_form.html'
 
     def get(self, request):
@@ -72,23 +72,30 @@ class TaxSchemeCreateView(View):
         if form.is_valid():
             form.save()
             messages.success(request, "Esquema tributario creado exitosamente.")
-            return redirect('core:taxscheme_list')  # Redirigir a la lista de esquemas tributarios
+            return redirect('core:taxscheme_list')
         messages.error(request, "Hubo un error al crear el esquema tributario.")
         return render(request, self.template_name, {'form': form})
 
 
-class TaxSchemeListView(View):
+class TaxSchemeListView(LoginRequiredMixin, ModulePermissionMixin, View):
+    permission_required = "core.view_taxscheme"
     template_name = 'core/taxscheme_list.html'
 
     def get(self, request):
-        schemes = TaxScheme.objects.all()
-        return render(request, self.template_name, {'schemes': schemes})
+        qs = TaxScheme.objects.all()
+        q = request.GET.get("q", "").strip()
+        if q:
+            qs = qs.filter(
+                models.Q(code__icontains=q) | models.Q(name__icontains=q)
+            )
+        return render(request, self.template_name, {'schemes': qs})
 
 ###############################################################
 # Vista para configurar  unidades
 ###############################################################
 
-class UnitCreateView(View):
+class UnitCreateView(LoginRequiredMixin, ModulePermissionMixin, View):
+    permission_required = "core.add_unit"
     template_name = 'core/unit_form.html'
 
     def get(self, request):
@@ -100,26 +107,31 @@ class UnitCreateView(View):
         if form.is_valid():
             form.save()
             messages.success(request, "Unidad creada exitosamente.")
-            return redirect('core:unit_list')  # Redirigir a la lista de unidades
+            return redirect('core:unit_list')
         messages.error(request, "Hubo un error al crear la unidad.")
         return render(request, self.template_name, {'form': form})
 
 
-class UnitListView(View):
+class UnitListView(LoginRequiredMixin, ModulePermissionMixin, View):
+    permission_required = "core.view_unit"
     template_name = 'core/unit_list.html'
 
     def get(self, request):
-        units = Unit.objects.all()
-        return render(request, self.template_name, {'units': units})
-
-
+        qs = Unit.objects.all()
+        q = request.GET.get("q", "").strip()
+        if q:
+            qs = qs.filter(
+                models.Q(code__icontains=q) | models.Q(name__icontains=q)
+            )
+        return render(request, self.template_name, {'units': qs})
 
 
 ###############################################################
 # Vista para configurar bodegas y ubicaciones
 ###############################################################
 
-class WarehouseCreateView(View):
+class WarehouseCreateView(LoginRequiredMixin, ModulePermissionMixin, View):
+    permission_required = "core.add_warehouse"
     template_name = 'core/warehouse_form.html'
 
     def get(self, request):
@@ -131,20 +143,26 @@ class WarehouseCreateView(View):
         if form.is_valid():
             form.save()
             messages.success(request, "Bodega creada exitosamente.")
-            return redirect('core:warehouse_list')  # Redirigir a la lista de bodegas
+            return redirect('core:warehouse_list')
         messages.error(request, "Hubo un error al crear la bodega.")
         return render(request, self.template_name, {'form': form})
-    
 
 
-class WarehouseListView(View):
+class WarehouseListView(LoginRequiredMixin, ModulePermissionMixin, View):
+    permission_required = "core.view_warehouse"
     template_name = 'core/warehouse_list.html'
 
     def get(self, request):
-        warehouses = Warehouse.objects.all()
-        return render(request, self.template_name, {'warehouses': warehouses})
+        qs = Warehouse.objects.all()
+        q = request.GET.get("q", "").strip()
+        if q:
+            qs = qs.filter(
+                models.Q(code__icontains=q) | models.Q(name__icontains=q)
+            )
+        return render(request, self.template_name, {'warehouses': qs})
 
-class LocationCreateView(View):
+class LocationCreateView(LoginRequiredMixin, ModulePermissionMixin, View):
+    permission_required = "core.add_location"
     template_name = 'core/location_form.html'
 
     def get(self, request):
@@ -156,13 +174,19 @@ class LocationCreateView(View):
         if form.is_valid():
             form.save()
             messages.success(request, "Ubicación creada exitosamente.")
-            return redirect('core:location_list')  # Redirigir a la lista de ubicaciones
+            return redirect('core:location_list')
         messages.error(request, "Hubo un error al crear la ubicación.")
         return render(request, self.template_name, {'form': form})
 
-class LocationListView(View):
+class LocationListView(LoginRequiredMixin, ModulePermissionMixin, View):
+    permission_required = "core.view_location"
     template_name = 'core/location_list.html'
 
     def get(self, request):
-        locations = Location.objects.all()
-        return render(request, self.template_name, {'locations': locations})
+        qs = Location.objects.all()
+        q = request.GET.get("q", "").strip()
+        if q:
+            qs = qs.filter(
+                models.Q(code__icontains=q) | models.Q(name__icontains=q)
+            )
+        return render(request, self.template_name, {'locations': qs})

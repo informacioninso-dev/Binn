@@ -1,6 +1,7 @@
 # partners/views.py
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
+from core.mixins import ModulePermissionMixin
 from django.db.models import Q
 from django.urls import reverse_lazy
 from django.views.generic import ListView, CreateView, UpdateView
@@ -9,7 +10,9 @@ from .models import Partner
 from .forms import PartnerForm
 
 
-class PartnerListView(LoginRequiredMixin, ListView):
+class PartnerListView(LoginRequiredMixin, ModulePermissionMixin, ListView):
+    permission_required = "partners.view_partner"
+
     model = Partner
     template_name = "partners/partner_list.html"
     context_object_name = "partners"
@@ -30,7 +33,9 @@ class PartnerListView(LoginRequiredMixin, ListView):
         return qs
 
 
-class PartnerCreateView(LoginRequiredMixin, CreateView):
+class PartnerCreateView(LoginRequiredMixin, ModulePermissionMixin, CreateView):
+    permission_required = "partners.add_partner"
+
     model = Partner
     form_class = PartnerForm
     template_name = "partners/partner_form.html"
@@ -41,7 +46,9 @@ class PartnerCreateView(LoginRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class PartnerUpdateView(LoginRequiredMixin, UpdateView):
+class PartnerUpdateView(LoginRequiredMixin, ModulePermissionMixin, UpdateView):
+    permission_required = "partners.change_partner"
+
     model = Partner
     form_class = PartnerForm
     template_name = "partners/partner_form.html"

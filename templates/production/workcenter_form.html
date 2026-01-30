@@ -1,0 +1,75 @@
+{% extends "layouts/app.html" %}
+{% load static %}
+
+{% block title %}Estación de trabajo · {{ block.super }}{% endblock %}
+
+{% block app_content %}
+{% include "production/_nav.html" %}
+
+<div class="mb-6 flex items-center justify-between">
+  <div>
+    <h1 class="text-2xl font-semibold">
+      {% if form.instance.pk %}Editar estación de trabajo{% else %}Nueva estación de trabajo{% endif %}
+    </h1>
+  </div>
+  <a href="{% url 'production:workcenters_list' %}"
+     class="rounded-xl border px-4 py-2 text-sm hover:bg-gray-50">Volver al listado</a>
+</div>
+
+{% if form.non_field_errors %}
+  <div class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+    {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+  </div>
+{% endif %}
+
+<form method="post" class="space-y-6">
+  {% csrf_token %}
+
+  {# Datos generales #}
+  <div class="rounded-2xl border bg-white p-4 md:p-6 space-y-4">
+    <h2 class="text-sm font-semibold text-gray-600 border-b pb-2">Datos generales</h2>
+    <div class="grid gap-4 md:grid-cols-2">
+      {% for field in form %}
+        {% if field.name == "code" or field.name == "name" or field.name == "description" or field.name == "default_warehouse" or field.name == "is_active" %}
+          <div {% if field.name == "is_active" %}class="flex items-center gap-2 pt-6"{% endif %}>
+            <label class="mb-1 block text-sm font-medium">{{ field.label }}</label>
+            {{ field }}
+            {% for error in field.errors %}<p class="text-xs text-red-600">{{ error }}</p>{% endfor %}
+          </div>
+        {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+
+  {# Capacidad operativa #}
+  <div class="rounded-2xl border bg-white p-4 md:p-6 space-y-4">
+    <h2 class="text-sm font-semibold text-gray-600 border-b pb-2">Capacidad operativa</h2>
+    <div class="grid gap-4 md:grid-cols-3">
+      {% for field in form %}
+        {% if field.name == "capacity_per_hour" or field.name == "num_machines" or field.name == "num_operators" or field.name == "efficiency_factor" or field.name == "setup_time_min" or field.name == "hours_per_shift" or field.name == "shifts_per_day" %}
+          <div>
+            <label class="mb-1 block text-sm font-medium">{{ field.label }}</label>
+            {{ field }}
+            {% if field.help_text %}<p class="text-[10px] text-gray-400 mt-1">{{ field.help_text }}</p>{% endif %}
+            {% for error in field.errors %}<p class="text-xs text-red-600">{{ error }}</p>{% endfor %}
+          </div>
+        {% endif %}
+      {% endfor %}
+    </div>
+    {% if form.instance.pk %}
+      <div class="mt-2 rounded-xl bg-blue-50 border border-blue-200 px-3 py-2 text-xs text-blue-700">
+        Minutos productivos/día: <strong>{{ form.instance.available_minutes_per_day|floatformat:0 }}</strong> min
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="flex justify-end gap-3">
+    <a href="{% url 'production:workcenters_list' %}"
+       class="rounded-xl border px-4 py-2 text-sm hover:bg-gray-50">Cancelar</a>
+    <button type="submit"
+            class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+      {% if form.instance.pk %}Guardar cambios{% else %}Crear estación{% endif %}
+    </button>
+  </div>
+</form>
+{% endblock %}

@@ -11,7 +11,10 @@ from inventory.models import Lot as RawLot
 class ProductionOperationStatus(models.TextChoices):
     PENDING = "PENDING", "Pendiente"
     IN_PROGRESS = "IN_PROGRESS", "En proceso"
+    PAUSED = "PAUSED", "Pausada"
+    HOLD = "HOLD", "En espera (QA / bloqueo)"
     DONE = "DONE", "Completada"
+    REJECTED = "REJECTED", "Rechazada"
 
 ############################################
 # Rutas de produccion
@@ -92,6 +95,7 @@ class BillOfMaterialLine(AuditModel):
         on_delete=models.PROTECT,
         related_name="bom_components",
         verbose_name="Componente",
+        limit_choices_to={"product_type__in": [ProductType.RAW, ProductType.SEMI], "is_active": True},
     )
     quantity = models.DecimalField(
         max_digits=12,
@@ -102,7 +106,7 @@ class BillOfMaterialLine(AuditModel):
         max_digits=5,
         decimal_places=4,
         default=0,
-        help_text="Porcentaje de merma / desperdicio esperado (0–100).",
+        help_text="Porcentaje estimado de merma para planificación (0–1). La merma real se calcula al cerrar la OP.",
     )
     sequence = models.PositiveIntegerField(
         default=10,
@@ -287,7 +291,35 @@ class WorkCenter(AuditModel):
         decimal_places=4,
         null=True,
         blank=True,
-        help_text="Capacidad teórica por hora (solo referencial)."
+        help_text="Capacidad teórica por hora (unidades/hora)."
+    )
+
+    # --- Capacidad operativa ---
+    num_machines = models.PositiveIntegerField(
+        default=1,
+        help_text="Cantidad de máquinas o puestos paralelos en esta estación.",
+    )
+    num_operators = models.PositiveIntegerField(
+        default=1,
+        help_text="Cantidad de operarios disponibles en esta estación.",
+    )
+    efficiency_factor = models.DecimalField(
+        max_digits=5, decimal_places=4,
+        default=Decimal("1.0000"),
+        help_text="Factor de eficiencia real (ej: 0.85 = 85%).",
+    )
+    setup_time_min = models.PositiveIntegerField(
+        default=0,
+        help_text="Tiempo de setup/preparación por lote (minutos).",
+    )
+    hours_per_shift = models.DecimalField(
+        max_digits=5, decimal_places=2,
+        default=Decimal("8.00"),
+        help_text="Horas productivas por turno.",
+    )
+    shifts_per_day = models.PositiveIntegerField(
+        default=1,
+        help_text="Cantidad de turnos por día.",
     )
 
     is_active = models.BooleanField(default=True)
@@ -299,6 +331,17 @@ class WorkCenter(AuditModel):
 
     def __str__(self):
         return f"{self.code} - {self.name}"
+
+    @property
+    def available_minutes_per_day(self):
+        """Minutos productivos por día = horas_turno × turnos × máquinas × eficiencia × 60."""
+        return (
+            self.hours_per_shift
+            * self.shifts_per_day
+            * self.num_machines
+            * self.efficiency_factor
+            * 60
+        )
 
 class ProductRouteStep(AuditModel):
     """
@@ -332,7 +375,12 @@ class ProductRouteStep(AuditModel):
     expected_duration_min = models.PositiveIntegerField(
         null=True,
         blank=True,
-        help_text="Duración esperada en minutos por lote/orden (opcional)."
+        help_text="Duración esperada en minutos por unidad de producto.",
+    )
+
+    setup_time_min = models.PositiveIntegerField(
+        default=0,
+        help_text="Tiempo de setup específico de este paso (minutos). Si es 0 usa el del centro de trabajo.",
     )
 
     # ¿Se requiere QA en este paso?
@@ -405,6 +453,8 @@ class ProductionOperation(AuditModel):
         blank=True,
     )
 
+    planned_start = models.DateTimeField(null=True, blank=True, help_text="Inicio planificado (calculado al liberar).")
+    planned_end = models.DateTimeField(null=True, blank=True, help_text="Fin planificado (calculado al liberar).")
     started_at = models.DateTimeField(null=True, blank=True)
     finished_at = models.DateTimeField(null=True, blank=True)
 
@@ -412,6 +462,20 @@ class ProductionOperation(AuditModel):
         max_length=20,
         choices=ProductionOperationStatus.choices,
         default=ProductionOperationStatus.PENDING,
+    )
+
+    operator = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="production_operations",
+        help_text="Operario responsable de ejecutar este paso.",
+    )
+
+    materials_consumed = models.BooleanField(
+        default=False,
+        help_text="Indica si ya se consumió la materia prima en este paso (evita doble consumo)."
     )
 
     notes = models.TextField(blank=True, null=True)
@@ -423,6 +487,36 @@ class ProductionOperation(AuditModel):
 
     def __str__(self):
         return f"OP {self.order.code} – Paso {self.sequence} ({self.step.name})"
+
+
+class OperationStatusLog(models.Model):
+    """
+    Registro de auditoría ISO 13485: cada cambio de estado
+    en una operación de producción queda registrado.
+    """
+    operation = models.ForeignKey(
+        ProductionOperation,
+        on_delete=models.CASCADE,
+        related_name="status_logs",
+    )
+    from_status = models.CharField(max_length=20, blank=True, null=True)
+    to_status = models.CharField(max_length=20)
+    changed_at = models.DateTimeField(auto_now_add=True)
+    changed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="operation_status_changes",
+    )
+    notes = models.TextField(blank=True, null=True)
+
+    class Meta:
+        verbose_name = "Log de estado de operación"
+        verbose_name_plural = "Logs de estado de operación"
+        ordering = ["-changed_at"]
+
+    def __str__(self):
+        return f"{self.operation} : {self.from_status} → {self.to_status} ({self.changed_at:%d/%m/%Y %H:%M})"
 
 
 class ProductionPlanStatus(models.TextChoices):
@@ -543,6 +637,81 @@ class ProductionPlanRawLot(models.Model):
         return f"{self.plan} – MP {self.lot.internal_lot}"
 
 
+class MaterialTransferStatus(models.TextChoices):
+    PENDING = "PENDING", "Pendiente"
+    CONFIRMED = "CONFIRMED", "Confirmada"
+    ADJUSTED = "ADJUSTED", "Ajustada (con desviación)"
+
+
+class MaterialTransfer(AuditModel):
+    """
+    Transferencia de materia prima desde bodega MP hacia estación de producción.
+    Se genera automáticamente al liberar una OP.
+    """
+    order = models.ForeignKey(
+        ProductionOrder,
+        on_delete=models.CASCADE,
+        related_name="material_transfers",
+    )
+    component = models.ForeignKey(
+        Product,
+        on_delete=models.PROTECT,
+        related_name="material_transfers",
+    )
+    lot = models.ForeignKey(
+        RawLot,
+        on_delete=models.PROTECT,
+        related_name="material_transfers",
+    )
+    quantity_requested = models.DecimalField(
+        max_digits=12, decimal_places=4,
+        help_text="Cantidad calculada del plan a transferir.",
+    )
+    quantity_confirmed = models.DecimalField(
+        max_digits=12, decimal_places=4,
+        null=True, blank=True,
+        help_text="Cantidad que el operario confirma haber transferido.",
+    )
+    from_warehouse = models.ForeignKey(
+        "core.Warehouse",
+        on_delete=models.PROTECT,
+        related_name="transfers_out",
+    )
+    to_warehouse = models.ForeignKey(
+        "core.Warehouse",
+        on_delete=models.PROTECT,
+        related_name="transfers_in",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=MaterialTransferStatus.choices,
+        default=MaterialTransferStatus.PENDING,
+    )
+    confirmed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name="confirmed_transfers",
+    )
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+    deviation_notes = models.TextField(
+        blank=True, null=True,
+        help_text="Notas del operario si la cantidad difiere de lo solicitado.",
+    )
+    inventory_move = models.ForeignKey(
+        "inventory.InventoryMove",
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name="material_transfers",
+    )
+
+    class Meta:
+        verbose_name = "Transferencia de material"
+        verbose_name_plural = "Transferencias de material"
+        unique_together = ("order", "lot")
+
+    def __str__(self):
+        return f"TRF {self.order.code} – {self.component.code} ({self.get_status_display()})"
 
 
 

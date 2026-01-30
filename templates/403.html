@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+
+{% block title %}Acceso denegado{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-center min-h-[60vh]">
+  <div class="text-center space-y-4">
+    <h1 class="text-6xl font-bold text-gray-300">403</h1>
+    <h2 class="text-xl font-semibold text-gray-700">Acceso denegado</h2>
+    <p class="text-gray-500">No tienes permisos para acceder a esta sección.</p>
+    <a href="{% url 'dashboard' %}" class="inline-block mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+      Volver al inicio
+    </a>
+  </div>
+</div>
+{% endblock %}

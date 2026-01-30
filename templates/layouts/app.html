@@ -17,41 +17,54 @@
              class="block rounded-lg px-1 py-2 hover:bg-gray-100 {% if not ns %}bg-gray-100 font-medium{% endif %}">
             Inicio
           </a>
+          {% if modules.partners %}
           <a href="{% url 'partners:index' %}"
              class="block rounded-lg px-1 py-2 hover:bg-gray-100 {% if ns == 'partners' %}bg-gray-100 font-medium{% endif %}">
-            Clientes/Proveedores
+            Socios
           </a>
+          {% endif %}
+          {% if modules.procurement %}
           <a href="{% url 'procurement:order_list' %}"
              class="block rounded-lg px-1 py-2 hover:bg-gray-100 {% if ns == 'procurement' %}bg-gray-100 font-medium{% endif %}">
             Compras
           </a>
+          {% endif %}
+          {% if modules.production %}
           <a href="{% url 'production:index' %}"
              class="block rounded-lg px-1 py-2 hover:bg-gray-100 {% if ns == 'production' %}bg-gray-100 font-medium{% endif %}">
             Producción
           </a>
-
+          {% endif %}
+          {% if modules.quality %}
           <a href="{% url 'quality:index' %}"
              class="block rounded-lg px-1 py-2 hover:bg-gray-100 {% if ns == 'quality' %}bg-gray-100 font-medium{% endif %}">
             Calidad
           </a>
-                    <a href="{% url 'sales:index' %}"
+          {% endif %}
+          {% if modules.sales %}
+          <a href="{% url 'sales:index' %}"
              class="block rounded-lg px-1 py-2 hover:bg-gray-100 {% if ns == 'sales' %}bg-gray-100 font-medium{% endif %}">
             Ventas
           </a>
-
+          {% endif %}
+          {% if modules.inventory %}
           <a href="{% url 'inventory:index' %}"
              class="block rounded-lg px-1 py-2 hover:bg-gray-100 {% if ns == 'inventory' %}bg-gray-100 font-medium{% endif %}">
             Inventario
           </a>
-
+          {% endif %}
+          {% if modules.finance %}
           <a href="{% url 'finance:index' %}"
              class="block rounded-lg px-1 py-2 hover:bg-gray-100 {% if ns == 'finance' %}bg-gray-100 font-medium{% endif %}">
             Finanzas
           </a>
+          {% endif %}
+          {% if modules.core %}
           <a href="{% url 'core:settings' %}"
              class="block rounded-lg px-1 py-2 hover:bg-gray-100 {% if ns == 'core' %}bg-gray-100 font-medium{% endif %}">
             Configuración
           </a>
+          {% endif %}
         {% endwith %}
 
         {% block sidebar_extra %}{% endblock %}

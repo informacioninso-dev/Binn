@@ -6,9 +6,9 @@
 {% block app_content %}
 <div class="mb-6 flex items-center justify-between">
   <div>
-    <h1 class="text-2xl font-semibold">Nuevo plano de fabricación (BOM)</h1>
+    <h1 class="text-2xl font-semibold">Plano de fabricación (BOM)</h1>
     <p class="text-sm text-gray-500">
-      Define los componentes y cantidades para un producto terminado.
+      Define los componentes y cantidades por unidad de producto terminado.
     </p>
   </div>
   <a href="{% url 'production:bom_list' %}"
@@ -97,8 +97,9 @@
         <thead>
           <tr class="border-b text-left text-gray-600">
             <th class="px-2 py-1">Componente</th>
-            <th class="px-2 py-1">Cantidad</th>
-            <th class="px-2 py-1">Merma (%)</th>
+            <th class="px-2 py-1">Cant. por unidad PT</th>
+            <th class="px-2 py-1">Unidad</th>
+            <th class="px-2 py-1">Merma estimada (%)</th>
             <th class="px-2 py-1">Secuencia</th>
             <th class="px-2 py-1">Eliminar</th>
           </tr>
@@ -113,6 +114,9 @@
                 {{ f.quantity }}
               </td>
               <td class="px-2 py-1">
+                <span class="unit-label text-gray-500">—</span>
+              </td>
+              <td class="px-2 py-1">
                 {{ f.scrap_rate }}
               </td>
               <td class="px-2 py-1">
@@ -125,7 +129,7 @@
               </td>
             </tr>
           {% empty %}
-            <tr><td colspan="5">No hay componentes añadidos.</td></tr>
+            <tr><td colspan="6">No hay componentes añadidos.</td></tr>
           {% endfor %}
         </tbody>
 
@@ -142,6 +146,9 @@
           </td>
           <td class="px-2 py-1">
             {{ formset.empty_form.quantity }}
+          </td>
+          <td class="px-2 py-1">
+            <span class="unit-label text-gray-500">—</span>
           </td>
           <td class="px-2 py-1">
             {{ formset.empty_form.scrap_rate }}
@@ -172,6 +179,11 @@
   </div>
 </form>
 
+<!-- Catálogo de componentes con unidad base -->
+<script>
+  const COMPONENTS = {{ components_json|safe }};
+</script>
+
 <script>
 (function() {
   const addBtn = document.getElementById("add-line");
@@ -181,33 +193,57 @@
 
   if (!addBtn || !body || !totalFormsInput || !emptyRow) return;
 
-addBtn.addEventListener("click", function() {
-  console.log("Botón de agregar componente clickeado"); // Asegúrate de que esto aparezca en la consola
-  const currentCount = parseInt(totalFormsInput.value, 10);
-  const newIndex = currentCount;
+  // Actualizar la etiqueta de unidad cuando cambia el componente
+  function attachUnitSync(row) {
+    var select = row.querySelector('select[name*="-component"]');
+    var unitLabel = row.querySelector('.unit-label');
+    if (!select || !unitLabel) return;
 
-  const newRow = emptyRow.cloneNode(true);
-  newRow.id = "";
-  newRow.classList.remove("hidden");
-
-  newRow.querySelectorAll("input, select, textarea").forEach(function(el) {
-    if (el.name) el.name = el.name.replace("__prefix__", newIndex);
-    if (el.id) el.id = el.id.replace("__prefix__", newIndex);
-
-    if (el.tagName === "INPUT" || el.tagName === "TEXTAREA") {
-      if (el.type === "checkbox" || el.type === "radio") {
-        el.checked = false;
+    function updateUnit() {
+      var id = select.value;
+      if (id && COMPONENTS[id]) {
+        unitLabel.textContent = COMPONENTS[id].unit_code;
       } else {
-        el.value = "";
+        unitLabel.textContent = "—";
       }
     }
+
+    select.addEventListener("change", updateUnit);
+    updateUnit(); // inicial
+  }
+
+  // Sincronizar filas existentes
+  body.querySelectorAll("tr.line-row").forEach(function(row) {
+    attachUnitSync(row);
   });
 
-  body.appendChild(newRow);
-  totalFormsInput.value = newIndex + 1;
-});
+  addBtn.addEventListener("click", function() {
+    var currentCount = parseInt(totalFormsInput.value, 10);
+    var newIndex = currentCount;
+
+    var newRow = emptyRow.cloneNode(true);
+    newRow.id = "";
+    newRow.classList.remove("hidden");
+
+    newRow.querySelectorAll("input, select, textarea").forEach(function(el) {
+      if (el.name) el.name = el.name.replace("__prefix__", newIndex);
+      if (el.id) el.id = el.id.replace("__prefix__", newIndex);
+
+      if (el.tagName === "INPUT" || el.tagName === "TEXTAREA") {
+        if (el.type === "checkbox" || el.type === "radio") {
+          el.checked = false;
+        } else {
+          el.value = "";
+        }
+      }
+    });
+
+    body.appendChild(newRow);
+    totalFormsInput.value = newIndex + 1;
+
+    attachUnitSync(newRow);
+  });
 
 })();
-
 </script>
 {% endblock %}

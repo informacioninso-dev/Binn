@@ -5,17 +5,25 @@
 
 {% block app_content %}
 {% include "production/_nav.html" %}
-<div class="mb-6 flex items-center justify-between">
+<div class="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
   <div>
     <h1 class="text-2xl font-semibold">Planos de fabricación (BOM)</h1>
     <p class="text-sm text-gray-500">
       Configura la estructura de materiales para cada producto terminado.
     </p>
   </div>
-  <a href="{% url 'production:bom_create' %}"
-     class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
-    + Nuevo BOM
-  </a>
+  <div class="flex flex-col items-stretch gap-2 md:flex-row md:items-center">
+    <form method="get" class="flex items-center gap-2">
+      <input type="text" name="q" value="{{ request.GET.q|default_if_none:'' }}"
+             placeholder="Buscar por producto o código…"
+             class="w-48 rounded-xl border px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+      <button type="submit" class="rounded-xl border px-3 py-1.5 text-xs hover:bg-gray-50">Filtrar</button>
+    </form>
+    <a href="{% url 'production:bom_create' %}"
+       class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 text-center">
+      + Nuevo BOM
+    </a>
+  </div>
 </div>
 
 <div class="rounded-2xl border bg-white">

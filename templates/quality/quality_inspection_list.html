@@ -6,17 +6,41 @@
 {% block app_content %}
   {% include "quality/_nav.html" %}
 
-  <div class="mb-6 flex items-center justify-between">
+  <div class="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
     <div>
       <h1 class="text-2xl font-semibold">Inspecciones de calidad</h1>
       <p class="text-sm text-gray-500">
         Historial de inspecciones por lote, etapa del proceso y resultado.
       </p>
     </div>
-    <a href="{% url 'quality:inspection_create' %}"
-       class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
-      + Nueva inspección
-    </a>
+    <div class="flex flex-col items-stretch gap-2 md:flex-row md:items-center">
+      <form method="get" class="flex flex-wrap items-center gap-2">
+        <input type="text" name="q" value="{{ request.GET.q|default_if_none:'' }}"
+               placeholder="Buscar por lote o producto…"
+               class="w-48 rounded-xl border px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+        <select name="result"
+                class="rounded-xl border px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                onchange="this.form.submit()">
+          <option value="">Todos los resultados</option>
+          {% for value, label in result_choices %}
+            <option value="{{ value }}" {% if request.GET.result == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+        <select name="stage"
+                class="rounded-xl border px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                onchange="this.form.submit()">
+          <option value="">Todas las etapas</option>
+          {% for value, label in stage_choices %}
+            <option value="{{ value }}" {% if request.GET.stage == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="rounded-xl border px-3 py-1.5 text-xs hover:bg-gray-50">Filtrar</button>
+      </form>
+      <a href="{% url 'quality:inspection_create' %}"
+         class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 text-center">
+        + Nueva inspección
+      </a>
+    </div>
   </div>
 
   {% if inspections %}

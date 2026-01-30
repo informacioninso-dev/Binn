@@ -4,10 +4,22 @@
 {% block app_header %}
   <div class="mb-4 flex items-center justify-between">
     <h1 class="text-2xl font-bold">Recepciones de materia prima</h1>
-    <a href="{% url 'procurement:receptions_create' %}"
-       class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
-      Nueva recepción
-    </a>
+    <div class="flex items-center gap-2">
+      <a href="{% url 'procurement:receptions_list_pdf' %}" target="_blank"
+         class="inline-flex items-center gap-1 rounded-lg border border-red-300 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50" title="Exportar listado PDF">
+        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 10v6m0 0l-3-3m3 3l3-3M6 20h12a2 2 0 002-2V8l-6-6H6a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+        PDF
+      </a>
+      <a href="{% url 'procurement:receptions_list_excel' %}"
+         class="inline-flex items-center gap-1 rounded-lg border border-green-300 px-3 py-2 text-sm font-medium text-green-600 hover:bg-green-50" title="Exportar listado Excel">
+        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 10v6m0 0l-3-3m3 3l3-3M6 20h12a2 2 0 002-2V8l-6-6H6a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+        Excel
+      </a>
+      <a href="{% url 'procurement:receptions_create' %}"
+         class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+        Nueva recepción
+      </a>
+    </div>
   </div>
 {% endblock %}
 
@@ -27,6 +39,7 @@
             <th class="px-3 py-2">Proveedor</th>
             <th class="px-3 py-2">Documento</th>
             <th class="px-3 py-2">Estado</th>
+            <th class="px-3 py-2 text-center">Exportar</th>
           </tr>
         </thead>
         <tbody>
@@ -39,10 +52,20 @@
                 {{ r.document_type|default:"" }} {{ r.document_number|default:"" }}
               </td>
               <td class="px-3 py-2">{{ r.get_status_display }}</td>
+              <td class="px-3 py-2 text-center">
+                <a href="{% url 'procurement:reception_detail_pdf' r.pk %}" target="_blank"
+                   class="text-red-500 hover:text-red-700" title="PDF">
+                  <svg class="inline h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 10v6m0 0l-3-3m3 3l3-3M6 20h12a2 2 0 002-2V8l-6-6H6a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                </a>
+                <a href="{% url 'procurement:reception_detail_excel' r.pk %}"
+                   class="ml-1 text-green-500 hover:text-green-700" title="Excel">
+                  <svg class="inline h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 10v6m0 0l-3-3m3 3l3-3M6 20h12a2 2 0 002-2V8l-6-6H6a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                </a>
+              </td>
             </tr>
           {% empty %}
             <tr>
-              <td colspan="5" class="px-3 py-6 text-center text-gray-500">
+              <td colspan="6" class="px-3 py-6 text-center text-gray-500">
                 No hay recepciones registradas.
               </td>
             </tr>

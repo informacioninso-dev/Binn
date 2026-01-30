@@ -113,6 +113,18 @@
                   Crear OP
                 </a>
               {% endif %}
+
+              {% if plan.status == "ACTIVE" %}
+                <form method="post" action="{% url 'production:plans_cancel' plan.pk %}"
+                      onsubmit="return confirm('¿Anular este plan y liberar las materias primas reservadas?');"
+                      class="inline">
+                  {% csrf_token %}
+                  <button type="submit"
+                          class="rounded-full border border-red-300 px-2 py-0.5 text-[11px] text-red-600 hover:bg-red-50">
+                    Anular
+                  </button>
+                </form>
+              {% endif %}
             </td>
           </tr>
         {% endfor %}

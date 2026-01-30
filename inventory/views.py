@@ -1,6 +1,7 @@
 # inventory/views.py
 import json
 from django.contrib.auth.mixins import LoginRequiredMixin
+from core.mixins import ModulePermissionMixin
 from django.urls import reverse_lazy
 from django.views.generic import ListView, CreateView, UpdateView, View
 from django.contrib import messages
@@ -25,7 +26,9 @@ import json
 ################################################################
 # vistas para gestionar productos
 ################################################################
-class ProductListView(LoginRequiredMixin, ListView):
+class ProductListView(LoginRequiredMixin, ModulePermissionMixin, ListView):
+    permission_required = "inventory.view_product"
+
     model = Product
     template_name = "inventory/index.html"
     context_object_name = "page"
@@ -39,7 +42,9 @@ class ProductListView(LoginRequiredMixin, ListView):
         return qs
 
 # vistas para crear/editar productos
-class ProductCreateView(LoginRequiredMixin, CreateView):
+class ProductCreateView(LoginRequiredMixin, ModulePermissionMixin, CreateView):
+    permission_required = "inventory.add_product"
+
     model = Product
     form_class = ProductForm
     template_name = "inventory/product_form.html"
@@ -51,7 +56,9 @@ class ProductCreateView(LoginRequiredMixin, CreateView):
     
 
 # vistas para crear/editar productos
-class ProductUpdateView(LoginRequiredMixin, UpdateView):
+class ProductUpdateView(LoginRequiredMixin, ModulePermissionMixin, UpdateView):
+    permission_required = "inventory.change_product"
+
     model = Product
     form_class = ProductForm
     template_name = "inventory/product_form.html"
@@ -62,7 +69,9 @@ class ProductUpdateView(LoginRequiredMixin, UpdateView):
         return super().form_valid(form)
 
 # vista para activar/inactivar productos
-class ProductToggleActiveView(LoginRequiredMixin, View):
+class ProductToggleActiveView(LoginRequiredMixin, ModulePermissionMixin, View):
+    permission_required = "inventory.change_product"
+
     """Activar/Inactivar (mejor que borrar)."""
     success_url = reverse_lazy("inventory:index")
 
@@ -75,18 +84,37 @@ class ProductToggleActiveView(LoginRequiredMixin, View):
         return redirect(self.success_url)
 
 # vistas para gestionar movimientos de inventario
-class InventoryMoveListView(LoginRequiredMixin, ListView):
+class InventoryMoveListView(LoginRequiredMixin, ModulePermissionMixin, ListView):
+    permission_required = "inventory.view_inventorymove"
+
     model = InventoryMove
     template_name = "inventory/movements_list.html"
     context_object_name = "page"
     paginate_by = 25
 
     def get_queryset(self):
+        from django.db.models import Q
         qs = InventoryMove.objects.select_related("product").order_by("-date")
+        q = self.request.GET.get("q", "").strip()
         product_id = self.request.GET.get("product")
+        move_type = self.request.GET.get("type", "").strip()
+        if q:
+            qs = qs.filter(
+                Q(product__name__icontains=q)
+                | Q(product__code__icontains=q)
+                | Q(reference__icontains=q)
+            )
         if product_id:
             qs = qs.filter(product_id=product_id)
+        if move_type:
+            qs = qs.filter(movement_type=move_type)
         return qs
+
+    def get_context_data(self, **kwargs):
+        from .models import MovementTypes
+        ctx = super().get_context_data(**kwargs)
+        ctx["type_choices"] = MovementTypes.choices
+        return ctx
 
 from django.contrib import messages
 from django.urls import reverse_lazy
@@ -95,7 +123,9 @@ from django.core.exceptions import ValidationError
 from .services import register_inventory_move  # Asegúrate de importar el servicio
 from .forms import InventoryMoveForm
 
-class InventoryMoveCreateView(LoginRequiredMixin, FormView):
+class InventoryMoveCreateView(LoginRequiredMixin, ModulePermissionMixin, FormView):
+    permission_required = "inventory.add_inventorymove"
+
     template_name = "inventory/movements_form.html"
     form_class = InventoryMoveForm
     success_url = reverse_lazy("inventory:movements_list")
@@ -152,7 +182,9 @@ class InventoryMoveCreateView(LoginRequiredMixin, FormView):
 
 # vista para actualizar bodega y ubicación de un lote
 
-class LotLocationUpdateView(LoginRequiredMixin, UpdateView):
+class LotLocationUpdateView(LoginRequiredMixin, ModulePermissionMixin, UpdateView):
+    permission_required = "inventory.change_lot"
+
     model = Lot
     form_class = LotLocationUpdateForm
     template_name = "inventory/lot_location_form.html"

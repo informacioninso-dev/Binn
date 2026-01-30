@@ -9,10 +9,12 @@ from .models import (
     BillOfMaterialLine,
     ProductionOrder,
     ProductRoute,
-    ProductionOperation,        
+    ProductRouteStep,
+    WorkCenter,
+    ProductionOperation,
     ProductionOperationStatus,
-    ProductionPlanRawLot,  
-    ProductionPlan, 
+    ProductionPlanRawLot,
+    ProductionPlan,
 )
 from inventory.models import Product, ProductType
 from .models import ProductionOperation, ProductionOperationStatus
@@ -35,6 +37,10 @@ class BillOfMaterialForm(forms.ModelForm):
             product_type=ProductType.FG,
             is_active=True
         ).order_by("name")
+        self.fields["product_finished"].label = "Producto terminado"
+        self.fields["revision"].label = "Revisión"
+        self.fields["description"].label = "Descripción"
+        self.fields["is_active"].label = "Activo"
 
 
 class BillOfMaterialLineForm(forms.ModelForm):
@@ -50,10 +56,18 @@ class BillOfMaterialLineForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Componentes: normalmente RAW, PACK, SEMI (excluimos SERVICE)
+        # Componentes: solo materia prima (RAW) y semielaborados (SEMI)
         self.fields["component"].queryset = Product.objects.filter(
-            is_active=True
-        ).exclude(product_type=ProductType.SERVICE).order_by("name")
+            product_type__in=[ProductType.RAW, ProductType.SEMI],
+            is_active=True,
+        ).order_by("name")
+        # Mostrar solo el nombre (el código se identifica aparte)
+        self.fields["component"].label_from_instance = lambda obj: f"{obj.code} - {obj.name}"
+        # Labels en español
+        self.fields["component"].label = "Componente"
+        self.fields["quantity"].label = "Cant. por unidad PT"
+        self.fields["scrap_rate"].label = "Merma estimada (%)"
+        self.fields["sequence"].label = "Secuencia"
 
 
 BillOfMaterialLineFormSet = inlineformset_factory(
@@ -101,9 +115,11 @@ class ProductionOrderForm(forms.ModelForm):
                 attrs={"class": "w-full rounded-lg border px-3 py-2"}
             ),
             "start_date": forms.DateInput(
+                format="%Y-%m-%d",
                 attrs={"class": "w-full rounded-lg border px-3 py-2", "type": "date"}
             ),
             "end_date": forms.DateInput(
+                format="%Y-%m-%d",
                 attrs={"class": "w-full rounded-lg border px-3 py-2", "type": "date"}
             ),
             "notes": forms.Textarea(
@@ -120,19 +136,21 @@ class ProductionOrderForm(forms.ModelForm):
             is_active=True,
         ).order_by("name")
 
-        # Solo rutas activas
-        self.fields["route"].queryset = ProductRoute.objects.filter(
-            is_active=True
-        ).order_by("product__name", "name")
+        # Ruta obligatoria, filtrada por producto seleccionado
+        self.fields["route"].required = True
+        product = self.initial.get("product") or (self.instance.product_id if self.instance.pk else None)
+        if product:
+            pid = product.pk if hasattr(product, "pk") else product
+            self.fields["route"].queryset = ProductRoute.objects.filter(
+                product_id=pid, is_active=True
+            ).order_by("name")
+        else:
+            self.fields["route"].queryset = ProductRoute.objects.none()
 
         # Solo BOM activos
         self.fields["bom"].queryset = BillOfMaterial.objects.filter(
             is_active=True
         ).select_related("product_finished").order_by("product_finished__name", "revision")
-
-        # Si quieres permitir crear en borrador sin ruta/BOM al inicio:
-        # self.fields["route"].required = False
-        # self.fields["bom"].required = False
 
         # Default start_date = hoy si está vacío
         if not self.instance.pk and not self.initial.get("start_date"):
@@ -174,6 +192,7 @@ class ProductionOperationForm(forms.ModelForm):
         model = ProductionOperation
         fields = [
             "status",
+            "operator",
             "started_at",
             "finished_at",
             "quantity_input",
@@ -182,6 +201,7 @@ class ProductionOperationForm(forms.ModelForm):
         ]
         labels = {
             "status": "Estado de la operación",
+            "operator": "Operario responsable",
             "started_at": "Fecha/hora de inicio",
             "finished_at": "Fecha/hora de fin",
             "quantity_input": "Cantidad de entrada",
@@ -190,6 +210,9 @@ class ProductionOperationForm(forms.ModelForm):
         }
         widgets = {
             "status": forms.Select(
+                attrs={"class": "w-full rounded-lg border px-3 py-2"}
+            ),
+            "operator": forms.Select(
                 attrs={"class": "w-full rounded-lg border px-3 py-2"}
             ),
             "started_at": forms.DateTimeInput(
@@ -219,8 +242,12 @@ class ProductionOperationForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # Estados válidos directamente desde el modelo
         self.fields["status"].choices = ProductionOperationStatus.choices
+
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        self.fields["operator"].queryset = User.objects.filter(is_active=True).order_by("first_name", "username")
+        self.fields["operator"].required = False
 
 
 class ProductionPlanRawLotForm(forms.ModelForm):
@@ -324,3 +351,123 @@ class ProductionPlanForm(forms.ModelForm):
                 cleaned["lot_code"] = auto_code
 
         return cleaned
+
+
+# ─── Estaciones de trabajo ────────────────────────────────────
+
+class WorkCenterForm(forms.ModelForm):
+    class Meta:
+        model = WorkCenter
+        fields = [
+            "code", "name", "description", "default_warehouse",
+            "capacity_per_hour", "num_machines", "num_operators",
+            "efficiency_factor", "setup_time_min",
+            "hours_per_shift", "shifts_per_day",
+            "is_active",
+        ]
+        labels = {
+            "code": "Código",
+            "name": "Nombre",
+            "description": "Descripción",
+            "default_warehouse": "Almacén por defecto",
+            "capacity_per_hour": "Capacidad por hora (unid/h)",
+            "num_machines": "Máquinas / puestos",
+            "num_operators": "Operarios disponibles",
+            "efficiency_factor": "Factor de eficiencia",
+            "setup_time_min": "Tiempo de setup (min)",
+            "hours_per_shift": "Horas por turno",
+            "shifts_per_day": "Turnos por día",
+            "is_active": "Activo",
+        }
+        _input = "w-full rounded-lg border px-3 py-2"
+        widgets = {
+            "code": forms.TextInput(attrs={"class": _input}),
+            "name": forms.TextInput(attrs={"class": _input}),
+            "description": forms.TextInput(attrs={"class": _input}),
+            "default_warehouse": forms.Select(attrs={"class": _input}),
+            "capacity_per_hour": forms.NumberInput(attrs={"class": _input, "step": "0.01"}),
+            "num_machines": forms.NumberInput(attrs={"class": _input, "min": "1"}),
+            "num_operators": forms.NumberInput(attrs={"class": _input, "min": "1"}),
+            "efficiency_factor": forms.NumberInput(attrs={"class": _input, "step": "0.01", "min": "0", "max": "1"}),
+            "setup_time_min": forms.NumberInput(attrs={"class": _input, "min": "0"}),
+            "hours_per_shift": forms.NumberInput(attrs={"class": _input, "step": "0.5", "min": "0.5"}),
+            "shifts_per_day": forms.NumberInput(attrs={"class": _input, "min": "1"}),
+            "is_active": forms.CheckboxInput(attrs={"class": "rounded"}),
+        }
+
+
+# ─── Rutas de producción ──────────────────────────────────────
+
+class ProductRouteForm(forms.ModelForm):
+    class Meta:
+        model = ProductRoute
+        fields = ["product", "name", "is_active", "notes"]
+        labels = {
+            "product": "Producto",
+            "name": "Nombre de la ruta",
+            "is_active": "Activa",
+            "notes": "Notas",
+        }
+        widgets = {
+            "product": forms.Select(attrs={"class": "w-full rounded-lg border px-3 py-2"}),
+            "name": forms.TextInput(attrs={"class": "w-full rounded-lg border px-3 py-2"}),
+            "is_active": forms.CheckboxInput(attrs={"class": "rounded"}),
+            "notes": forms.Textarea(attrs={"class": "w-full rounded-lg border px-3 py-2", "rows": 3}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["product"].queryset = Product.objects.filter(
+            product_type=ProductType.FG, is_active=True
+        ).order_by("name")
+
+
+class ProductRouteStepForm(forms.ModelForm):
+    class Meta:
+        model = ProductRouteStep
+        fields = ["sequence", "work_center", "name", "description", "expected_duration_min", "setup_time_min", "requires_qa"]
+        labels = {
+            "sequence": "Secuencia",
+            "work_center": "Estación de trabajo",
+            "name": "Nombre del paso",
+            "description": "Descripción",
+            "expected_duration_min": "Dur. x unid (min)",
+            "setup_time_min": "Setup (min)",
+            "requires_qa": "Requiere QA",
+        }
+        _input = "w-full rounded-lg border px-3 py-2"
+        widgets = {
+            "sequence": forms.NumberInput(attrs={"class": _input}),
+            "work_center": forms.Select(attrs={"class": _input}),
+            "name": forms.TextInput(attrs={"class": _input}),
+            "description": forms.TextInput(attrs={"class": _input}),
+            "expected_duration_min": forms.NumberInput(attrs={"class": _input}),
+            "setup_time_min": forms.NumberInput(attrs={"class": _input, "min": "0"}),
+            "requires_qa": forms.CheckboxInput(attrs={"class": "rounded"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["work_center"].queryset = WorkCenter.objects.filter(is_active=True).order_by("name")
+
+
+class MaterialTransferConfirmForm(forms.Form):
+    quantity_confirmed = forms.DecimalField(
+        label="Cantidad confirmada",
+        min_value=0,
+        widget=forms.NumberInput(attrs={"class": "w-full rounded-lg border px-3 py-2", "step": "0.0001"}),
+    )
+    notes = forms.CharField(
+        label="Notas de desviación (opcional)",
+        required=False,
+        widget=forms.Textarea(attrs={"class": "w-full rounded-lg border px-3 py-2", "rows": 2}),
+    )
+
+
+ProductRouteStepFormSet = inlineformset_factory(
+    ProductRoute,
+    ProductRouteStep,
+    form=ProductRouteStepForm,
+    extra=1,
+    can_delete=True,
+)

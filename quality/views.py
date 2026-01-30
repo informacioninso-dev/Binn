@@ -6,6 +6,7 @@ from procurement.models import  RawMaterialReception, ReceptionStatus ,RawMateri
 from production.models import ProductionOrder, ProductionOperation
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
+from core.mixins import ModulePermissionMixin
 from django.db.models import Q
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse_lazy
@@ -32,7 +33,8 @@ from .models import (
 # PANEL PRINCIPAL DE CALIDAD
 # -------------------------------------------------------------------
 
-class QualityIndexView(LoginRequiredMixin, TemplateView):
+class QualityIndexView(LoginRequiredMixin, ModulePermissionMixin, TemplateView):
+    permission_required = "quality.view_qualityinspection"
     template_name = "quality/index.html"
 
 
@@ -40,7 +42,8 @@ class QualityIndexView(LoginRequiredMixin, TemplateView):
 # PLANES DE QA (CABECERA)
 # -------------------------------------------------------------------
 
-class QAPlanCreateView(LoginRequiredMixin, CreateView):
+class QAPlanCreateView(LoginRequiredMixin, ModulePermissionMixin, CreateView):
+    permission_required = "quality.add_qaplan"
     model = QAPlan
     form_class = QAPlanForm
     template_name = "quality/qa_plan_form.html"
@@ -51,7 +54,8 @@ class QAPlanCreateView(LoginRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class QAPlanUpdateView(LoginRequiredMixin, UpdateView):
+class QAPlanUpdateView(LoginRequiredMixin, ModulePermissionMixin, UpdateView):
+    permission_required = "quality.change_qaplan"
     model = QAPlan
     form_class = QAPlanForm
     template_name = "quality/qa_plan_form.html"
@@ -62,25 +66,43 @@ class QAPlanUpdateView(LoginRequiredMixin, UpdateView):
         return super().form_valid(form)
 
 
-class QAPlanListView(LoginRequiredMixin, ListView):
+class QAPlanListView(LoginRequiredMixin, ModulePermissionMixin, ListView):
+    permission_required = "quality.view_qaplan"
     model = QAPlan
     template_name = "quality/qa_plan_list.html"
     context_object_name = "qa_plans"
     paginate_by = 20
 
     def get_queryset(self):
-        return (
+        qs = (
             QAPlan.objects
             .select_related("product", "work_center", "route_step")
             .order_by("stage", "product__name", "name")
         )
+        q = self.request.GET.get("q", "").strip()
+        stage = self.request.GET.get("stage", "").strip()
+        if q:
+            qs = qs.filter(
+                Q(name__icontains=q)
+                | Q(product__name__icontains=q)
+                | Q(product__code__icontains=q)
+            )
+        if stage:
+            qs = qs.filter(stage=stage)
+        return qs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["stage_choices"] = InspectionStage.choices
+        return ctx
 
 
 # -------------------------------------------------------------------
 # PARÁMETROS DE UN PLAN DE QA (FORMSET)
 # -------------------------------------------------------------------
 
-class QAPlanParametersView(LoginRequiredMixin, View):
+class QAPlanParametersView(LoginRequiredMixin, ModulePermissionMixin, View):
+    permission_required = "quality.change_qaplan"
     """
     Permite gestionar (añadir / editar / eliminar) parámetros
     de un plan de QA específico.
@@ -126,7 +148,8 @@ class QAPlanParametersView(LoginRequiredMixin, View):
 # CREACIÓN DE INSPECCIONES
 # -------------------------------------------------------------------
 
-class QualityInspectionCreateView(LoginRequiredMixin, CreateView):
+class QualityInspectionCreateView(LoginRequiredMixin, ModulePermissionMixin, CreateView):
+    permission_required = "quality.add_qualityinspection"
     model = QualityInspection
     form_class = QualityInspectionForm
     template_name = "quality/quality_inspection_form.html"
@@ -301,21 +324,43 @@ class QualityInspectionCreateView(LoginRequiredMixin, CreateView):
 # LISTADO Y DETALLE DE INSPECCIONES
 # -------------------------------------------------------------------
 
-class QualityInspectionListView(LoginRequiredMixin, ListView):
+class QualityInspectionListView(LoginRequiredMixin, ModulePermissionMixin, ListView):
+    permission_required = "quality.view_qualityinspection"
     model = QualityInspection
     template_name = "quality/quality_inspection_list.html"
     context_object_name = "inspections"
     paginate_by = 20
 
     def get_queryset(self):
-        return (
+        qs = (
             QualityInspection.objects
             .select_related("lot", "lot__product", "operation", "inspected_by", "plan")
             .order_by("-inspected_at")
         )
+        q = self.request.GET.get("q", "").strip()
+        result = self.request.GET.get("result", "").strip()
+        stage = self.request.GET.get("stage", "").strip()
+        if q:
+            qs = qs.filter(
+                Q(lot__internal_lot__icontains=q)
+                | Q(lot__product__name__icontains=q)
+                | Q(lot__product__code__icontains=q)
+            )
+        if result:
+            qs = qs.filter(result=result)
+        if stage:
+            qs = qs.filter(stage=stage)
+        return qs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["stage_choices"] = InspectionStage.choices
+        ctx["result_choices"] = LotStatus.choices
+        return ctx
 
 
-class QualityInspectionDetailView(LoginRequiredMixin, DetailView):
+class QualityInspectionDetailView(LoginRequiredMixin, ModulePermissionMixin, DetailView):
+    permission_required = "quality.view_qualityinspection"
     model = QualityInspection
     template_name = "quality/quality_inspection_detail.html"
     context_object_name = "inspection"
@@ -375,7 +420,8 @@ class QualityInspectionDetailView(LoginRequiredMixin, DetailView):
 # LOTES / OPERACIONES PENDIENTES DE QA
 # -------------------------------------------------------------------
 
-class PendingLotsQAView(LoginRequiredMixin, TemplateView):
+class PendingLotsQAView(LoginRequiredMixin, ModulePermissionMixin, TemplateView):
+    permission_required = "quality.view_qualityinspection"
     """
     Panel de Lotes / QA pendientes:
       - MP (RAW) sin inspección final de RAW
@@ -448,7 +494,8 @@ class PendingLotsQAView(LoginRequiredMixin, TemplateView):
 # -------------------------------------------------------------------
 
 
-class ReceptionQAListView(LoginRequiredMixin, ListView):
+class ReceptionQAListView(LoginRequiredMixin, ModulePermissionMixin, ListView):
+    permission_required = "quality.view_qualityinspection"
     """
     Lista de recepciones de materia prima pendientes de inspección (UNDER_QA)
     """
@@ -465,7 +512,8 @@ class ReceptionQAListView(LoginRequiredMixin, ListView):
         )
 
 
-class ReceptionQADetailView(LoginRequiredMixin, DetailView):
+class ReceptionQADetailView(LoginRequiredMixin, ModulePermissionMixin, DetailView):
+    permission_required = "quality.view_qualityinspection"
     """
     Detalle de una recepción para revisarla en calidad.
     """
@@ -474,7 +522,8 @@ class ReceptionQADetailView(LoginRequiredMixin, DetailView):
     context_object_name = "reception"
 
 
-class ReceptionQAActionView(LoginRequiredMixin, View):
+class ReceptionQAActionView(LoginRequiredMixin, ModulePermissionMixin, View):
+    permission_required = "quality.change_qualityinspection"
     """
     Acción de aprobar o rechazar una recepción.
     Se llama vía POST con ?action=approve o ?action=reject
@@ -510,7 +559,8 @@ class ReceptionQAActionView(LoginRequiredMixin, View):
         return redirect("quality:receptions_qa_list")
 
 
-class LotAuditView(LoginRequiredMixin, DetailView):
+class LotAuditView(LoginRequiredMixin, ModulePermissionMixin, DetailView):
+    permission_required = "quality.view_qualityinspection"
     """
     Panel de trazabilidad / auditoría por lote terminado (FG).
 
@@ -654,7 +704,8 @@ class LotAuditView(LoginRequiredMixin, DetailView):
         ctx["issues"] = issues
         return ctx
 
-class LotAuditSearchView(LoginRequiredMixin, TemplateView):
+class LotAuditSearchView(LoginRequiredMixin, ModulePermissionMixin, TemplateView):
+    permission_required = "quality.view_qualityinspection"
     """
     Pantalla de entrada al panel de auditoría:
     permite buscar un lote por código interno y redirige a audit_lot.

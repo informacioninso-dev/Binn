@@ -52,7 +52,15 @@
             <p class="text-xs text-red-600">{{ error }}</p>
           {% endfor %}
         </div>
-        <div></div>
+        <div>
+          <label class="mb-1 block text-sm font-medium">
+            {{ form.operator.label }}
+          </label>
+          {{ form.operator }}
+          {% for error in form.operator.errors %}
+            <p class="text-xs text-red-600">{{ error }}</p>
+          {% endfor %}
+        </div>
       </div>
 
       <div class="grid gap-4 md:grid-cols-2">

@@ -20,6 +20,9 @@
 
   {# Filtros #}
   <form method="get" class="mb-4 flex flex-wrap items-center gap-2 text-sm">
+    <input type="text" name="q" value="{{ request.GET.q|default_if_none:'' }}"
+           placeholder="Buscar por OP, producto, paso…"
+           class="w-48 rounded-xl border px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
     <select name="status" class="w-full max-w-xs rounded-lg border px-3 py-2">
       <option value="">Todos los estados</option>
       {% for value, label in status_choices %}

@@ -119,18 +119,25 @@
                   Ver
                 </a>
 
-                {# 🔹 Botón EJECUTAR #}
-                {% if op.status != 'DONE' and op.status != 'CANCELED' and op.route and op.bom %}
+                {# Botón LIBERAR (solo DRAFT con ruta y BOM) #}
+                {% if op.status == 'DRAFT' and op.route and op.bom %}
+                  <form method="post" action="{% url 'production:orders_release' op.pk %}"
+                        onsubmit="return confirm('¿Liberar la orden {{ op.code }}? Se generarán las operaciones.');"
+                        class="inline">
+                    {% csrf_token %}
+                    <button type="submit"
+                            class="rounded-xl bg-amber-500 px-3 py-1 text-[11px] font-semibold text-white hover:bg-amber-600">
+                      Liberar
+                    </button>
+                  </form>
+                {% endif %}
+
+                {# Botón EJECUTAR (solo RELEASED o IN_PROGRESS) #}
+                {% if op.status == 'RELEASED' or op.status == 'IN_PROGRESS' %}
                   <a href="{% url 'production:orders_execute' op.pk %}"
                      class="rounded-xl bg-emerald-600 px-3 py-1 text-[11px] font-semibold text-white hover:bg-emerald-700">
                     Ejecutar
                   </a>
-                {% else %}
-                  <button class="rounded-xl border px-3 py-1 text-[11px] text-gray-400 cursor-not-allowed"
-                          title="Para ejecutar se requiere ruta, BOM y que la OP no esté terminada/anulada."
-                          disabled>
-                    Ejecutar
-                  </button>
                 {% endif %}
               </div>
             </td>

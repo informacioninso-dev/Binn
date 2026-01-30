@@ -109,6 +109,40 @@
       </div>
     </div>
 
+    <!-- CARD: Materias primas requeridas (FEFO) -->
+    <div id="materials-card" class="rounded-2xl border bg-white p-4 md:p-6 hidden">
+      <h2 class="mb-4 text-lg font-semibold">Materias primas requeridas (FEFO)</h2>
+      <p id="bom-info" class="mb-3 text-xs text-gray-500"></p>
+
+      <!-- Errores de stock -->
+      <div id="materials-errors" class="mb-4 hidden">
+      </div>
+
+      <!-- Tabla de materiales -->
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead>
+            <tr class="border-b text-left text-gray-600">
+              <th class="px-2 py-1">Componente</th>
+              <th class="px-2 py-1">Lote interno</th>
+              <th class="px-2 py-1">Lote proveedor</th>
+              <th class="px-2 py-1">Cant. requerida</th>
+              <th class="px-2 py-1">Disponible</th>
+              <th class="px-2 py-1">Unidad</th>
+              <th class="px-2 py-1">F. caducidad</th>
+              <th class="px-2 py-1">Estado</th>
+            </tr>
+          </thead>
+          <tbody id="materials-body">
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Hidden inputs para enviar los lotes seleccionados -->
+    <div id="raw-lots-hidden">
+    </div>
+
     <div class="flex justify-end gap-3">
       <a href="{% url 'production:plans_list' %}"
          class="rounded-xl border px-4 py-2 text-sm hover:bg-gray-50">
@@ -240,5 +274,121 @@
   });
 </script>
 
+<!-- JS: Cálculo FEFO de materias primas -->
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const productSelect = document.getElementById("id_product");
+  const quantityInput = document.getElementById("id_quantity_planned");
+  const card = document.getElementById("materials-card");
+  const bomInfo = document.getElementById("bom-info");
+  const errorsDiv = document.getElementById("materials-errors");
+  const tbody = document.getElementById("materials-body");
+  const hiddenDiv = document.getElementById("raw-lots-hidden");
+
+  if (!productSelect || !quantityInput || !card) return;
+
+  let debounceTimer = null;
+
+  function fetchMaterials() {
+    const productId = productSelect.value;
+    const quantity = quantityInput.value;
+
+    if (!productId || !quantity || parseFloat(quantity) <= 0) {
+      card.classList.add("hidden");
+      hiddenDiv.innerHTML = "";
+      return;
+    }
+
+    let url = "{% url 'production:plans_calculate_materials' %}?product_id=" + productId + "&quantity=" + quantity;
+    {% if plan_id %}
+    url += "&exclude_plan_id={{ plan_id }}";
+    {% endif %}
+
+    fetch(url, {
+      headers: { "X-Requested-With": "XMLHttpRequest" }
+    })
+    .then(function(resp) { return resp.json(); })
+    .then(function(data) {
+      if (data.error) {
+        card.classList.remove("hidden");
+        bomInfo.textContent = "";
+        tbody.innerHTML = "";
+        hiddenDiv.innerHTML = "";
+        errorsDiv.innerHTML = '<div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">' + data.error + '</div>';
+        errorsDiv.classList.remove("hidden");
+        return;
+      }
+
+      card.classList.remove("hidden");
+      bomInfo.textContent = "Lista de materiales Rev. " + data.bom_revision;
+
+      // Errores
+      if (data.errors && data.errors.length > 0) {
+        var html = '<div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 space-y-1">';
+        html += '<p class="font-semibold">Stock insuficiente:</p>';
+        data.errors.forEach(function(e) {
+          html += '<p>• ' + e + '</p>';
+        });
+        html += '</div>';
+        errorsDiv.innerHTML = html;
+        errorsDiv.classList.remove("hidden");
+      } else {
+        errorsDiv.innerHTML = "";
+        errorsDiv.classList.add("hidden");
+      }
+
+      // Tabla
+      var rows = "";
+      var hiddenInputs = "";
+      data.materials.forEach(function(m, i) {
+        var rowClass = m.sufficient ? "" : "bg-red-50";
+        var statusBadge = m.sufficient
+          ? '<span class="inline-block rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-800">OK</span>'
+          : '<span class="inline-block rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-800">Insuficiente</span>';
+
+        rows += '<tr class="border-t ' + rowClass + '">';
+        rows += '<td class="px-2 py-1">' + m.component_code + ' - ' + m.component_name + '</td>';
+        rows += '<td class="px-2 py-1">' + m.lot_internal + '</td>';
+        rows += '<td class="px-2 py-1">' + m.lot_supplier + '</td>';
+        rows += '<td class="px-2 py-1 font-medium">' + m.qty_required + '</td>';
+        rows += '<td class="px-2 py-1">' + m.qty_available + '</td>';
+        rows += '<td class="px-2 py-1">' + m.unit_code + '</td>';
+        rows += '<td class="px-2 py-1">' + m.expiry_date + '</td>';
+        rows += '<td class="px-2 py-1">' + statusBadge + '</td>';
+        rows += '</tr>';
+
+        // Hidden inputs para enviar al guardar
+        if (m.lot_id && m.sufficient) {
+          hiddenInputs += '<input type="hidden" name="raw_lot_component_' + i + '" value="' + m.component_id + '">';
+          hiddenInputs += '<input type="hidden" name="raw_lot_id_' + i + '" value="' + m.lot_id + '">';
+          hiddenInputs += '<input type="hidden" name="raw_lot_qty_' + i + '" value="' + m.qty_required + '">';
+        }
+      });
+      hiddenInputs += '<input type="hidden" name="raw_lots_count" value="' + data.materials.filter(function(m) { return m.lot_id && m.sufficient; }).length + '">';
+
+      tbody.innerHTML = rows;
+      hiddenDiv.innerHTML = hiddenInputs;
+    })
+    .catch(function(err) {
+      console.error("Error al calcular materiales:", err);
+    });
+  }
+
+  productSelect.addEventListener("change", function() {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(fetchMaterials, 300);
+  });
+
+  quantityInput.addEventListener("input", function() {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(fetchMaterials, 500);
+  });
+
+  // Cargar al inicio si ya hay valores (edición)
+  if (productSelect.value && quantityInput.value) {
+    fetchMaterials();
+  }
+});
+</script>
 
 {% endblock %}

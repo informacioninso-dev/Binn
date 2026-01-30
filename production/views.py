@@ -1,6 +1,8 @@
-from decimal import Decimal  # 👈 NUEVO
+import json
+from decimal import Decimal
 
 from django.contrib.auth.mixins import LoginRequiredMixin
+from core.mixins import ModulePermissionMixin
 from django.views.generic import (
     TemplateView,
     ListView,
@@ -26,13 +28,23 @@ from .models import (
     ProductionOperation,
     ProductionPlan,
     ProductionPlanStatus,
+    ProductionPlanRawLot,
+    WorkCenter,
+    ProductRoute,
 )
 
 from .services import (
     consume_raw_materials_for_operation,
     close_production_order,
     generate_production_plan_code,
+    log_operation_status_change,
+    link_wip_lots_on_done,
+    generate_material_transfers,
+    confirm_material_transfer,
+    estimate_production_duration,
+    schedule_production_order,
 )
+from django.contrib.auth import get_user_model
 
 from .forms import (
     BillOfMaterialForm,
@@ -40,12 +52,21 @@ from .forms import (
     ProductionOrderForm,
     ProductionOperationForm,
     ProductionPlanForm,
+    WorkCenterForm,
+    ProductRouteForm,
+    ProductRouteStepFormSet,
+    MaterialTransferConfirmForm,
 )
 
-from inventory.models import Product, ProductType  # 👈 NUEVO (para lot_prefix_map)
+from django.http import JsonResponse
+from django.db.models import Sum, Subquery, OuterRef, F
+from django.db.models.functions import Coalesce
+
+from inventory.models import Product, ProductType, Lot, LotStatus, LotBalance
 
 
-class ProductionDashboardView(LoginRequiredMixin, TemplateView):
+class ProductionDashboardView(LoginRequiredMixin, ModulePermissionMixin, TemplateView):
+    permission_required = "production.view_productionorder"
     template_name = "production/index.html"
 
 
@@ -53,23 +74,48 @@ class ProductionDashboardView(LoginRequiredMixin, TemplateView):
 # BOM
 # ---------------------------------------------------------
 
-class BillOfMaterialListView(LoginRequiredMixin, ListView):
+class BillOfMaterialListView(LoginRequiredMixin, ModulePermissionMixin, ListView):
+    permission_required = "production.view_billofmaterial"
     model = BillOfMaterial
     template_name = "production/bom_list.html"
     context_object_name = "page"
     paginate_by = 20
 
     def get_queryset(self):
-        return (
+        qs = (
             BillOfMaterial.objects
             .select_related("product_finished")
             .order_by("product_finished__name", "revision")
         )
+        q = self.request.GET.get("q", "").strip()
+        if q:
+            qs = qs.filter(
+                Q(product_finished__code__icontains=q)
+                | Q(product_finished__name__icontains=q)
+                | Q(description__icontains=q)
+            )
+        return qs
 
 
-class BillOfMaterialCreateView(LoginRequiredMixin, View):
+class BillOfMaterialCreateView(LoginRequiredMixin, ModulePermissionMixin, View):
+    permission_required = "production.add_billofmaterial"
     template_name = "production/bom_form.html"
     success_url = reverse_lazy("production:bom_list")
+
+    def _build_components_json(self):
+        products = (
+            Product.objects
+            .filter(product_type__in=[ProductType.RAW, ProductType.SEMI], is_active=True)
+            .select_related("base_unit")
+            .order_by("name")
+        )
+        data = {}
+        for p in products:
+            data[str(p.id)] = {
+                "unit_code": getattr(p.base_unit, "code", ""),
+                "unit_name": getattr(p.base_unit, "name", ""),
+            }
+        return json.dumps(data, ensure_ascii=False)
 
     def get(self, request):
         form = BillOfMaterialForm()
@@ -77,7 +123,7 @@ class BillOfMaterialCreateView(LoginRequiredMixin, View):
         return render(
             request,
             self.template_name,
-            {"form": form, "formset": formset},
+            {"form": form, "formset": formset, "components_json": self._build_components_json()},
         )
 
     def post(self, request):
@@ -89,7 +135,7 @@ class BillOfMaterialCreateView(LoginRequiredMixin, View):
             return render(
                 request,
                 self.template_name,
-                {"form": form, "formset": formset},
+                {"form": form, "formset": formset, "components_json": self._build_components_json()},
             )
 
         with transaction.atomic():
@@ -102,10 +148,133 @@ class BillOfMaterialCreateView(LoginRequiredMixin, View):
 
 
 # ---------------------------------------------------------
+# AJAX: Cálculo FEFO de materias primas para plan
+# ---------------------------------------------------------
+
+class PlanCalculateMaterialsView(LoginRequiredMixin, ModulePermissionMixin, View):
+    permission_required = "production.view_productionplan"
+    """
+    Endpoint AJAX que calcula las materias primas requeridas
+    para un plan de producción usando FEFO.
+    """
+
+    def get(self, request):
+        product_id = request.GET.get("product_id")
+        quantity = request.GET.get("quantity")
+
+        if not product_id or not quantity:
+            return JsonResponse({"error": "Faltan parámetros (product_id, quantity)."}, status=400)
+
+        try:
+            quantity = Decimal(quantity)
+            if quantity <= 0:
+                raise ValueError
+        except (ValueError, Exception):
+            return JsonResponse({"error": "La cantidad debe ser un número mayor a cero."}, status=400)
+
+        # Buscar producto
+        try:
+            product = Product.objects.get(pk=product_id, product_type=ProductType.FG, is_active=True)
+        except Product.DoesNotExist:
+            return JsonResponse({"error": "Producto terminado no encontrado."}, status=404)
+
+        # Buscar BOM activo
+        bom = (
+            BillOfMaterial.objects
+            .filter(product_finished=product, is_active=True)
+            .prefetch_related("lines__component__base_unit")
+            .order_by("-revision")
+            .first()
+        )
+        if not bom:
+            return JsonResponse({
+                "error": f"No hay plano de fabricación (BOM) activo para {product.name}.",
+            }, status=404)
+
+        materials = []
+        errors = []
+
+        for line in bom.lines.select_related("component__base_unit").order_by("sequence"):
+            component = line.component
+            unit = component.base_unit
+            required_qty = (line.quantity * quantity * (1 + line.scrap_rate)).quantize(Decimal("0.0001"))
+
+            # Subconsulta: cantidad reservada por planes activos
+            exclude_plan_id = request.GET.get("exclude_plan_id")
+            reserved_qs = (
+                ProductionPlanRawLot.objects
+                .filter(lot=OuterRef("pk"), plan__status=ProductionPlanStatus.ACTIVE)
+            )
+            if exclude_plan_id:
+                reserved_qs = reserved_qs.exclude(plan_id=int(exclude_plan_id))
+            reserved_qs = reserved_qs.values("lot").annotate(total=Sum("quantity_planned")).values("total")
+
+            # FEFO: lotes aprobados del componente, descontando reservas
+            approved_lots = (
+                Lot.objects
+                .filter(product=component, status=LotStatus.APPROVED)
+                .annotate(qty_available=Sum("balances__qty"))
+                .annotate(qty_reserved=Coalesce(Subquery(reserved_qs), Decimal("0")))
+                .annotate(qty_effective=F("qty_available") - F("qty_reserved"))
+                .filter(qty_effective__gt=0)
+                .order_by("expiry_date", "created_at")
+            )
+
+            # Seleccionar el primer lote con suficiente cantidad efectiva
+            selected_lot = None
+            for lot in approved_lots:
+                if lot.qty_effective >= required_qty:
+                    selected_lot = lot
+                    break
+
+            if selected_lot:
+                materials.append({
+                    "component_id": component.id,
+                    "component_code": component.code,
+                    "component_name": component.name,
+                    "lot_id": selected_lot.id,
+                    "lot_internal": selected_lot.internal_lot,
+                    "lot_supplier": selected_lot.supplier_lot or "—",
+                    "qty_required": str(required_qty),
+                    "qty_available": str(selected_lot.qty_effective.quantize(Decimal("0.0001"))),
+                    "expiry_date": selected_lot.expiry_date.strftime("%d/%m/%Y") if selected_lot.expiry_date else "Sin fecha",
+                    "unit_code": unit.code if unit else "",
+                    "sufficient": True,
+                })
+            else:
+                # Calcular total disponible en todos los lotes
+                total_available = sum(l.qty_effective for l in approved_lots)
+                materials.append({
+                    "component_id": component.id,
+                    "component_code": component.code,
+                    "component_name": component.name,
+                    "lot_id": None,
+                    "lot_internal": "—",
+                    "lot_supplier": "—",
+                    "qty_required": str(required_qty),
+                    "qty_available": str(total_available.quantize(Decimal("0.0001")) if total_available else "0"),
+                    "expiry_date": "—",
+                    "unit_code": unit.code if unit else "",
+                    "sufficient": False,
+                })
+                errors.append(
+                    f"{component.code} - {component.name}: se requieren {required_qty} {unit.code} "
+                    f"pero no hay un lote individual con suficiente stock (total disponible: {total_available})."
+                )
+
+        return JsonResponse({
+            "bom_revision": bom.revision,
+            "materials": materials,
+            "errors": errors,
+        })
+
+
+# ---------------------------------------------------------
 # Órdenes de Producción
 # ---------------------------------------------------------
 
-class ProductionOrderListView(LoginRequiredMixin, ListView):
+class ProductionOrderListView(LoginRequiredMixin, ModulePermissionMixin, ListView):
+    permission_required = "production.view_productionorder"
     model = ProductionOrder
     template_name = "production/orders_list.html"
     context_object_name = "page"
@@ -140,7 +309,8 @@ class ProductionOrderListView(LoginRequiredMixin, ListView):
         return ctx
 
 
-class ProductionOrderCreatePlanningView(LoginRequiredMixin, CreateView):
+class ProductionOrderCreatePlanningView(LoginRequiredMixin, ModulePermissionMixin, CreateView):
+    permission_required = "production.add_productionorder"
     model = ProductionOrder
     form_class = ProductionOrderForm
     template_name = "production/orders_form.html"
@@ -170,7 +340,8 @@ class ProductionOrderCreatePlanningView(LoginRequiredMixin, CreateView):
 # Operaciones de Producción (motor paso a paso)
 # ---------------------------------------------------------
 
-class ProductionOperationListView(LoginRequiredMixin, ListView):
+class ProductionOperationListView(LoginRequiredMixin, ModulePermissionMixin, ListView):
+    permission_required = "production.view_productionoperation"
     model = ProductionOperation
     template_name = "production/operations_list.html"
     context_object_name = "operations"
@@ -187,8 +358,17 @@ class ProductionOperationListView(LoginRequiredMixin, ListView):
             .order_by("order__code", "sequence")
         )
 
+        q = self.request.GET.get("q", "").strip()
         status = self.request.GET.get("status")
         work_center_id = self.request.GET.get("work_center")
+
+        if q:
+            qs = qs.filter(
+                Q(order__code__icontains=q)
+                | Q(order__product__name__icontains=q)
+                | Q(order__product__code__icontains=q)
+                | Q(step__name__icontains=q)
+            )
 
         if status:
             qs = qs.filter(status=status)
@@ -209,17 +389,36 @@ class ProductionOperationListView(LoginRequiredMixin, ListView):
         return ctx
 
 
-class ProductionOperationUpdateView(LoginRequiredMixin, UpdateView):
+class ProductionOperationUpdateView(LoginRequiredMixin, ModulePermissionMixin, UpdateView):
+    permission_required = "production.change_productionoperation"
     model = ProductionOperation
     form_class = ProductionOperationForm
     template_name = "production/operation_form.html"
 
     def form_valid(self, form):
-        # Guardamos cómo estaba la operación ANTES de cambiarla
         old_op = self.get_object()
-        was_done_before = (old_op.status == ProductionOperationStatus.DONE)
+        old_status = old_op.status
+        was_done_before = (old_status == ProductionOperationStatus.DONE)
 
         op: ProductionOperation = form.save(commit=False)
+        order = op.order
+        new_status = op.status
+
+        # --- Bloqueo QA: si el paso anterior requiere QA y está en HOLD, no avanzar ---
+        if op.status in (ProductionOperationStatus.IN_PROGRESS, ProductionOperationStatus.DONE):
+            prev_op = (
+                order.operations
+                .filter(sequence__lt=op.sequence)
+                .order_by("-sequence", "-id")
+                .select_related("step")
+                .first()
+            )
+            if prev_op and prev_op.step.requires_qa and prev_op.status != ProductionOperationStatus.DONE:
+                messages.error(
+                    self.request,
+                    f"El paso anterior «{prev_op.step.name}» requiere aprobación QA antes de avanzar."
+                )
+                return redirect(self.get_success_url())
 
         # --- Manejo de tiempos ---
         if op.status == ProductionOperationStatus.IN_PROGRESS and op.started_at is None:
@@ -228,11 +427,30 @@ class ProductionOperationUpdateView(LoginRequiredMixin, UpdateView):
         if op.status == ProductionOperationStatus.DONE and op.finished_at is None:
             op.finished_at = timezone.now()
 
+        # --- Asignar operador automáticamente si no se seleccionó ---
+        if not op.operator:
+            op.operator = self.request.user
+
+        # --- Cambiar OP a IN_PROGRESS si estaba RELEASED ---
+        if order.status == ProductionOrderStatus.RELEASED and op.status == ProductionOperationStatus.IN_PROGRESS:
+            order.status = ProductionOrderStatus.IN_PROGRESS
+            order.updated_by = self.request.user
+            order.save(update_fields=["status", "updated_by", "updated_at"])
+
         op.updated_by = self.request.user
         op.save()
 
-        # --- Consumo de MP con FEFO ---
-        # Solo si AHORA está DONE y ANTES no lo estaba
+        # --- Log de auditoría ISO 13485 ---
+        if old_status != new_status:
+            log_operation_status_change(
+                operation=op,
+                from_status=old_status,
+                to_status=new_status,
+                user=self.request.user,
+                notes=op.notes,
+            )
+
+        # --- Consumo de MP ---
         if op.status == ProductionOperationStatus.DONE and not was_done_before:
             try:
                 consume_raw_materials_for_operation(
@@ -254,11 +472,39 @@ class ProductionOperationUpdateView(LoginRequiredMixin, UpdateView):
                     f"Ocurrió un error inesperado al consumir MP: {e}"
                 )
 
-        messages.success(self.request, "Operación de producción actualizada correctamente.")
+        # --- WIP lot tracking ---
+        if op.status == ProductionOperationStatus.DONE and not was_done_before:
+            try:
+                link_wip_lots_on_done(operation=op, user=self.request.user)
+            except Exception as e:
+                messages.warning(
+                    self.request,
+                    f"No se pudo crear lote WIP: {e}"
+                )
 
-        order = op.order
+        # --- Si el paso requiere QA y se marcó DONE, ponerlo en HOLD automáticamente ---
+        if (
+            op.status == ProductionOperationStatus.DONE
+            and not was_done_before
+            and op.step.requires_qa
+        ):
+            op.status = ProductionOperationStatus.HOLD
+            op.save(update_fields=["status"])
+            log_operation_status_change(
+                operation=op,
+                from_status=ProductionOperationStatus.DONE,
+                to_status=ProductionOperationStatus.HOLD,
+                user=self.request.user,
+                notes="Auto-HOLD: paso requiere QA",
+            )
+            messages.info(
+                self.request,
+                f"El paso «{op.step.name}» requiere aprobación QA. Se puso en espera."
+            )
+        else:
+            messages.success(self.request, "Operación de producción actualizada correctamente.")
 
-        # --- ¿Es la última operación de la OP? ---
+        # --- ¿Es la última operación y está DONE? ---
         last_op = (
             order.operations
             .order_by("-sequence", "-id")
@@ -293,7 +539,8 @@ class ProductionOperationUpdateView(LoginRequiredMixin, UpdateView):
         return ctx
 
 
-class ProductionOrderDetailView(LoginRequiredMixin, DetailView):
+class ProductionOrderDetailView(LoginRequiredMixin, ModulePermissionMixin, DetailView):
+    permission_required = "production.view_productionorder"
     model = ProductionOrder
     template_name = "production/order_detail.html"
     context_object_name = "order"
@@ -312,60 +559,81 @@ class ProductionOrderDetailView(LoginRequiredMixin, DetailView):
         return ctx
 
 
-class ProductionOrderExecutionView(LoginRequiredMixin, DetailView):
+class ProductionOrderReleaseView(LoginRequiredMixin, ModulePermissionMixin, View):
+    permission_required = "production.change_productionorder"
+    """
+    Acción explícita: liberar una OP (DRAFT → RELEASED).
+    Genera las operaciones a partir de la ruta y cambia estado.
+    """
+
+    def post(self, request, pk):
+        order = get_object_or_404(ProductionOrder, pk=pk)
+
+        if order.status != ProductionOrderStatus.DRAFT:
+            messages.error(request, "Solo se pueden liberar órdenes en estado Borrador.")
+            return redirect("production:orders_list")
+
+        if not order.route:
+            messages.error(request, "La orden no tiene ruta de producción asignada.")
+            return redirect("production:orders_list")
+
+        from .models import ProductRouteStep
+
+        steps = (
+            ProductRouteStep.objects
+            .filter(route=order.route, is_active=True)
+            .order_by("sequence", "id")
+        )
+
+        if not steps.exists():
+            messages.error(request, "La ruta seleccionada no tiene pasos activos.")
+            return redirect("production:orders_list")
+
+        with transaction.atomic():
+            for step in steps:
+                ProductionOperation.objects.create(
+                    order=order,
+                    step=step,
+                    sequence=step.sequence,
+                    status=ProductionOperationStatus.PENDING,
+                    created_by=request.user,
+                    updated_by=request.user,
+                )
+
+            order.status = ProductionOrderStatus.RELEASED
+            order.updated_by = request.user
+            order.save(update_fields=["status", "updated_by", "updated_at"])
+
+            # Planificar fechas de cada operación
+            schedule_production_order(order=order)
+
+            # Generar transferencias de MP automáticamente
+            transfers = generate_material_transfers(order=order, user=request.user)
+
+        tf_msg = f" Se generaron {len(transfers)} transferencias de MP." if transfers else ""
+        messages.success(request, f"Orden {order.code} liberada. Se generaron {steps.count()} operaciones.{tf_msg}")
+        return redirect("production:orders_execute", pk=order.pk)
+
+
+class ProductionOrderExecutionView(LoginRequiredMixin, ModulePermissionMixin, DetailView):
+    permission_required = "production.change_productionorder"
     """
     Motor de ejecución visual: muestra las operaciones en fila,
     resalta la actual y solo deja avanzar una por vez.
+    La OP debe estar previamente liberada (RELEASED o IN_PROGRESS).
     """
     model = ProductionOrder
     template_name = "production/order_execute.html"
     context_object_name = "order"
 
     def get_object(self, queryset=None):
-        """
-        Cada vez que entramos a ejecutar, garantizamos que:
-        - La OP tenga operaciones generadas (a partir de la ruta).
-        - Pase a IN_PROGRESS si estaba en DRAFT.
-        """
         order: ProductionOrder = super().get_object(queryset)
 
-        # Si no tiene operaciones, las generamos acá (reemplaza la lógica de "liberar")
-        if not order.operations.exists():
-            from .models import ProductRouteStep, ProductionOperation
-
-            steps = (
-                ProductRouteStep.objects
-                .filter(route=order.route, is_active=True)
-                .order_by("sequence", "id")
+        if order.status == ProductionOrderStatus.DRAFT:
+            messages.warning(
+                self.request,
+                "Esta orden está en Borrador. Debes liberarla antes de ejecutar."
             )
-
-            if not steps.exists():
-                messages.error(
-                    self.request,
-                    "La ruta seleccionada no tiene pasos activos; no se puede ejecutar la orden."
-                )
-                return order
-
-            with transaction.atomic():
-                for step in steps:
-                    ProductionOperation.objects.create(
-                        order=order,
-                        step=step,
-                        sequence=step.sequence,
-                        status=ProductionOperationStatus.PENDING,
-                        created_by=self.request.user,
-                        updated_by=self.request.user,
-                    )
-
-                if order.status == ProductionOrderStatus.DRAFT:
-                    order.status = ProductionOrderStatus.IN_PROGRESS
-                    order.updated_by = self.request.user
-                    order.save(update_fields=["status", "updated_by", "updated_at"])
-
-                messages.success(
-                    self.request,
-                    f"Se generaron las operaciones de producción para la orden {order.code}."
-                )
 
         return order
 
@@ -375,19 +643,42 @@ class ProductionOrderExecutionView(LoginRequiredMixin, DetailView):
 
         ops = (
             order.operations
-            .select_related("step", "step__work_center")
+            .select_related(
+                "step", "step__work_center",
+                "input_lot", "output_lot",
+                "operator",
+            )
             .order_by("sequence", "id")
         )
 
-        # Primer paso NO DONE → operación "actual"
+        # Primer paso no completado → operación "actual"
         current_op = None
         for o in ops:
-            if o.status != ProductionOperationStatus.DONE:
+            if o.status not in (ProductionOperationStatus.DONE,):
                 current_op = o
                 break
 
+        # Audit log: todos los cambios de estado de esta OP
+        from .models import OperationStatusLog
+        status_logs = (
+            OperationStatusLog.objects
+            .filter(operation__order=order)
+            .select_related("operation", "changed_by")
+            .order_by("-changed_at")[:50]
+        )
+
+        # Transferencias de MP pendientes
+        from .models import MaterialTransfer, MaterialTransferStatus
+        pending_transfers_count = (
+            MaterialTransfer.objects
+            .filter(order=order, status=MaterialTransferStatus.PENDING)
+            .count()
+        )
+
         ctx["operations"] = ops
         ctx["current_operation"] = current_op
+        ctx["status_logs"] = status_logs
+        ctx["pending_transfers_count"] = pending_transfers_count
         return ctx
 
 
@@ -395,7 +686,8 @@ class ProductionOrderExecutionView(LoginRequiredMixin, DetailView):
 # Planes de Producción
 # ---------------------------------------------------------
 
-class ProductionPlanListView(LoginRequiredMixin, ListView):
+class ProductionPlanListView(LoginRequiredMixin, ModulePermissionMixin, ListView):
+    permission_required = "production.view_productionplan"
     model = ProductionPlan
     template_name = "production/plan_list.html"
     context_object_name = "page"
@@ -430,7 +722,8 @@ class ProductionPlanListView(LoginRequiredMixin, ListView):
         return qs
 
 
-class ProductionPlanCreateView(LoginRequiredMixin, CreateView):
+class ProductionPlanCreateView(LoginRequiredMixin, ModulePermissionMixin, CreateView):
+    permission_required = "production.add_productionplan"
     model = ProductionPlan
     form_class = ProductionPlanForm
     template_name = "production/plan_form.html"
@@ -448,6 +741,23 @@ class ProductionPlanCreateView(LoginRequiredMixin, CreateView):
         }
         return ctx
 
+    def _save_raw_lots(self, plan, request):
+        """Guarda los lotes de MP seleccionados por FEFO como ProductionPlanRawLot."""
+        count = int(request.POST.get("raw_lots_count", 0))
+        # Limpiar raw_lots anteriores
+        plan.raw_lots.all().delete()
+        for i in range(count):
+            component_id = request.POST.get(f"raw_lot_component_{i}")
+            lot_id = request.POST.get(f"raw_lot_id_{i}")
+            qty = request.POST.get(f"raw_lot_qty_{i}")
+            if component_id and lot_id:
+                ProductionPlanRawLot.objects.create(
+                    plan=plan,
+                    component_id=int(component_id),
+                    lot_id=int(lot_id),
+                    quantity_planned=Decimal(qty) if qty else None,
+                )
+
     def form_valid(self, form):
         plan: ProductionPlan = form.save(commit=False)
 
@@ -461,37 +771,92 @@ class ProductionPlanCreateView(LoginRequiredMixin, CreateView):
         plan.updated_by = self.request.user
         plan.save()
 
+        self._save_raw_lots(plan, self.request)
+
         messages.success(self.request, "Plan de producción creado correctamente.")
         return redirect(self.success_url)
 
 
-class ProductionPlanUpdateView(LoginRequiredMixin, UpdateView):
+class ProductionPlanUpdateView(LoginRequiredMixin, ModulePermissionMixin, UpdateView):
+    permission_required = "production.change_productionplan"
     model = ProductionPlan
     form_class = ProductionPlanForm
     template_name = "production/plan_form.html"
     success_url = reverse_lazy("production:plans_list")
+
+    def dispatch(self, request, *args, **kwargs):
+        plan = self.get_object()
+        if plan.status == ProductionPlanStatus.CANCELED:
+            messages.error(request, "No se puede editar un plan anulado.")
+            return redirect("production:plans_list")
+        return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         products = Product.objects.filter(
             product_type=ProductType.FG,
             is_active=True,
-        ).values("id", "lot_prefix")  # 👈 igual que arriba
+        ).values("id", "lot_prefix")
 
         ctx["lot_prefix_map"] = {
             str(p["id"]): p["lot_prefix"] or "" for p in products
         }
+        ctx["plan_id"] = self.object.pk
         return ctx
+
+    def _save_raw_lots(self, plan, request):
+        """Guarda los lotes de MP seleccionados por FEFO como ProductionPlanRawLot."""
+        count = int(request.POST.get("raw_lots_count", 0))
+        plan.raw_lots.all().delete()
+        for i in range(count):
+            component_id = request.POST.get(f"raw_lot_component_{i}")
+            lot_id = request.POST.get(f"raw_lot_id_{i}")
+            qty = request.POST.get(f"raw_lot_qty_{i}")
+            if component_id and lot_id:
+                ProductionPlanRawLot.objects.create(
+                    plan=plan,
+                    component_id=int(component_id),
+                    lot_id=int(lot_id),
+                    quantity_planned=Decimal(qty) if qty else None,
+                )
 
     def form_valid(self, form):
         plan: ProductionPlan = form.save(commit=False)
         plan.updated_by = self.request.user
         plan.save()
+
+        self._save_raw_lots(plan, self.request)
+
         messages.success(self.request, "Plan de producción actualizado correctamente.")
         return redirect(self.success_url)
 
 
-class ProductionOrderCreateFromPlanView(LoginRequiredMixin, CreateView):
+class ProductionPlanCancelView(LoginRequiredMixin, ModulePermissionMixin, View):
+    permission_required = "production.change_productionplan"
+    """Anula un plan de producción y libera las reservas de MP."""
+
+    def post(self, request, pk):
+        plan = get_object_or_404(ProductionPlan, pk=pk)
+
+        if plan.orders.exists():
+            messages.error(request, "No se puede anular: ya tiene órdenes de producción.")
+            return redirect("production:plans_list")
+
+        if plan.status != ProductionPlanStatus.ACTIVE:
+            messages.error(request, "Solo se pueden anular planes activos.")
+            return redirect("production:plans_list")
+
+        plan.raw_lots.all().delete()  # libera reservas
+        plan.status = ProductionPlanStatus.CANCELED
+        plan.updated_by = request.user
+        plan.save(update_fields=["status", "updated_by", "updated_at"])
+
+        messages.success(request, f"Plan {plan.code} anulado. Materias primas liberadas.")
+        return redirect("production:plans_list")
+
+
+class ProductionOrderCreateFromPlanView(LoginRequiredMixin, ModulePermissionMixin, CreateView):
+    permission_required = "production.add_productionorder"
     """
     Crea una OP a partir de un Plan de Producción:
     - Amarra plan → order.plan
@@ -511,6 +876,19 @@ class ProductionOrderCreateFromPlanView(LoginRequiredMixin, CreateView):
         initial = super().get_initial()
         initial["product"] = self.plan.product
         initial["quantity_planned"] = self.plan.quantity_pending
+        if self.plan.manufacturing_date:
+            initial["start_date"] = self.plan.manufacturing_date.strftime("%Y-%m-%d")
+
+        # BOM: revisión más alta activa para el producto del plan
+        bom = (
+            BillOfMaterial.objects
+            .filter(product_finished=self.plan.product, is_active=True)
+            .order_by("-revision")
+            .first()
+        )
+        if bom:
+            initial["bom"] = bom
+
         return initial
 
     def get_context_data(self, **kwargs):
@@ -524,6 +902,7 @@ class ProductionOrderCreateFromPlanView(LoginRequiredMixin, CreateView):
         op.plan = self.plan
         op.origin_type = ProductionOrderOrigin.PLANNING
         op.origin_reference = self.plan.code
+        op.start_date = self.plan.manufacturing_date
 
         qty = op.quantity_planned or Decimal("0")
         if qty <= 0:
@@ -556,3 +935,223 @@ class ProductionOrderCreateFromPlanView(LoginRequiredMixin, CreateView):
             f"Orden de producción {op.code} creada desde el plan {self.plan.code}."
         )
         return redirect(self.success_url)
+
+
+# ---------------------------------------------------------
+# Estaciones de trabajo (WorkCenter)
+# ---------------------------------------------------------
+
+class WorkCenterListView(LoginRequiredMixin, ModulePermissionMixin, ListView):
+    permission_required = "production.view_workcenter"
+    model = WorkCenter
+    template_name = "production/workcenter_list.html"
+    context_object_name = "page"
+    paginate_by = 20
+
+    def get_queryset(self):
+        qs = WorkCenter.objects.order_by("code")
+        q = self.request.GET.get("q", "").strip()
+        if q:
+            qs = qs.filter(Q(code__icontains=q) | Q(name__icontains=q))
+        return qs
+
+
+class WorkCenterCreateView(LoginRequiredMixin, ModulePermissionMixin, CreateView):
+    permission_required = "production.add_workcenter"
+    model = WorkCenter
+    form_class = WorkCenterForm
+    template_name = "production/workcenter_form.html"
+    success_url = reverse_lazy("production:workcenters_list")
+
+    def form_valid(self, form):
+        obj = form.save(commit=False)
+        obj.created_by = self.request.user
+        obj.updated_by = self.request.user
+        obj.save()
+        messages.success(self.request, f"Estación de trabajo «{obj.name}» creada.")
+        return redirect(self.success_url)
+
+
+class WorkCenterUpdateView(LoginRequiredMixin, ModulePermissionMixin, UpdateView):
+    permission_required = "production.change_workcenter"
+    model = WorkCenter
+    form_class = WorkCenterForm
+    template_name = "production/workcenter_form.html"
+    success_url = reverse_lazy("production:workcenters_list")
+
+    def form_valid(self, form):
+        obj = form.save(commit=False)
+        obj.updated_by = self.request.user
+        obj.save()
+        messages.success(self.request, f"Estación de trabajo «{obj.name}» actualizada.")
+        return redirect(self.success_url)
+
+
+# ---------------------------------------------------------
+# Rutas de producción (ProductRoute + Steps)
+# ---------------------------------------------------------
+
+class ProductRouteListView(LoginRequiredMixin, ModulePermissionMixin, ListView):
+    permission_required = "production.view_productroute"
+    model = ProductRoute
+    template_name = "production/route_list.html"
+    context_object_name = "page"
+    paginate_by = 20
+
+    def get_queryset(self):
+        qs = ProductRoute.objects.select_related("product").order_by("product__name", "name")
+        q = self.request.GET.get("q", "").strip()
+        if q:
+            qs = qs.filter(
+                Q(name__icontains=q) | Q(product__code__icontains=q) | Q(product__name__icontains=q)
+            )
+        return qs
+
+
+class ProductRouteCreateView(LoginRequiredMixin, ModulePermissionMixin, View):
+    permission_required = "production.add_productroute"
+    template_name = "production/route_form.html"
+    success_url = reverse_lazy("production:routes_list")
+
+    def get(self, request):
+        form = ProductRouteForm()
+        formset = ProductRouteStepFormSet()
+        return render(request, self.template_name, {"form": form, "formset": formset})
+
+    def post(self, request):
+        form = ProductRouteForm(request.POST)
+        formset = ProductRouteStepFormSet(request.POST)
+        if form.is_valid() and formset.is_valid():
+            with transaction.atomic():
+                route = form.save(commit=False)
+                route.created_by = request.user
+                route.updated_by = request.user
+                route.save()
+                formset.instance = route
+                formset.save()
+            messages.success(request, f"Ruta «{route.name}» creada.")
+            return redirect(self.success_url)
+        return render(request, self.template_name, {"form": form, "formset": formset})
+
+
+class ProductRouteUpdateView(LoginRequiredMixin, ModulePermissionMixin, View):
+    permission_required = "production.change_productroute"
+    template_name = "production/route_form.html"
+    success_url = reverse_lazy("production:routes_list")
+
+    def _get_route(self, pk):
+        return get_object_or_404(ProductRoute, pk=pk)
+
+    def get(self, request, pk):
+        route = self._get_route(pk)
+        form = ProductRouteForm(instance=route)
+        formset = ProductRouteStepFormSet(instance=route)
+        return render(request, self.template_name, {"form": form, "formset": formset, "object": route})
+
+    def post(self, request, pk):
+        route = self._get_route(pk)
+        form = ProductRouteForm(request.POST, instance=route)
+        formset = ProductRouteStepFormSet(request.POST, instance=route)
+        if form.is_valid() and formset.is_valid():
+            with transaction.atomic():
+                route = form.save(commit=False)
+                route.updated_by = request.user
+                route.save()
+                formset.save()
+            messages.success(request, f"Ruta «{route.name}» actualizada.")
+            return redirect(self.success_url)
+        return render(request, self.template_name, {"form": form, "formset": formset, "object": route})
+
+
+# ---------------------------------------------------------
+# Transferencias de material (MP → Estación de producción)
+# ---------------------------------------------------------
+
+class MaterialTransferListView(LoginRequiredMixin, ModulePermissionMixin, DetailView):
+    permission_required = "production.view_productionorder"
+    model = ProductionOrder
+    template_name = "production/order_transfers.html"
+    context_object_name = "order"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        from .models import MaterialTransfer
+        ctx["transfers"] = (
+            MaterialTransfer.objects
+            .filter(order=self.object)
+            .select_related("component", "lot", "from_warehouse", "to_warehouse", "confirmed_by")
+            .order_by("component__code")
+        )
+        ctx["confirm_form"] = MaterialTransferConfirmForm()
+        return ctx
+
+
+class MaterialTransferConfirmView(LoginRequiredMixin, ModulePermissionMixin, View):
+    permission_required = "production.change_productionorder"
+
+    def post(self, request, pk):
+        from .models import MaterialTransfer
+        transfer = get_object_or_404(MaterialTransfer, pk=pk)
+        form = MaterialTransferConfirmForm(request.POST)
+
+        if not form.is_valid():
+            messages.error(request, "Datos inválidos. Revisa la cantidad.")
+            return redirect("production:order_transfers", pk=transfer.order.pk)
+
+        try:
+            confirm_material_transfer(
+                transfer=transfer,
+                quantity_confirmed=form.cleaned_data["quantity_confirmed"],
+                user=request.user,
+                notes=form.cleaned_data.get("notes", ""),
+            )
+            if transfer.quantity_confirmed != transfer.quantity_requested:
+                messages.warning(
+                    request,
+                    f"Transferencia confirmada con DESVIACIÓN: "
+                    f"solicitado {transfer.quantity_requested}, confirmado {transfer.quantity_confirmed}."
+                )
+            else:
+                messages.success(request, f"Transferencia de {transfer.component.code} confirmada.")
+        except ValidationError as e:
+            messages.error(request, str(e))
+
+        return redirect("production:order_transfers", pk=transfer.order.pk)
+
+
+# ---------------------------------------------------------
+# Estimación de tiempo de producción (AJAX)
+# ---------------------------------------------------------
+
+class EstimateProductionTimeView(LoginRequiredMixin, ModulePermissionMixin, View):
+    permission_required = "production.view_productionorder"
+    """
+    GET /production/estimate-time/?product_id=X&quantity=Y
+    Retorna JSON con estimación de duración por paso y total.
+    """
+    def get(self, request):
+        from inventory.models import Product
+        product_id = request.GET.get("product_id")
+        quantity = request.GET.get("quantity")
+
+        if not product_id or not quantity:
+            return JsonResponse({"error": "product_id y quantity son requeridos."}, status=400)
+
+        try:
+            product = Product.objects.get(pk=product_id)
+            quantity = Decimal(quantity)
+        except (Product.DoesNotExist, Exception):
+            return JsonResponse({"error": "Producto no encontrado o cantidad inválida."}, status=400)
+
+        route = (
+            ProductRoute.objects
+            .filter(product=product, is_active=True)
+            .first()
+        )
+        if not route:
+            return JsonResponse({"error": f"No hay ruta de producción activa para {product.code}."}, status=404)
+
+        result = estimate_production_duration(route=route, quantity=quantity)
+        result["estimated_end_date"] = result["estimated_end_date"].isoformat()
+        result["start_date"] = result["start_date"].isoformat()
+        return JsonResponse(result)

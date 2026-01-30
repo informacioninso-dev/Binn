@@ -345,6 +345,8 @@ class RawMaterialReceptionLineForm(forms.Form):
             product_type=ProductType.RAW,
             is_active=True,
         ).order_by("name")
+        # Mostrar solo el nombre en el dropdown (el código va en su columna aparte)
+        self.fields["product"].label_from_instance = lambda obj: obj.name
     
     def clean(self):
         cleaned = super().clean()
