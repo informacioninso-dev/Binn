@@ -63,8 +63,7 @@ class SaleDispatchLineInline(admin.TabularInline):
 
 @admin.register(SaleDispatch)
 class SaleDispatchAdmin(admin.ModelAdmin):
-    list_display = ("code", "order", "status", "dispatch_date", "created_at")
-    list_filter = ("status",)
+    list_display = ("code", "order", "dispatched_date")
     search_fields = ("code", "order__code")
     inlines = [SaleDispatchLineInline]
 
@@ -102,9 +101,9 @@ class SaleInvoiceLineInline(admin.TabularInline):
 
 @admin.register(SaleInvoice)
 class SaleInvoiceAdmin(admin.ModelAdmin):
-    list_display = ("sequential", "order", "client", "status", "total", "issue_date")
+    list_display = ("sequential", "order", "buyer_legal_name", "status", "total_amount", "issue_date")
     list_filter = ("status",)
-    search_fields = ("sequential", "order__code", "client__trade_name")
+    search_fields = ("sequential", "order__code", "buyer_legal_name", "buyer_identification")
     inlines = [SaleInvoiceLineInline]
 
 
@@ -115,7 +114,7 @@ class GuiaRemisionLineInline(admin.TabularInline):
 
 @admin.register(GuiaRemision)
 class GuiaRemisionAdmin(admin.ModelAdmin):
-    list_display = ("code", "dispatch", "status", "issue_date")
+    list_display = ("full_number", "dispatch", "status", "issue_date")
     list_filter = ("status",)
-    search_fields = ("code", "dispatch__code")
+    search_fields = ("sequential", "dispatch__code", "carrier_legal_name")
     inlines = [GuiaRemisionLineInline]

@@ -72,14 +72,14 @@ class ProductionPlanRawLotInline(admin.TabularInline):
 
 @admin.register(ProductionPlan)
 class ProductionPlanAdmin(admin.ModelAdmin):
-    list_display = ("code", "product", "quantity", "status", "planned_date", "created_at")
+    list_display = ("code", "product", "lot_code", "quantity_planned", "status", "manufacturing_date", "created_at")
     list_filter = ("status",)
-    search_fields = ("code", "product__code", "product__name")
+    search_fields = ("code", "product__code", "product__name", "lot_code")
     inlines = [ProductionPlanRawLotInline]
 
 
 @admin.register(MaterialTransfer)
 class MaterialTransferAdmin(admin.ModelAdmin):
-    list_display = ("operation", "lot", "quantity", "status", "created_at")
+    list_display = ("order", "component", "lot", "quantity_requested", "status", "created_at")
     list_filter = ("status",)
-    search_fields = ("operation__order__code", "lot__internal_lot")
+    search_fields = ("order__code", "lot__internal_lot", "component__code")
