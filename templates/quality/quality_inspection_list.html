@@ -15,14 +15,14 @@
     </div>
     <div class="flex flex-col items-stretch gap-2 md:flex-row md:items-center">
       {# Export buttons #}
-      <div class="flex items-center gap-1">
+      <div class="flex items-center gap-2">
         <a href="{% url 'quality:inspection_list_pdf' %}" target="_blank"
-           class="rounded-lg p-2 text-red-600 hover:bg-red-50" title="Exportar PDF">
-          <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 2l5 5h-5V4zM8.5 13H10v4.5H8.5V13zm3 0H13v4.5h-1.5V13zm3 0H16v4.5h-1.5V13z"/></svg>
+           class="rounded-lg border border-red-300 px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50" title="Exportar PDF">
+          PDF
         </a>
         <a href="{% url 'quality:inspection_list_excel' %}"
-           class="rounded-lg p-2 text-green-600 hover:bg-green-50" title="Exportar Excel">
-          <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 2l5 5h-5V4zM7 17l2.5-3.5L7 10h1.5l1.75 2.5L12 10h1.5l-2.5 3.5L13.5 17H12l-1.75-2.5L8.5 17H7z"/></svg>
+           class="rounded-lg border border-green-300 px-3 py-2 text-xs font-medium text-green-600 hover:bg-green-50" title="Exportar Excel">
+          Excel
         </a>
       </div>
       <form method="get" class="flex flex-wrap items-center gap-2">
