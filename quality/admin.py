@@ -170,3 +170,11 @@ class RecallLotAdmin(admin.ModelAdmin):
     search_fields = ("recall__code", "lot__internal_lot")
     raw_id_fields = ("recall", "lot")
 
+
+@admin.register(RecallAffectedClient)
+class RecallAffectedClientAdmin(admin.ModelAdmin):
+    list_display = ("recall", "client_name", "dispatch_code", "quantity_dispatched", "notified", "recovered")
+    list_filter = ("notified", "recovered")
+    search_fields = ("recall__code", "client_name", "dispatch_code")
+    raw_id_fields = ("recall", "client")
+

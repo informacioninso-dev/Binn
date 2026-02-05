@@ -8,7 +8,11 @@ from .models import (
     ProductionOrder,
     ProductionOrderStatus,
     ProductionOperation,
-    ProductionOperationStatus,  # Eliminado de aquí.
+    ProductionOperationStatus,
+    OperationStatusLog,
+    ProductionPlan,
+    ProductionPlanRawLot,
+    MaterialTransfer,
 )
 
 @admin.register(BillOfMaterial)
@@ -52,4 +56,30 @@ class ProductionOperationAdmin(admin.ModelAdmin):
     search_fields = ("order__code", "step__name", "status")
     list_filter = ("status", "order", "step")
 
-# Ya no hay necesidad de registrar ProductionOperationStatus
+# ─── Modelos adicionales ─────────────────────────────────────
+
+@admin.register(OperationStatusLog)
+class OperationStatusLogAdmin(admin.ModelAdmin):
+    list_display = ("operation", "from_status", "to_status", "changed_at", "changed_by")
+    list_filter = ("from_status", "to_status")
+    search_fields = ("operation__order__code",)
+
+
+class ProductionPlanRawLotInline(admin.TabularInline):
+    model = ProductionPlanRawLot
+    extra = 0
+
+
+@admin.register(ProductionPlan)
+class ProductionPlanAdmin(admin.ModelAdmin):
+    list_display = ("code", "product", "quantity", "status", "planned_date", "created_at")
+    list_filter = ("status",)
+    search_fields = ("code", "product__code", "product__name")
+    inlines = [ProductionPlanRawLotInline]
+
+
+@admin.register(MaterialTransfer)
+class MaterialTransferAdmin(admin.ModelAdmin):
+    list_display = ("operation", "lot", "quantity", "status", "created_at")
+    list_filter = ("status",)
+    search_fields = ("operation__order__code", "lot__internal_lot")

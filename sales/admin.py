@@ -52,3 +52,70 @@ class CreditNoteAdmin(admin.ModelAdmin):
     list_display = ("full_number", "invoice", "status", "total_amount", "issue_date")
     list_filter = ("status",)
     inlines = [CreditNoteLineInline]
+
+
+# ─── Modelos adicionales ─────────────────────────────────────
+
+class SaleDispatchLineInline(admin.TabularInline):
+    model = SaleDispatchLine
+    extra = 0
+
+
+@admin.register(SaleDispatch)
+class SaleDispatchAdmin(admin.ModelAdmin):
+    list_display = ("code", "order", "status", "dispatch_date", "created_at")
+    list_filter = ("status",)
+    search_fields = ("code", "order__code")
+    inlines = [SaleDispatchLineInline]
+
+
+class PickingLineInline(admin.TabularInline):
+    model = PickingLine
+    extra = 0
+
+
+@admin.register(PickingOrder)
+class PickingOrderAdmin(admin.ModelAdmin):
+    list_display = ("code", "order", "status", "created_at")
+    list_filter = ("status",)
+    search_fields = ("code", "order__code")
+    inlines = [PickingLineInline]
+
+
+class PackingLineInline(admin.TabularInline):
+    model = PackingLine
+    extra = 0
+
+
+@admin.register(PackingOrder)
+class PackingOrderAdmin(admin.ModelAdmin):
+    list_display = ("code", "picking", "status", "created_at")
+    list_filter = ("status",)
+    search_fields = ("code", "picking__code")
+    inlines = [PackingLineInline]
+
+
+class SaleInvoiceLineInline(admin.TabularInline):
+    model = SaleInvoiceLine
+    extra = 0
+
+
+@admin.register(SaleInvoice)
+class SaleInvoiceAdmin(admin.ModelAdmin):
+    list_display = ("sequential", "order", "client", "status", "total", "issue_date")
+    list_filter = ("status",)
+    search_fields = ("sequential", "order__code", "client__trade_name")
+    inlines = [SaleInvoiceLineInline]
+
+
+class GuiaRemisionLineInline(admin.TabularInline):
+    model = GuiaRemisionLine
+    extra = 0
+
+
+@admin.register(GuiaRemision)
+class GuiaRemisionAdmin(admin.ModelAdmin):
+    list_display = ("code", "dispatch", "status", "issue_date")
+    list_filter = ("status",)
+    search_fields = ("code", "dispatch__code")
+    inlines = [GuiaRemisionLineInline]
