@@ -1,83 +1,37 @@
 {# templates/production/_nav.html #}
 {% with url_name=request.resolver_match.url_name %}
-<nav class="mb-4 border-b border-gray-200">
-  <ul class="flex flex-wrap gap-4 text-sm">
-
-       {# Plan de producción #}
-    <li>
-      <a href="{% url 'production:plans_list' %}"
-         class="pb-2 border-b-2 transition-colors
-         {% if url_name == 'plans_list' %}
-            border-blue-600 text-blue-600
-         {% else %}
-            border-transparent text-gray-600 hover:text-blue-600
-         {% endif %}">
-        Planes de producción
-      </a>
-    </li>
-    {# orden de producion #}
-    <li>
-      <a href="{% url 'production:orders_list' %}"
-         class="pb-2 border-b-2 transition-colors
-         {% if url_name == 'orders_list' %}
-            border-blue-600 text-blue-600
-         {% else %}
-            border-transparent text-gray-600 hover:text-blue-600
-         {% endif %}">
-        Orden de Producción
-      </a>
-    </li>
-        {# Operaciones de produccion #}
-    <li>
-      <a href="{% url 'production:operations_list' %}"
-         class="pb-2 border-b-2 transition-colors
-         {% if url_name == 'operation' %}
-            border-blue-600 text-blue-600
-         {% else %}
-            border-transparent text-gray-600 hover:text-blue-600
-         {% endif %}">
-        Operaciones de produción
-      </a>
-    </li>
-
-    {# Planos de produccion #}
-    <li>
-      <a href="{% url 'production:bom_list' %}"
-         class="pb-2 border-b-2 transition-colors
-         {% if 'bom' in url_name %}
-            border-blue-600 text-blue-600
-         {% else %}
-            border-transparent text-gray-600 hover:text-blue-600
-         {% endif %}">
-        Lista de materiales
-      </a>
-    </li>
-
-    {# Rutas de producción #}
-    <li>
-      <a href="{% url 'production:routes_list' %}"
-         class="pb-2 border-b-2 transition-colors
-         {% if 'route' in url_name %}
-            border-blue-600 text-blue-600
-         {% else %}
-            border-transparent text-gray-600 hover:text-blue-600
-         {% endif %}">
-        Rutas de producción
-      </a>
-    </li>
-
-    {# Estaciones de trabajo #}
-    <li>
-      <a href="{% url 'production:workcenters_list' %}"
-         class="pb-2 border-b-2 transition-colors
-         {% if 'workcenter' in url_name %}
-            border-blue-600 text-blue-600
-         {% else %}
-            border-transparent text-gray-600 hover:text-blue-600
-         {% endif %}">
-        Estaciones de trabajo
-      </a>
-    </li>
-  </ul>
+<nav class="mb-5 -mx-1 overflow-x-auto scrollbar-none">
+  <div class="flex gap-2 px-1 py-1 min-w-max">
+    <a href="{% url 'production:operations_list' %}"
+       class="whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-colors
+       {% if 'operation' in url_name %}bg-blue-600 text-white shadow-sm{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}">
+      Operaciones
+    </a>
+    <a href="{% url 'production:plans_list' %}"
+       class="whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-colors
+       {% if 'plans' in url_name %}bg-blue-600 text-white shadow-sm{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}">
+      Planes
+    </a>
+    <a href="{% url 'production:orders_list' %}"
+       class="whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-colors
+       {% if 'order' in url_name %}bg-blue-600 text-white shadow-sm{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}">
+      Órdenes
+    </a>
+    <a href="{% url 'production:bom_list' %}"
+       class="whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-colors
+       {% if 'bom' in url_name %}bg-blue-600 text-white shadow-sm{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}">
+      Lista de materiales
+    </a>
+    <a href="{% url 'production:routes_list' %}"
+       class="whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-colors
+       {% if 'route' in url_name %}bg-blue-600 text-white shadow-sm{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}">
+      Rutas
+    </a>
+    <a href="{% url 'production:workcenters_list' %}"
+       class="whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-colors
+       {% if 'workcenter' in url_name %}bg-blue-600 text-white shadow-sm{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}">
+      Estaciones
+    </a>
+  </div>
 </nav>
 {% endwith %}

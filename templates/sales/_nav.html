@@ -1,91 +1,42 @@
+{# templates/sales/_nav.html #}
 {% with url_name=request.resolver_match.url_name %}
-<nav class="mb-4 border-b border-gray-200">
-  <ul class="flex flex-wrap gap-4 text-sm">
-
-    <li>
-      <a href="{% url 'sales:order_list' %}"
-         class="pb-2 border-b-2 transition-colors
-         {% if url_name == 'order_list' or url_name == 'order_detail' or url_name == 'order_create' or url_name == 'dispatch_check' %}
-            border-blue-600 text-blue-600
-         {% else %}
-            border-transparent text-gray-600 hover:text-blue-600
-         {% endif %}">
-        Pedidos
-      </a>
-    </li>
-
-    <li>
-      <a href="{% url 'sales:picking_list' %}"
-         class="pb-2 border-b-2 transition-colors
-         {% if url_name == 'picking_list' or url_name == 'picking_detail' %}
-            border-blue-600 text-blue-600
-         {% else %}
-            border-transparent text-gray-600 hover:text-blue-600
-         {% endif %}">
-        Picking
-      </a>
-    </li>
-
-    <li>
-      <a href="{% url 'sales:dispatch_list' %}"
-         class="pb-2 border-b-2 transition-colors
-         {% if url_name == 'dispatch_list' or url_name == 'dispatch_confirm' or url_name == 'packing_detail' %}
-            border-blue-600 text-blue-600
-         {% else %}
-            border-transparent text-gray-600 hover:text-blue-600
-         {% endif %}">
-        Despachos
-      </a>
-    </li>
-
-    <li>
-      <a href="{% url 'sales:guia_list' %}"
-         class="pb-2 border-b-2 transition-colors
-         {% if url_name == 'guia_list' or url_name == 'guia_detail' or url_name == 'guia_create' %}
-            border-blue-600 text-blue-600
-         {% else %}
-            border-transparent text-gray-600 hover:text-blue-600
-         {% endif %}">
-        Guías
-      </a>
-    </li>
-
-    <li>
-      <a href="{% url 'sales:invoice_list' %}"
-         class="pb-2 border-b-2 transition-colors
-         {% if url_name == 'invoice_list' or url_name == 'invoice_detail' %}
-            border-blue-600 text-blue-600
-         {% else %}
-            border-transparent text-gray-600 hover:text-blue-600
-         {% endif %}">
-        Facturas
-      </a>
-    </li>
-
-    <li>
-      <a href="{% url 'sales:return_list' %}"
-         class="pb-2 border-b-2 transition-colors
-         {% if url_name == 'return_list' or url_name == 'return_detail' or url_name == 'return_create' %}
-            border-blue-600 text-blue-600
-         {% else %}
-            border-transparent text-gray-600 hover:text-blue-600
-         {% endif %}">
-        Devoluciones
-      </a>
-    </li>
-
-    <li>
-      <a href="{% url 'sales:credit_note_list' %}"
-         class="pb-2 border-b-2 transition-colors
-         {% if url_name == 'credit_note_list' %}
-            border-blue-600 text-blue-600
-         {% else %}
-            border-transparent text-gray-600 hover:text-blue-600
-         {% endif %}">
-        NC
-      </a>
-    </li>
-
-  </ul>
+<nav class="mb-5 -mx-1 overflow-x-auto scrollbar-none">
+  <div class="flex gap-2 px-1 py-1 min-w-max">
+    <a href="{% url 'sales:order_list' %}"
+       class="whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-colors
+       {% if url_name == 'order_list' or url_name == 'order_detail' or url_name == 'order_create' or url_name == 'dispatch_check' %}bg-blue-600 text-white shadow-sm{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}">
+      Pedidos
+    </a>
+    <a href="{% url 'sales:picking_list' %}"
+       class="whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-colors
+       {% if url_name == 'picking_list' or url_name == 'picking_detail' %}bg-blue-600 text-white shadow-sm{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}">
+      Picking
+    </a>
+    <a href="{% url 'sales:dispatch_list' %}"
+       class="whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-colors
+       {% if url_name == 'dispatch_list' or url_name == 'dispatch_confirm' or url_name == 'packing_detail' %}bg-blue-600 text-white shadow-sm{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}">
+      Despachos
+    </a>
+    <a href="{% url 'sales:guia_list' %}"
+       class="whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-colors
+       {% if url_name == 'guia_list' or url_name == 'guia_detail' or url_name == 'guia_create' %}bg-blue-600 text-white shadow-sm{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}">
+      Guías
+    </a>
+    <a href="{% url 'sales:invoice_list' %}"
+       class="whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-colors
+       {% if url_name == 'invoice_list' or url_name == 'invoice_detail' %}bg-blue-600 text-white shadow-sm{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}">
+      Facturas
+    </a>
+    <a href="{% url 'sales:return_list' %}"
+       class="whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-colors
+       {% if url_name == 'return_list' or url_name == 'return_detail' or url_name == 'return_create' %}bg-blue-600 text-white shadow-sm{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}">
+      Devoluciones
+    </a>
+    <a href="{% url 'sales:credit_note_list' %}"
+       class="whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-colors
+       {% if url_name == 'credit_note_list' %}bg-blue-600 text-white shadow-sm{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}">
+      NC
+    </a>
+  </div>
 </nav>
 {% endwith %}

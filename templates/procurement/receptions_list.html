@@ -1,31 +1,29 @@
 {% extends 'layouts/app.html' %}
 {% block title %}Recepciones de materia prima{% endblock %}
 
-{% block app_header %}
-  <div class="mb-4 flex items-center justify-between">
-    <h1 class="text-2xl font-bold">Recepciones de materia prima</h1>
+{% block app_content %}
+  {% include "procurement/_nav.html" %}
+
+  <div class="mb-6 flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold">Recepciones de materia prima</h1>
+      <p class="text-sm text-gray-500">Histórico de recepciones de materias primas e insumos.</p>
+    </div>
     <div class="flex items-center gap-2">
       <a href="{% url 'procurement:receptions_list_pdf' %}" target="_blank"
-         class="inline-flex items-center gap-1 rounded-lg border border-red-300 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50" title="Exportar listado PDF">
-        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 10v6m0 0l-3-3m3 3l3-3M6 20h12a2 2 0 002-2V8l-6-6H6a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+         class="rounded-lg border border-red-300 px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50" title="Exportar listado PDF">
         PDF
       </a>
       <a href="{% url 'procurement:receptions_list_excel' %}"
-         class="inline-flex items-center gap-1 rounded-lg border border-green-300 px-3 py-2 text-sm font-medium text-green-600 hover:bg-green-50" title="Exportar listado Excel">
-        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 10v6m0 0l-3-3m3 3l3-3M6 20h12a2 2 0 002-2V8l-6-6H6a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+         class="rounded-lg border border-green-300 px-3 py-2 text-xs font-medium text-green-600 hover:bg-green-50" title="Exportar listado Excel">
         Excel
       </a>
       <a href="{% url 'procurement:receptions_create' %}"
-         class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
-        Nueva recepción
+         class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+        + Nueva recepción
       </a>
     </div>
   </div>
-{% endblock %}
-
-{% block app_content %}
-{# ⬇️ Submenú del módulo Inventario ⬇️ #}
-  {% include "procurement/_nav.html" %}
   <div class="rounded-2xl border bg-white">
     <div class="border-b px-4 py-3">
       <h2 class="font-semibold">Histórico de recepciones</h2>

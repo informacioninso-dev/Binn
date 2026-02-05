@@ -37,9 +37,11 @@ from .models import (
 # PANEL PRINCIPAL DE CALIDAD
 # -------------------------------------------------------------------
 
-class QualityIndexView(LoginRequiredMixin, ModulePermissionMixin, TemplateView):
+class QualityIndexView(LoginRequiredMixin, ModulePermissionMixin, View):
     permission_required = "quality.view_qualityinspection"
-    template_name = "quality/index.html"
+
+    def get(self, request, *args, **kwargs):
+        return redirect("quality:pending_lots")
 
 
 # -------------------------------------------------------------------

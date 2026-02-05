@@ -1,34 +1,17 @@
 {# templates/inventory/_nav.html #}
 {% with url_name=request.resolver_match.url_name %}
-<nav class="mb-4 border-b border-gray-200">
-  <ul class="flex flex-wrap gap-4 text-sm">
-
-    {# Productos #}
-    <li>
-      <a href="{% url 'inventory:index' %}"
-         class="pb-2 border-b-2 transition-colors
-         {% if url_name in 'index product_create product_update product_toggle' %}
-            border-blue-600 text-blue-600
-         {% else %}
-            border-transparent text-gray-600 hover:text-blue-600
-         {% endif %}">
-        Productos
-      </a>
-    </li>
-
-    {# Movimientos #}
-    <li>
-      <a href="{% url 'inventory:movements_list' %}"
-         class="pb-2 border-b-2 transition-colors
-         {% if 'movements' in url_name %}
-            border-blue-600 text-blue-600
-         {% else %}
-            border-transparent text-gray-600 hover:text-blue-600
-         {% endif %}">
-        Movimientos
-      </a>
-    </li>
-
-  </ul>
+<nav class="mb-5 -mx-1 overflow-x-auto scrollbar-none">
+  <div class="flex gap-2 px-1 py-1 min-w-max">
+    <a href="{% url 'inventory:index' %}"
+       class="whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-colors
+       {% if url_name in 'index product_create product_update product_toggle' %}bg-blue-600 text-white shadow-sm{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}">
+      Productos
+    </a>
+    <a href="{% url 'inventory:movements_list' %}"
+       class="whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-colors
+       {% if 'movements' in url_name %}bg-blue-600 text-white shadow-sm{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}">
+      Movimientos
+    </a>
+  </div>
 </nav>
 {% endwith %}

@@ -65,9 +65,11 @@ from django.db.models.functions import Coalesce
 from inventory.models import Product, ProductType, Lot, LotStatus, LotBalance
 
 
-class ProductionDashboardView(LoginRequiredMixin, ModulePermissionMixin, TemplateView):
+class ProductionDashboardView(LoginRequiredMixin, ModulePermissionMixin, View):
     permission_required = "production.view_productionorder"
-    template_name = "production/index.html"
+
+    def get(self, request, *args, **kwargs):
+        return redirect("production:operations_list")
 
 
 # ---------------------------------------------------------
