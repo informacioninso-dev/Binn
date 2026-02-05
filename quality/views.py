@@ -1,9 +1,10 @@
 # quality/views.py
 
 from decimal import Decimal, InvalidOperation
-from inventory.models import MovementTypes, InventoryMove,Lot
-from procurement.models import  RawMaterialReception, ReceptionStatus ,RawMaterialReceptionLine
+from inventory.models import MovementTypes, InventoryMove, Lot
+from procurement.models import RawMaterialReception, ReceptionStatus, RawMaterialReceptionLine
 from production.models import ProductionOrder, ProductionOperation
+from sales.models import SaleReturn, SaleReturnStatus
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from core.mixins import ModulePermissionMixin
@@ -20,12 +21,15 @@ from django.views.generic import (
     View,
 )
 
+from django.contrib.auth.decorators import login_required
 from .forms import QAPlanForm, QualityInspectionForm, QAParameterTemplateFormSet , Lot
 from .models import (
     QAPlan,
     QualityInspection,
     QAParameterTemplate,
-    InspectionStage,LotStatus
+    InspectionStage, LotStatus,
+    ProductRecall, RecallLot, RecallAffectedClient,
+    RecallOrigin, RecallStatus, RecallSeverity,
 )
 
 
@@ -271,16 +275,18 @@ class QualityInspectionCreateView(LoginRequiredMixin, ModulePermissionMixin, Cre
 
         inspection: QualityInspection = form.save(commit=False)
 
-        # Usuario que ejecuta la inspección
+        # ═══ CAMPOS DE TRAZABILIDAD - SIEMPRE AUTOMÁTICOS ═══
+        # Estos campos NUNCA deben venir del formulario para garantizar integridad
+
+        # Fecha/hora: SIEMPRE el momento actual de creación
+        inspection.inspected_at = timezone.now()
+
+        # Inspector: SIEMPRE el usuario autenticado actual
         inspection.inspected_by = self.request.user
 
         # Si el form tiene plan resuelto, lo amarramos
         if hasattr(form, "plan") and form.plan:
             inspection.plan = form.plan
-
-        # Si por alguna razón no se setea inspected_at, lo ponemos ahora
-        if not inspection.inspected_at:
-            inspection.inspected_at = timezone.now()
 
         inspection.save()
 
@@ -289,6 +295,7 @@ class QualityInspectionCreateView(LoginRequiredMixin, ModulePermissionMixin, Cre
         result = inspection.result
         if lot and result in (LotStatus.APPROVED, LotStatus.REJECTED, LotStatus.QUARANTINE):
             try:
+                dest_loc = form.cleaned_data.get("destination_location")
                 release_lot_by_qa(
                     user=self.request.user,
                     lot=lot,
@@ -296,6 +303,7 @@ class QualityInspectionCreateView(LoginRequiredMixin, ModulePermissionMixin, Cre
                     checklist=inspection.checklist,
                     notes=inspection.notes,
                     stage=inspection.stage,
+                    destination_location=dest_loc,
                 )
                 if result == LotStatus.APPROVED:
                     messages.success(
@@ -484,9 +492,19 @@ class PendingLotsQAView(LoginRequiredMixin, ModulePermissionMixin, TemplateView)
             .order_by("order__code", "sequence")
         )
 
+        # 4) Devoluciones de cliente pendientes de inspección QA
+        returns_pending_inspection = (
+            SaleReturn.objects
+            .filter(status=SaleReturnStatus.PENDING_INSPECTION)
+            .select_related("client", "invoice", "reason")
+            .prefetch_related("lines__product", "lines__lot")
+            .order_by("-received_date")
+        )
+
         ctx["raw_lots_pending"] = raw_lots_pending
         ctx["fg_lots_pending"] = fg_lots_pending
         ctx["wip_ops_pending"] = wip_ops_pending
+        ctx["returns_pending_inspection"] = returns_pending_inspection
         return ctx
 
 # -------------------------------------------------------------------
@@ -571,6 +589,9 @@ class LotAuditView(LoginRequiredMixin, ModulePermissionMixin, DetailView):
       - QA del FG
       - MP consumida (movimientos OUT con referencia = código de OP)
       - Recepciones y QA RAW de los lotes de MP
+      - Ubicación actual (bodegas y clientes)
+      - Despachos realizados
+      - Devoluciones
       - Lista de issues detectados
     """
     model = Lot
@@ -578,6 +599,10 @@ class LotAuditView(LoginRequiredMixin, ModulePermissionMixin, DetailView):
     context_object_name = "lot"
 
     def get_context_data(self, **kwargs):
+        from inventory.models import LotBalance
+        from sales.models import SaleDispatchLine, SaleReturn, SaleReturnLine
+        from decimal import Decimal
+
         ctx = super().get_context_data(**kwargs)
         lot: Lot = self.object
 
@@ -635,7 +660,7 @@ class LotAuditView(LoginRequiredMixin, ModulePermissionMixin, DetailView):
             ctx["moves_mp"] = moves_mp
 
             mp_lot_ids = {m.lot_id for m in moves_mp if m.lot_id}
-            mp_lots = (
+            mp_lots = list(
                 Lot.objects
                 .filter(id__in=mp_lot_ids)
                 .select_related("product", "warehouse")
@@ -673,7 +698,74 @@ class LotAuditView(LoginRequiredMixin, ModulePermissionMixin, DetailView):
 
         ctx["qa_raw_by_lot"] = qa_raw_by_lot
 
-        # 5) Issues / alertas para auditoría
+        # 5) UBICACIÓN ACTUAL - Balances en bodegas
+        lot_balances = list(
+            LotBalance.objects
+            .filter(lot=lot, qty__gt=0)
+            .select_related("warehouse")
+            .order_by("warehouse__name")
+        )
+        ctx["lot_balances"] = lot_balances
+        ctx["total_in_warehouse"] = sum(b.qty for b in lot_balances)
+
+        # 6) DESPACHOS A CLIENTES - Quién recibió este lote
+        dispatch_lines = (
+            SaleDispatchLine.objects
+            .filter(lot=lot)
+            .select_related(
+                "dispatch",
+                "dispatch__order",
+                "dispatch__order__client",
+                "product",
+            )
+            .order_by("-dispatch__dispatched_date")
+        )
+        ctx["dispatch_lines"] = dispatch_lines
+        ctx["total_dispatched"] = sum(dl.quantity for dl in dispatch_lines)
+
+        # Construir lista de clientes con info de despacho
+        clients_dispatched = []
+        for dl in dispatch_lines:
+            dispatch = dl.dispatch
+            order_sale = dispatch.order
+            client = order_sale.client
+            clients_dispatched.append({
+                "client": client,
+                "client_name": client.legal_name or client.trade_name,
+                "dispatch_code": dispatch.code,
+                "dispatch_date": dispatch.dispatched_date,
+                "quantity": dl.quantity,
+                "delivery_address": order_sale.delivery_address or client.address,
+                "delivery_city": order_sale.delivery_city or client.city,
+            })
+        ctx["clients_dispatched"] = clients_dispatched
+
+        # 7) DEVOLUCIONES - Si el lote fue devuelto
+        return_lines = list(
+            SaleReturnLine.objects
+            .filter(lot=lot)
+            .select_related(
+                "return_doc",
+                "return_doc__client",
+                "return_doc__reason",
+                "product",
+            )
+            .order_by("-return_doc__received_date")
+        )
+        ctx["return_lines"] = return_lines
+        ctx["total_returned"] = sum(rl.quantity_returned for rl in return_lines)
+
+        # 8) Enriquecer MP con datos de recepción y QA para el template
+        mp_lots_enriched = []
+        for mp_lot in mp_lots:
+            mp_lots_enriched.append({
+                "lot": mp_lot,
+                "reception": receptions_by_lot.get(mp_lot.id),
+                "qa_inspections": qa_raw_by_lot.get(mp_lot.id, []),
+            })
+        ctx["mp_lots_enriched"] = mp_lots_enriched
+
+        # 9) Issues / alertas para auditoría
         issues: list[str] = []
 
         if not order:
@@ -735,3 +827,288 @@ class LotAuditSearchView(LoginRequiredMixin, ModulePermissionMixin, TemplateView
 
         # Redirige al panel de auditoría REAL, que sí pide pk
         return redirect("quality:audit_lot", pk=lot.pk)
+
+
+# ─── Retiro de Mercado ──────────────────────────────────────────
+
+
+class ProductRecallListView(LoginRequiredMixin, ModulePermissionMixin, ListView):
+    permission_required = "quality.view_productrecall"
+    model = ProductRecall
+    template_name = "quality/recall_list.html"
+    context_object_name = "recalls"
+    paginate_by = 20
+
+    def get_queryset(self):
+        from .models import RecallStatus
+        qs = (
+            ProductRecall.objects
+            .select_related("product", "origin")
+            .prefetch_related("lots", "affected_clients")
+            .order_by("-recall_date")
+        )
+        q = self.request.GET.get("q", "").strip()
+        status = self.request.GET.get("status", "").strip()
+        if q:
+            qs = qs.filter(
+                Q(code__icontains=q)
+                | Q(product__name__icontains=q)
+                | Q(product__code__icontains=q)
+            )
+        if status:
+            qs = qs.filter(status=status)
+        return qs
+
+    def get_context_data(self, **kwargs):
+        from .models import RecallStatus
+        ctx = super().get_context_data(**kwargs)
+        ctx["status_choices"] = RecallStatus.choices
+        return ctx
+
+
+class ProductRecallCreateView(LoginRequiredMixin, ModulePermissionMixin, View):
+    permission_required = "quality.view_productrecall"  # Usar view para crear también
+    template_name = "quality/recall_form.html"
+
+    def get(self, request):
+        from inventory.models import Product, ProductType
+        from .models import RecallOrigin, RecallSeverity
+
+        # Paso 1: Mostrar selección de origen y producto
+        selected_origin_id = request.GET.get("origin")
+        selected_product_id = request.GET.get("product")
+
+        origins = RecallOrigin.objects.filter(is_active=True).order_by("origin_type", "name")
+        products = Product.objects.filter(
+            product_type=ProductType.FG,
+            is_active=True
+        ).order_by("name")
+
+        context = {
+            "origins": origins,
+            "products": products,
+            "severity_choices": RecallSeverity.choices,
+            "selected_origin": None,
+            "selected_product": None,
+            "lots_info": [],
+        }
+
+        # Si ya se seleccionó origen y producto, cargar lotes
+        if selected_origin_id and selected_product_id:
+            from .services import get_lots_for_product
+
+            try:
+                context["selected_origin"] = RecallOrigin.objects.get(pk=selected_origin_id)
+                context["selected_product"] = Product.objects.get(pk=selected_product_id)
+                context["lots_info"] = get_lots_for_product(context["selected_product"])
+            except (RecallOrigin.DoesNotExist, Product.DoesNotExist):
+                pass
+
+        return render(request, self.template_name, context)
+
+    def post(self, request):
+        from inventory.models import Product
+        from .models import RecallOrigin, RecallSeverity
+        from .services import create_recall
+
+        origin_id = request.POST.get("origin_id")
+        product_id = request.POST.get("product_id")
+        lot_ids = request.POST.getlist("lot_ids")
+        reason = request.POST.get("reason", "").strip()
+        description = request.POST.get("description", "").strip()
+        severity = request.POST.get("severity", RecallSeverity.MEDIUM)
+
+        if not all([origin_id, product_id, lot_ids, reason]):
+            messages.error(request, "Complete todos los campos requeridos.")
+            return redirect(request.path)
+
+        try:
+            origin = RecallOrigin.objects.get(pk=origin_id)
+            product = Product.objects.get(pk=product_id)
+
+            recall = create_recall(
+                product=product,
+                origin=origin,
+                reason=reason,
+                description=description,
+                severity=severity,
+                selected_lot_ids=lot_ids,
+                user=request.user,
+            )
+
+            affected_clients = recall.affected_clients.count()
+            messages.success(
+                request,
+                f"Retiro {recall.code} creado. {affected_clients} cliente(s) afectado(s) identificado(s).",
+            )
+            return redirect("quality:recall_detail", pk=recall.pk)
+
+        except Exception as e:
+            messages.error(request, str(e))
+            return redirect(request.path)
+
+
+class ProductRecallDetailView(LoginRequiredMixin, ModulePermissionMixin, DetailView):
+    permission_required = "quality.view_productrecall"
+    model = ProductRecall
+    template_name = "quality/recall_detail.html"
+    context_object_name = "recall"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        recall = self.object
+
+        ctx["affected_lots"] = recall.lots.select_related("lot")
+        ctx["affected_clients"] = (
+            recall.affected_clients
+            .select_related("recall_lot", "client")
+            .order_by("notified", "-quantity_dispatched")
+        )
+        ctx["stats"] = {
+            "total_clients": recall.affected_clients.count(),
+            "notified_clients": recall.affected_clients.filter(notified=True).count(),
+            "recovered_clients": recall.affected_clients.filter(recovered=True).count(),
+        }
+        return ctx
+
+
+@login_required
+def activate_recall_view(request, pk):
+    from .services import activate_recall
+
+    recall = get_object_or_404(ProductRecall, pk=pk)
+    try:
+        activate_recall(recall=recall, user=request.user)
+        messages.success(request, f"Retiro {recall.code} activado.")
+    except Exception as e:
+        messages.error(request, str(e))
+    return redirect("quality:recall_detail", pk=pk)
+
+
+@login_required
+def start_notification_view(request, pk):
+    from .services import start_notification
+
+    recall = get_object_or_404(ProductRecall, pk=pk)
+    try:
+        start_notification(recall=recall, user=request.user)
+        messages.success(request, f"Proceso de notificación iniciado para {recall.code}.")
+    except Exception as e:
+        messages.error(request, str(e))
+    return redirect("quality:recall_detail", pk=pk)
+
+
+@login_required
+def mark_notified_view(request, pk, client_pk):
+    from .models import RecallAffectedClient
+    from .services import mark_client_notified
+
+    recall = get_object_or_404(ProductRecall, pk=pk)
+    affected = get_object_or_404(RecallAffectedClient, pk=client_pk, recall=recall)
+
+    method = request.POST.get("notification_method", "Manual")
+    try:
+        mark_client_notified(
+            affected_client=affected,
+            notification_method=method,
+            user=request.user,
+        )
+        messages.success(request, f"Cliente {affected.client_name} marcado como notificado.")
+    except Exception as e:
+        messages.error(request, str(e))
+    return redirect("quality:recall_detail", pk=pk)
+
+
+@login_required
+def mark_recovered_view(request, pk, client_pk):
+    from .models import RecallAffectedClient
+    from .services import mark_client_recovered
+    from decimal import Decimal
+
+    recall = get_object_or_404(ProductRecall, pk=pk)
+    affected = get_object_or_404(RecallAffectedClient, pk=client_pk, recall=recall)
+
+    qty = request.POST.get("quantity_recovered", "0")
+    notes = request.POST.get("recovery_notes", "")
+    try:
+        mark_client_recovered(
+            affected_client=affected,
+            quantity_recovered=Decimal(qty),
+            recovery_notes=notes,
+            user=request.user,
+        )
+        messages.success(request, f"Producto recuperado de {affected.client_name}.")
+    except Exception as e:
+        messages.error(request, str(e))
+    return redirect("quality:recall_detail", pk=pk)
+
+
+@login_required
+def complete_recall_view(request, pk):
+    from .services import complete_recall
+
+    recall = get_object_or_404(ProductRecall, pk=pk)
+    corrective_action = request.POST.get("corrective_action", "")
+    try:
+        complete_recall(
+            recall=recall,
+            corrective_action=corrective_action,
+            user=request.user,
+        )
+        messages.success(request, f"Retiro {recall.code} completado.")
+    except Exception as e:
+        messages.error(request, str(e))
+    return redirect("quality:recall_detail", pk=pk)
+
+
+class RecallLotAuditView(LoginRequiredMixin, ModulePermissionMixin, DetailView):
+    """
+    Vista de auditoría de un lote dentro de un retiro de mercado.
+    Muestra la trazabilidad completa del lote: MP, producción, QA, despachos.
+    """
+    permission_required = "quality.view_productrecall"
+    model = RecallLot
+    template_name = "quality/recall_lot_audit.html"
+    context_object_name = "recall_lot"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        recall_lot = self.object
+        lot = recall_lot.lot
+
+        # Reutilizar la lógica de auditoría existente
+        from production.models import ProductionOrder
+
+        # Orden de producción que generó este lote
+        order = (
+            ProductionOrder.objects
+            .select_related("product", "route", "bom")
+            .prefetch_related("operations__step", "operations__input_lot", "operations__output_lot")
+            .filter(finished_lot=lot)
+            .first()
+        )
+        ctx["order"] = order
+
+        # Operaciones de producción
+        operations = []
+        if order:
+            operations = (
+                order.operations
+                .select_related("step", "input_lot", "output_lot")
+                .order_by("sequence", "id")
+            )
+        ctx["operations"] = operations
+
+        # QA del lote
+        qa_inspections = (
+            QualityInspection.objects
+            .filter(lot=lot)
+            .select_related("inspected_by", "plan")
+            .order_by("-inspected_at")
+        )
+        ctx["qa_inspections"] = qa_inspections
+
+        # Clientes que recibieron este lote
+        ctx["clients"] = recall_lot.clients.select_related("client").order_by("-quantity_dispatched")
+
+        return ctx

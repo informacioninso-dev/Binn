@@ -90,7 +90,7 @@ class InventoryMoveListView(LoginRequiredMixin, ModulePermissionMixin, ListView)
     model = InventoryMove
     template_name = "inventory/movements_list.html"
     context_object_name = "page"
-    paginate_by = 25
+    paginate_by = 20
 
     def get_queryset(self):
         from django.db.models import Q
@@ -210,7 +210,8 @@ class LotLocationUpdateView(LoginRequiredMixin, ModulePermissionMixin, UpdateVie
 
 ###################### Vista de Transferencia ######################
 
-class LotTransferView(View):
+class LotTransferView(LoginRequiredMixin, ModulePermissionMixin, View):
+    permission_required = "inventory.change_lot"
     template_name = "inventory/lot_transfer_form.html"
 
     def get(self, request, pk):

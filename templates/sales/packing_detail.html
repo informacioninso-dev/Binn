@@ -1,0 +1,163 @@
+{% extends "layouts/app.html" %}
+{% load static %}
+
+{% block title %}Packing {{ packing.code }} · {{ block.super }}{% endblock %}
+
+{% block app_content %}
+  {% include "sales/_nav.html" %}
+
+  <div class="mb-6 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+    <div>
+      <h1 class="text-xl md:text-2xl font-semibold">Packing</h1>
+      <p class="text-sm text-gray-500">
+        {{ packing.code }} · Pedido {{ packing.order.code }} · {{ packing.order.client.trade_name }}
+      </p>
+    </div>
+    <a href="{% url 'sales:order_list' %}"
+       class="rounded-xl border px-4 py-3 text-sm hover:bg-gray-50 text-center md:py-2">
+      Volver
+    </a>
+  </div>
+
+  {# Estado #}
+  <div class="mb-4">
+    <span class="inline-flex rounded-full px-3 py-1 text-xs font-medium
+      {% if packing.status == 'COMPLETED' %}bg-green-100 text-green-700
+      {% elif packing.status == 'CANCELED' %}bg-red-100 text-red-700
+      {% else %}bg-amber-100 text-amber-700{% endif %}">
+      {{ packing.get_status_display }}
+    </span>
+    <span class="ml-2 text-xs text-gray-500">Picking: {{ packing.picking.code }}</span>
+  </div>
+
+  <form method="post">
+    {% csrf_token %}
+
+    {# Datos de empaque #}
+    <div class="mb-6 rounded-2xl border bg-white p-4 md:p-6">
+      <h2 class="mb-4 text-lg font-semibold text-gray-900">Datos de empaque</h2>
+      <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <div>
+          <label class="mb-1 block text-sm font-medium">Número de cajas</label>
+          <input type="number" name="num_boxes"
+                 value="{{ packing.num_boxes|default:1 }}" min="1"
+                 class="w-full rounded-lg border px-3 py-2 text-sm"
+                 {% if packing.status == 'COMPLETED' %}disabled{% endif %}>
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium">Peso bruto (kg)</label>
+          <input type="number" name="gross_weight"
+                 value="{{ packing.gross_weight }}" step="0.0001" min="0"
+                 class="w-full rounded-lg border px-3 py-2 text-sm"
+                 {% if packing.status == 'COMPLETED' %}disabled{% endif %}>
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium">Peso neto (kg)</label>
+          <input type="number" name="net_weight"
+                 value="{{ packing.net_weight }}" step="0.0001" min="0"
+                 class="w-full rounded-lg border px-3 py-2 text-sm"
+                 {% if packing.status == 'COMPLETED' %}disabled{% endif %}>
+        </div>
+        <div class="col-span-2 md:col-span-1">
+          <label class="mb-1 block text-sm font-medium">Notas</label>
+          <input type="text" name="notes" value="{{ packing.notes }}"
+                 class="w-full rounded-lg border px-3 py-2 text-sm"
+                 {% if packing.status == 'COMPLETED' %}disabled{% endif %}>
+        </div>
+      </div>
+    </div>
+
+    {# Líneas de packing #}
+    <div class="rounded-2xl border bg-white p-4 md:p-6">
+      <h2 class="mb-4 text-lg font-semibold text-gray-900">Productos empacados</h2>
+
+      {# Mobile cards #}
+      <div class="space-y-3 md:hidden">
+        {% for line in packing.lines.all %}
+          <div class="rounded-xl border p-3">
+            <div class="flex items-start justify-between mb-2">
+              <div>
+                <div class="font-semibold text-sm text-gray-900">{{ line.product.name }}</div>
+                <div class="text-[11px] text-gray-500">{{ line.product.code }}</div>
+              </div>
+              <span class="text-xs font-semibold text-gray-900">{{ line.quantity }}</span>
+            </div>
+            <div class="grid grid-cols-2 gap-2 text-xs">
+              <div>
+                <span class="text-gray-500">Lote</span>
+                <p class="font-medium">{{ line.lot.internal_lot }}</p>
+                {% if line.lot.expiry_date %}
+                  <p class="text-[11px] text-gray-500">Vence: {{ line.lot.expiry_date|date:"d/m/Y" }}</p>
+                {% endif %}
+              </div>
+              <div>
+                <span class="text-gray-500">N° Caja</span>
+                {% if packing.status == 'COMPLETED' %}
+                  <p class="font-semibold">{{ line.box_number }}</p>
+                {% else %}
+                  <input type="number" name="box_{{ line.pk }}"
+                         value="{{ line.box_number }}" min="1"
+                         class="mt-0.5 w-full rounded-lg border px-3 py-2 text-sm">
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+
+      {# Desktop table #}
+      <div class="hidden md:block overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead>
+            <tr class="border-b bg-gray-50 text-xs font-semibold text-gray-600">
+              <th class="px-3 py-2 text-left">Producto</th>
+              <th class="px-3 py-2 text-left">Lote</th>
+              <th class="px-3 py-2 text-right">Cantidad</th>
+              <th class="px-3 py-2 text-center">N° Caja</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            {% for line in packing.lines.all %}
+              <tr class="hover:bg-gray-50">
+                <td class="px-3 py-2">
+                  <div class="font-medium text-gray-900">{{ line.product.name }}</div>
+                  <div class="text-[11px] text-gray-500">{{ line.product.code }}</div>
+                </td>
+                <td class="px-3 py-2 text-xs">
+                  <div class="font-medium">{{ line.lot.internal_lot }}</div>
+                  {% if line.lot.expiry_date %}
+                    <div class="text-[11px] text-gray-500">Vence: {{ line.lot.expiry_date|date:"d/m/Y" }}</div>
+                  {% endif %}
+                </td>
+                <td class="px-3 py-2 text-right text-xs font-semibold">{{ line.quantity }}</td>
+                <td class="px-3 py-2 text-center">
+                  {% if packing.status == 'COMPLETED' %}
+                    <span class="text-xs font-semibold">{{ line.box_number }}</span>
+                  {% else %}
+                    <input type="number" name="box_{{ line.pk }}"
+                           value="{{ line.box_number }}" min="1"
+                           class="w-16 rounded-lg border px-2 py-1 text-xs text-center">
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {% if packing.status != 'COMPLETED' and packing.status != 'CANCELED' %}
+        <div class="mt-6 flex flex-col gap-2 md:flex-row md:justify-end md:gap-3">
+          <button type="submit"
+                  class="rounded-xl bg-blue-600 px-4 py-3 text-sm font-medium text-white hover:bg-blue-700 md:py-2 md:order-2"
+                  onclick="return confirm('¿Completar packing y avanzar a despacho?');">
+            Completar Packing
+          </button>
+          <a href="{% url 'sales:order_list' %}"
+             class="rounded-xl border px-4 py-3 text-sm hover:bg-gray-50 text-center md:py-2 md:order-1">
+            Cancelar
+          </a>
+        </div>
+      {% endif %}
+    </div>
+  </form>
+{% endblock %}

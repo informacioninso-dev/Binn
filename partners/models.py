@@ -212,6 +212,21 @@ class Partner(AuditModel):
         default=True,
     )
 
+    # ─── Transportista (para Guías de Remisión) ───
+    is_carrier = models.BooleanField(
+        "Transportista", default=False,
+        help_text="Marcar si es proveedor de transporte.",
+    )
+    vehicle_plate = models.CharField(
+        "Placa del vehículo", max_length=20, blank=True,
+    )
+    driver_name = models.CharField(
+        "Nombre del conductor", max_length=200, blank=True,
+    )
+    driver_identification = models.CharField(
+        "Cédula del conductor", max_length=20, blank=True,
+    )
+
     class Meta:
         verbose_name = "Socio (cliente/proveedor)"
         verbose_name_plural = "Socios (clientes y proveedores)"

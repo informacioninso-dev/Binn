@@ -110,7 +110,7 @@ PurchaseOrderLineFormSet = inlineformset_factory(
     PurchaseOrder,
     PurchaseOrderLine,
     form=PurchaseOrderLineForm,
-    extra=1,
+    extra=0,
     can_delete=True,
 )
 
@@ -311,6 +311,17 @@ class RawMaterialReceptionLineForm(forms.Form):
         max_length=50,
         required=False,
         widget=forms.TextInput(attrs={"class": "w-full rounded-lg border px-2 py-1 text-sm"}),
+    )
+    manufacturing_date = forms.DateField(
+        label="Fecha de elaboración",
+        required=False,
+        widget=forms.DateInput(
+            attrs={
+                "type": "date",
+                "class": "w-full rounded-lg border px-3 py-2 text-sm"
+            },
+            format="%Y-%m-%d"
+        ),
     )
     expiry_date = forms.DateField(
         label="Fecha de caducidad",

@@ -1,39 +1,187 @@
 {% extends "layouts/app.html" %}
+{% load static %}
 
-{% block title %}Detalles del Pedido · {{ block.super }}{% endblock %}
+{% block title %}Pedido {{ order.code }} · {{ block.super }}{% endblock %}
 
 {% block app_content %}
 {% include "sales/_nav.html" %}
 
-<div class="mb-6">
-  <h1 class="text-2xl font-semibold">Detalles del Pedido {{ order.code }}</h1>
-
-  <p><strong>Cliente:</strong> {{ order.client.trade_name }}</p>
-  <p><strong>Estado:</strong> {{ order.get_status_display }}</p>
-  <p><strong>Fecha de Entrega:</strong> {{ order.delivery_date }}</p>
-  <p><strong>Notas:</strong> {{ order.notes }}</p>
-  
-  <h2 class="mt-6 text-xl font-semibold">Productos del Pedido</h2>
-  <table class="min-w-full mt-4 text-sm">
-    <thead>
-      <tr class="border-b bg-gray-50 text-xs font-semibold text-gray-600">
-        <th class="px-3 py-2 text-left">Producto</th>
-        <th class="px-3 py-2 text-right">Cantidad</th>
-        <th class="px-3 py-2 text-right">Precio Unitario</th>
-        <th class="px-3 py-2 text-right">Total</th>
-      </tr>
-    </thead>
-    <tbody class="divide-y divide-gray-100">
-      {% for line in order.saleorderline_set.all %}
-        <tr>
-          <td class="px-3 py-2">{{ line.product.name }}</td>
-          <td class="px-3 py-2 text-right">{{ line.quantity }}</td>
-          <td class="px-3 py-2 text-right">{{ line.unit_price }}</td>
-          <td class="px-3 py-2 text-right">{{ line.total_price }}</td>
-        </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+<div class="mb-6 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+  <div>
+    <h1 class="text-2xl font-semibold">Pedido {{ order.code }}</h1>
+    <p class="text-sm text-gray-500">
+      Detalle del pedido de venta.
+    </p>
+  </div>
+  <div class="flex flex-col gap-2 md:flex-row md:items-center">
+    <a href="{% url 'sales:order_detail_pdf' order.pk %}" target="_blank"
+       class="rounded-lg border border-red-300 px-3 py-3 text-xs font-medium text-red-600 hover:bg-red-50 text-center md:py-2"
+       title="Exportar PDF">
+      PDF
+    </a>
+    <a href="{% url 'sales:order_detail_excel' order.pk %}"
+       class="rounded-lg border border-green-300 px-3 py-3 text-xs font-medium text-green-600 hover:bg-green-50 text-center md:py-2"
+       title="Exportar Excel">
+      Excel
+    </a>
+    {% if order.can_be_dispatched %}
+      <a href="{% url 'sales:dispatch_check' order.pk %}"
+         class="rounded-xl bg-emerald-600 px-4 py-3 text-sm font-medium text-white hover:bg-emerald-700 text-center md:py-2">
+        Despachar
+      </a>
+    {% endif %}
+    <a href="{% url 'sales:order_list' %}"
+       class="rounded-xl border px-4 py-3 text-sm hover:bg-gray-50 text-center md:py-2">
+      Volver a pedidos
+    </a>
+  </div>
 </div>
 
+{# Card datos generales #}
+<div class="mb-6 rounded-2xl border bg-white p-4 md:p-6">
+  <h2 class="mb-3 text-lg font-semibold text-gray-900">Datos generales</h2>
+  <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
+    <div>
+      <span class="text-xs text-gray-500">Cliente</span>
+      <p class="font-medium text-gray-900">{{ order.client.trade_name }}</p>
+      <p class="text-[11px] text-gray-500">{{ order.client.identification|default:"" }}</p>
+    </div>
+    <div>
+      <span class="text-xs text-gray-500">Estado</span>
+      <p>
+        <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium
+          {% if order.status == 'CONFIRMED' %}bg-blue-100 text-blue-700
+          {% elif order.status == 'DISPATCHED' %}bg-green-100 text-green-700
+          {% elif order.status == 'CANCELED' %}bg-red-100 text-red-700
+          {% else %}bg-gray-100 text-gray-600{% endif %}">
+          {{ order.get_status_display }}
+        </span>
+      </p>
+    </div>
+    <div>
+      <span class="text-xs text-gray-500">Fecha de entrega</span>
+      <p class="font-medium text-gray-900">{{ order.delivery_date|date:"d/m/Y" }}</p>
+    </div>
+    <div>
+      <span class="text-xs text-gray-500">Total</span>
+      <p class="text-lg font-semibold text-gray-900">{{ total|floatformat:2 }}</p>
+    </div>
+  </div>
+  {% if order.notes %}
+    <div class="mt-3 border-t pt-3">
+      <span class="text-xs text-gray-500">Notas</span>
+      <p class="text-sm text-gray-700">{{ order.notes }}</p>
+    </div>
+  {% endif %}
+</div>
+
+{# Líneas del pedido #}
+<div class="rounded-2xl border bg-white p-4 md:p-6">
+  <h2 class="mb-3 text-lg font-semibold text-gray-900">Productos del pedido</h2>
+
+  {# Mobile cards #}
+  <div class="space-y-3 md:hidden">
+    {% for line in order.lines.all %}
+      <div class="rounded-xl border p-3">
+        <div class="flex items-start justify-between mb-1">
+          <div>
+            <div class="font-medium text-sm text-gray-900">{{ line.product.name }}</div>
+            <div class="text-[11px] text-gray-500">{{ line.product.code }}</div>
+          </div>
+          <div class="text-right">
+            <div class="font-semibold text-sm text-gray-900">{{ line.total_price }}</div>
+          </div>
+        </div>
+        <div class="flex gap-4 text-xs text-gray-600 mt-1">
+          <span>Cant: {{ line.quantity }}</span>
+          <span>P/U: {{ line.unit_price }}</span>
+        </div>
+      </div>
+    {% empty %}
+      <div class="py-6 text-center text-sm text-gray-500">Sin productos registrados.</div>
+    {% endfor %}
+  </div>
+
+  {# Desktop table #}
+  <div class="hidden md:block overflow-x-auto">
+    <table class="min-w-full text-sm">
+      <thead>
+        <tr class="border-b bg-gray-50 text-xs font-semibold text-gray-600">
+          <th class="px-3 py-2 text-left">Producto</th>
+          <th class="px-3 py-2 text-right">Cantidad</th>
+          <th class="px-3 py-2 text-right">Precio unitario</th>
+          <th class="px-3 py-2 text-right">Total línea</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for line in order.lines.all %}
+          <tr class="hover:bg-gray-50">
+            <td class="px-3 py-2 text-xs">
+              <div class="font-medium text-gray-900">{{ line.product.name }}</div>
+              <div class="text-[11px] text-gray-500">{{ line.product.code }}</div>
+            </td>
+            <td class="px-3 py-2 text-right text-xs text-gray-900">{{ line.quantity }}</td>
+            <td class="px-3 py-2 text-right text-xs text-gray-900">{{ line.unit_price }}</td>
+            <td class="px-3 py-2 text-right text-xs font-semibold text-gray-900">{{ line.total_price }}</td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="4" class="px-3 py-6 text-center text-gray-500">
+              Sin productos registrados.
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="mt-4 flex justify-end">
+    <div class="rounded-xl bg-gray-50 px-4 py-2 text-sm">
+      <span class="text-gray-600">Total del pedido:</span>
+      <span class="ml-2 font-semibold text-gray-900">{{ total|floatformat:2 }}</span>
+    </div>
+  </div>
+</div>
+
+{# Despachos asociados #}
+{% if order.dispatches.exists %}
+  <div class="mt-6 rounded-2xl border bg-white p-4 md:p-6">
+    <h2 class="mb-3 text-lg font-semibold text-gray-900">Despachos realizados</h2>
+
+    {# Mobile cards #}
+    <div class="space-y-3 md:hidden">
+      {% for d in order.dispatches.all %}
+        <div class="rounded-xl border p-3 flex items-center justify-between">
+          <div>
+            <div class="font-semibold text-sm text-gray-900">{{ d.code }}</div>
+            <div class="text-xs text-gray-500">{{ d.dispatched_date|date:"d/m/Y H:i" }}</div>
+          </div>
+          <span class="text-xs text-gray-600">{{ d.lines.count }} líneas</span>
+        </div>
+      {% endfor %}
+    </div>
+
+    {# Desktop table #}
+    <div class="hidden md:block overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead>
+          <tr class="border-b bg-gray-50 text-xs font-semibold text-gray-600">
+            <th class="px-3 py-2 text-left">Código</th>
+            <th class="px-3 py-2 text-left">Fecha</th>
+            <th class="px-3 py-2 text-center">Líneas</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          {% for d in order.dispatches.all %}
+            <tr class="hover:bg-gray-50">
+              <td class="px-3 py-2 text-xs font-semibold">{{ d.code }}</td>
+              <td class="px-3 py-2 text-xs text-gray-700">{{ d.dispatched_date|date:"d/m/Y H:i" }}</td>
+              <td class="px-3 py-2 text-xs text-center">{{ d.lines.count }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endif %}
 {% endblock %}

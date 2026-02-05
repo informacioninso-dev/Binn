@@ -86,4 +86,27 @@
     </tbody>
   </table>
 </div>
+
+{# Paginación #}
+{% if is_paginated %}
+  <div class="mt-4 flex items-center justify-between text-xs text-gray-600">
+    <div>
+      Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+    </div>
+    <div class="space-x-1">
+      {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}"
+           class="rounded-lg border px-2 py-1 hover:bg-gray-50">
+          Anterior
+        </a>
+      {% endif %}
+      {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}"
+           class="rounded-lg border px-2 py-1 hover:bg-gray-50">
+          Siguiente
+        </a>
+      {% endif %}
+    </div>
+  </div>
+{% endif %}
 {% endblock %}

@@ -4,6 +4,7 @@ from .views import (
     ProductionDashboardView,
     BillOfMaterialListView,
     BillOfMaterialCreateView,
+    BillOfMaterialUpdateView,
     ProductionOrderListView,
     ProductionOrderCreatePlanningView,
     ProductionOperationUpdateView,
@@ -35,7 +36,9 @@ urlpatterns = [
 
     path("boms/", BillOfMaterialListView.as_view(), name="bom_list"),
     path("boms/new/", BillOfMaterialCreateView.as_view(), name="bom_create"),
-        # Planes de producción
+    path("boms/<int:pk>/edit/", BillOfMaterialUpdateView.as_view(), name="bom_update"),
+
+    # Planes de producción
     path("plans/",ProductionPlanListView.as_view(),name="plans_list",),
     path("plans/new/",ProductionPlanCreateView.as_view(),name="plans_create",),
     path("plans/<int:pk>/edit/",ProductionPlanUpdateView.as_view(),name="plans_update",),

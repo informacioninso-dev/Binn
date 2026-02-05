@@ -353,6 +353,7 @@ def release_lot_by_qa(
     checklist: dict | None = None,
     notes: str | None = None,
     stage: str = InspectionStage.RAW,
+    destination_location: Location | None = None,
 ) -> QualityInspection:
     """
     Registra/actualiza inspección QA, cambia estado del lote y lo mueve a bodega destino.
@@ -403,6 +404,10 @@ def release_lot_by_qa(
 
     # 3) Resolver bodega destino
     to_wh, to_loc = _resolve_destination_for_qa(lot=lot, result=result, stage=stage)
+
+    # Si el usuario eligió una ubicación destino específica (al aprobar), usarla
+    if destination_location and result == LotStatus.APPROVED:
+        to_loc = destination_location
 
     # ⭐ Obtener quantity_current (es property ahora)
     qty = lot.quantity_current

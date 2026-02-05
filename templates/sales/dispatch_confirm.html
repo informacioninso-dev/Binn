@@ -1,0 +1,122 @@
+{% extends "layouts/app.html" %}
+{% load static %}
+
+{% block title %}Confirmar despacho · {{ block.super }}{% endblock %}
+
+{% block app_content %}
+  {% include "sales/_nav.html" %}
+
+  <div class="mb-6 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+    <div>
+      <h1 class="text-xl md:text-2xl font-semibold">Confirmar Despacho</h1>
+      <p class="text-sm text-gray-500">
+        Pedido {{ order.code }} · {{ order.client.trade_name }}
+      </p>
+    </div>
+    <a href="{% url 'sales:order_list' %}"
+       class="rounded-xl border px-4 py-3 text-sm hover:bg-gray-50 text-center md:py-2">
+      Volver
+    </a>
+  </div>
+
+  <div class="mb-4 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+    Picking y packing completados. Confirme el despacho para descontar el stock y generar la guía de remisión.
+  </div>
+
+  {# Resumen del pedido #}
+  <div class="mb-6 rounded-2xl border bg-white p-4 md:p-6">
+    <h2 class="mb-3 text-lg font-semibold text-gray-900">Resumen</h2>
+    <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
+      <div>
+        <span class="text-xs text-gray-500">Pedido</span>
+        <p class="font-semibold text-gray-900">{{ order.code }}</p>
+      </div>
+      <div>
+        <span class="text-xs text-gray-500">Cliente</span>
+        <p class="font-semibold text-gray-900">{{ order.client.trade_name }}</p>
+      </div>
+      <div>
+        <span class="text-xs text-gray-500">Packing</span>
+        <p class="font-semibold text-gray-900">{{ packing.code }}</p>
+      </div>
+      <div>
+        <span class="text-xs text-gray-500">Cajas / Peso</span>
+        <p class="font-semibold text-gray-900">
+          {{ packing.num_boxes }} cajas · {{ packing.gross_weight }} kg bruto
+        </p>
+      </div>
+    </div>
+  </div>
+
+  {# Detalle de productos #}
+  <div class="rounded-2xl border bg-white p-4 md:p-6">
+    <h2 class="mb-4 text-lg font-semibold text-gray-900">Productos a despachar</h2>
+
+    {# Mobile cards #}
+    <div class="space-y-3 md:hidden">
+      {% for line in packing.lines.all %}
+        <div class="rounded-xl border p-3">
+          <div class="flex items-start justify-between mb-1">
+            <div>
+              <div class="font-semibold text-sm text-gray-900">{{ line.product.name }}</div>
+              <div class="text-[11px] text-gray-500">{{ line.product.code }}</div>
+            </div>
+            <span class="text-sm font-semibold text-gray-900">{{ line.quantity }}</span>
+          </div>
+          <div class="flex gap-4 text-xs text-gray-600 mt-1">
+            <span>Lote: {{ line.lot.internal_lot }}</span>
+            {% if line.lot.expiry_date %}<span>Vence: {{ line.lot.expiry_date|date:"d/m/Y" }}</span>{% endif %}
+            <span>Caja: {{ line.box_number }}</span>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+
+    {# Desktop table #}
+    <div class="hidden md:block overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead>
+          <tr class="border-b bg-gray-50 text-xs font-semibold text-gray-600">
+            <th class="px-3 py-2 text-left">Producto</th>
+            <th class="px-3 py-2 text-left">Lote</th>
+            <th class="px-3 py-2 text-right">Cantidad</th>
+            <th class="px-3 py-2 text-center">Caja</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          {% for line in packing.lines.all %}
+            <tr class="hover:bg-gray-50">
+              <td class="px-3 py-2">
+                <div class="font-medium text-gray-900">{{ line.product.name }}</div>
+                <div class="text-[11px] text-gray-500">{{ line.product.code }}</div>
+              </td>
+              <td class="px-3 py-2 text-xs">
+                <div class="font-medium">{{ line.lot.internal_lot }}</div>
+                {% if line.lot.expiry_date %}
+                  <div class="text-[11px] text-gray-500">Vence: {{ line.lot.expiry_date|date:"d/m/Y" }}</div>
+                {% endif %}
+              </td>
+              <td class="px-3 py-2 text-right text-xs font-semibold">{{ line.quantity }}</td>
+              <td class="px-3 py-2 text-center text-xs">{{ line.box_number }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="mt-6 flex flex-col gap-2 md:flex-row md:justify-end md:gap-3">
+      <form method="post" action="{% url 'sales:dispatch_confirm' order.pk %}"
+            onsubmit="return confirm('¿Confirmar despacho? Se descontará el stock de inventario.');">
+        {% csrf_token %}
+        <button type="submit"
+                class="w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-medium text-white hover:bg-emerald-700 md:w-auto md:py-2">
+          Confirmar Despacho
+        </button>
+      </form>
+      <a href="{% url 'sales:order_list' %}"
+         class="rounded-xl border px-4 py-3 text-sm hover:bg-gray-50 text-center md:py-2">
+        Cancelar
+      </a>
+    </div>
+  </div>
+{% endblock %}

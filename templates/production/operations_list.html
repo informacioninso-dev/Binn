@@ -116,13 +116,13 @@
         </div>
         <div class="space-x-1">
           {% if page_obj.has_previous %}
-            <a href="?page={{ page_obj.previous_page_number }}"
+            <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.work_center %}&work_center={{ request.GET.work_center }}{% endif %}"
                class="rounded-lg border px-2 py-1 hover:bg-gray-50">
               Anterior
             </a>
           {% endif %}
           {% if page_obj.has_next %}
-            <a href="?page={{ page_obj.next_page_number }}"
+            <a href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.work_center %}&work_center={{ request.GET.work_center }}{% endif %}"
                class="rounded-lg border px-2 py-1 hover:bg-gray-50">
               Siguiente
             </a>

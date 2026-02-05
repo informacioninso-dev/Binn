@@ -139,11 +139,81 @@ class BillOfMaterialCreateView(LoginRequiredMixin, ModulePermissionMixin, View):
             )
 
         with transaction.atomic():
-            bom = form.save()
+            bom = form.save(commit=False)
+            bom.created_by = request.user
+            bom.updated_by = request.user
+            bom.save()
             formset.instance = bom
             formset.save()
 
         messages.success(request, "Plano de fabricación creado correctamente.")
+        return redirect(self.success_url)
+
+
+class BillOfMaterialUpdateView(LoginRequiredMixin, ModulePermissionMixin, View):
+    """Vista para editar un BOM existente - Control de cambio de diseño."""
+    permission_required = "production.change_billofmaterial"
+    template_name = "production/bom_form.html"
+    success_url = reverse_lazy("production:bom_list")
+
+    def _build_components_json(self):
+        products = (
+            Product.objects
+            .filter(product_type__in=[ProductType.RAW, ProductType.SEMI], is_active=True)
+            .select_related("base_unit")
+            .order_by("name")
+        )
+        data = {}
+        for p in products:
+            data[str(p.id)] = {
+                "unit_code": getattr(p.base_unit, "code", ""),
+                "unit_name": getattr(p.base_unit, "name", ""),
+            }
+        return json.dumps(data, ensure_ascii=False)
+
+    def _get_bom(self, pk):
+        return get_object_or_404(BillOfMaterial, pk=pk)
+
+    def get(self, request, pk):
+        bom = self._get_bom(pk)
+        form = BillOfMaterialForm(instance=bom)
+        formset = BillOfMaterialLineFormSet(instance=bom)
+        return render(
+            request,
+            self.template_name,
+            {
+                "form": form,
+                "formset": formset,
+                "object": bom,
+                "components_json": self._build_components_json(),
+            },
+        )
+
+    def post(self, request, pk):
+        bom = self._get_bom(pk)
+        form = BillOfMaterialForm(request.POST, instance=bom)
+        formset = BillOfMaterialLineFormSet(request.POST, instance=bom)
+
+        if not (form.is_valid() and formset.is_valid()):
+            messages.error(request, "Revisa los errores del formulario.")
+            return render(
+                request,
+                self.template_name,
+                {
+                    "form": form,
+                    "formset": formset,
+                    "object": bom,
+                    "components_json": self._build_components_json(),
+                },
+            )
+
+        with transaction.atomic():
+            bom = form.save(commit=False)
+            bom.updated_by = request.user
+            bom.save()
+            formset.save()
+
+        messages.success(request, "Plano de fabricación actualizado correctamente.")
         return redirect(self.success_url)
 
 
@@ -345,7 +415,7 @@ class ProductionOperationListView(LoginRequiredMixin, ModulePermissionMixin, Lis
     model = ProductionOperation
     template_name = "production/operations_list.html"
     context_object_name = "operations"
-    paginate_by = 25
+    paginate_by = 20
 
     def get_queryset(self):
         qs = (

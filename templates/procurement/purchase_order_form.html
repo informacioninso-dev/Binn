@@ -45,92 +45,77 @@
         Datos generales de la orden
       </h2>
 
-      <div class="grid gap-4 md:grid-cols-3">
-        <div class="space-y-4 md:col-span-2">
-          <div class="grid gap-4 md:grid-cols-2">
-            <div>
-              <label class="mb-1 block text-sm font-medium">
-                {{ form.supplier.label }}
-              </label>
-              {{ form.supplier }}
-              {% for error in form.supplier.errors %}
-                <p class="text-xs text-red-600">{{ error }}</p>
-              {% endfor %}
-              <p class="mt-1 text-[11px] text-gray-500">
-                Solo se muestran socios marcados como <strong>proveedores</strong>.
-              </p>
-            </div>
+      <div class="grid gap-4 md:grid-cols-4">
+        {# Proveedor — ocupa 2 columnas #}
+        <div class="md:col-span-2">
+          <label class="mb-1 block text-sm font-medium">{{ form.supplier.label }}</label>
+          {{ form.supplier }}
+          {% for error in form.supplier.errors %}
+            <p class="text-xs text-red-600">{{ error }}</p>
+          {% endfor %}
+          <p class="mt-1 text-[11px] text-gray-500">
+            Solo se muestran socios marcados como <strong>proveedores</strong>.
+          </p>
+        </div>
 
-            <div>
-              <label class="mb-1 block text-sm font-medium">
-                Número de orden
-              </label>
-              {% if object %}
-                <div class="rounded-lg border bg-gray-50 px-3 py-2 text-sm text-gray-800">
-                  {{ object.number }}
-                </div>
-              {% else %}
-                <div class="rounded-lg border bg-gray-50 px-3 py-2 text-sm text-gray-500">
-                  Se generará automáticamente al guardar.
-                </div>
-              {% endif %}
-            </div>
-          </div>
-
-          <div class="grid gap-4 md:grid-cols-3">
-            <div>
-              <label class="mb-1 block text-sm font-medium">
-                Fecha de emisión
-              </label>
-              {% if object %}
-                <div class="rounded-lg border bg-gray-50 px-3 py-2 text-sm text-gray-800">
-                  {{ object.order_date|date:"d/m/Y" }}
-                </div>
-              {% else %}
-                <div class="rounded-lg border bg-gray-50 px-3 py-2 text-sm text-gray-500">
-                  Se asignará la fecha actual al guardar.
-                </div>
-              {% endif %}
-            </div>
-
-            <div>
-              <label class="mb-1 block text-sm font-medium">
-                {{ form.status.label }}
-              </label>
-              {{ form.status }}
-              {% for error in form.status.errors %}
-                <p class="text-xs text-red-600">{{ error }}</p>
-              {% endfor %}
-            </div>
-
-            <div>
-              <label class="mb-1 block text-sm font-medium">
-                {{ form.currency.label }}
-              </label>
-              {{ form.currency }}
-              {% for error in form.currency.errors %}
-                <p class="text-xs text-red-600">{{ error }}</p>
-              {% endfor %}
-            </div>
+        {# Fecha de emisión — solo lectura #}
+        <div>
+          <label class="mb-1 block text-sm font-medium">Fecha de emisión</label>
+          <div class="rounded-lg border bg-gray-100 px-3 py-2 text-sm text-gray-800">
+            {% if object %}{{ object.order_date|date:"d/m/Y" }}{% else %}{% now "d/m/Y" %}{% endif %}
           </div>
         </div>
 
-        <div class="space-y-4">
-          <div>
-            <label class="mb-1 block text-sm font-medium">
-              Total aproximado
-            </label>
-            <div class="rounded-lg border bg-gray-50 px-3 py-2 text-sm text-gray-800">
-              {% if object %}
-                {{ object.total_amount }} {{ object.currency }}
-              {% else %}
-                0.00 {{ form.initial.currency|default:"USD" }}
-              {% endif %}
-            </div>
-            <p class="mt-1 text-[11px] text-gray-500">
-              El total se recalcula al guardar, en base a las líneas de la orden.
-            </p>
+        {# Número de orden — solo en edición #}
+        {% if object %}
+        <div>
+          <label class="mb-1 block text-sm font-medium">N.° de orden</label>
+          <div class="rounded-lg border bg-gray-100 px-3 py-2 text-sm font-semibold text-gray-800">
+            {{ object.number }}
           </div>
+        </div>
+        {% else %}
+        {# Estado — en creación ocupa esta celda #}
+        <div>
+          <label class="mb-1 block text-sm font-medium">{{ form.status.label }}</label>
+          {{ form.status }}
+          {% for error in form.status.errors %}
+            <p class="text-xs text-red-600">{{ error }}</p>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        {# Estado — en edición va en segunda fila #}
+        {% if object %}
+        <div>
+          <label class="mb-1 block text-sm font-medium">{{ form.status.label }}</label>
+          {{ form.status }}
+          {% for error in form.status.errors %}
+            <p class="text-xs text-red-600">{{ error }}</p>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        {# Moneda #}
+        <div>
+          <label class="mb-1 block text-sm font-medium">{{ form.currency.label }}</label>
+          {{ form.currency }}
+          {% for error in form.currency.errors %}
+            <p class="text-xs text-red-600">{{ error }}</p>
+          {% endfor %}
+        </div>
+
+        {# Total aproximado #}
+        <div>
+          <label class="mb-1 block text-sm font-medium">Total aproximado</label>
+          <div class="rounded-lg border bg-gray-100 px-3 py-2 text-sm font-semibold text-gray-800">
+            {% if object %}
+              {{ object.total_amount }} {{ object.currency }}
+            {% else %}
+              0.00 {{ form.initial.currency|default:"USD" }}
+            {% endif %}
+          </div>
+          <p class="mt-1 text-[11px] text-gray-500">Se recalcula al guardar.</p>
         </div>
       </div>
     </div>
@@ -369,18 +354,16 @@
             const data = productsMap[prodId] || null;
 
             if (data && data.base_unit_id) {
-              // ⭐ AUTOSELECCIONAR UNIDAD BASE
               unitSelect.value = data.base_unit_id;
-              console.log(`Producto ${prodId}: Unidad base ${data.base_unit_id} seleccionada automáticamente`);
             } else {
-              unitSelect.selectedIndex = 0; // Primera opción (vacía)
+              unitSelect.selectedIndex = 0;
             }
           }
 
           productSelect.addEventListener("change", updateUnit);
 
-          // Inicial si ya viene producto seleccionado
-          if (productSelect.value) {
+          // Solo autoseleccionar unidad si la fila NO tiene unidad guardada
+          if (productSelect.value && !unitSelect.value) {
             updateUnit();
           }
         }

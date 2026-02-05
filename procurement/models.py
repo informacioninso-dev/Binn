@@ -112,7 +112,7 @@ class PurchaseOrder(AuditModel):
             return False
 
         # Si quieres limitar a UNA recepción por OC:
-        from .models import RawMaterialReception, ReceptionStatus
+        # RawMaterialReception y ReceptionStatus ya están en este mismo módulo
 
         has_active_reception = RawMaterialReception.objects.filter(
             purchase_order=self
@@ -306,6 +306,12 @@ class RawMaterialReceptionLine(models.Model):
         blank=True,
         null=True,
         help_text="Lote interno asignado por la empresa (si ya lo tienes al recibir)"
+    )
+    manufacturing_date = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Fecha de elaboración",
+        help_text="Fecha de elaboración/fabricación del lote."
     )
     expiry_date = models.DateField(
         null=True,

@@ -1,0 +1,227 @@
+{% extends "layouts/app.html" %}
+{% block title %}Nuevo Retiro de Mercado · {{ block.super }}{% endblock %}
+
+{% block app_content %}
+  {% include "quality/_nav.html" %}
+
+  <div class="mb-6">
+    <h1 class="text-2xl font-semibold">Nuevo Retiro de Mercado</h1>
+    <p class="text-sm text-gray-500">
+      {% if selected_product %}
+        {{ selected_product.name }} – Seleccione los lotes afectados
+      {% else %}
+        Seleccione el origen y producto para continuar
+      {% endif %}
+    </p>
+  </div>
+
+  {# ═══ PASO 1: Seleccionar Origen y Producto ═══ #}
+  {% if not selected_product %}
+    <form method="get" class="space-y-6">
+      <div class="rounded-xl border bg-white p-6">
+        <h2 class="text-lg font-semibold mb-4">Información del Retiro</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Origen del retiro *</label>
+            <select name="origin" required class="w-full rounded-lg border px-3 py-2 text-sm">
+              <option value="">— Seleccionar origen —</option>
+              {% regroup origins by get_origin_type_display as origin_groups %}
+              {% for group in origin_groups %}
+                <optgroup label="{{ group.grouper }}">
+                  {% for o in group.list %}
+                    <option value="{{ o.pk }}" {% if selected_origin and selected_origin.pk == o.pk %}selected{% endif %}>
+                      {{ o.name }}
+                    </option>
+                  {% endfor %}
+                </optgroup>
+              {% endfor %}
+            </select>
+            {% if not origins %}
+              <p class="text-xs text-red-500 mt-1">
+                No hay orígenes configurados.
+                <a href="/admin/quality/recallorigin/add/" class="text-blue-600 underline">Agregar origen</a>
+              </p>
+            {% endif %}
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Producto a retirar *</label>
+            <select name="product" required class="w-full rounded-lg border px-3 py-2 text-sm">
+              <option value="">— Seleccionar producto —</option>
+              {% for p in products %}
+                <option value="{{ p.pk }}" {% if selected_product and selected_product.pk == p.pk %}selected{% endif %}>
+                  {{ p.code }} – {{ p.name }}
+                </option>
+              {% empty %}
+                <option value="" disabled>No hay productos FG registrados</option>
+              {% endfor %}
+            </select>
+            {% if not products %}
+              <p class="text-xs text-red-500 mt-1">Debe registrar productos terminados (FG).</p>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div class="flex gap-2 justify-end">
+        <a href="{% url 'quality:recall_list' %}"
+           class="rounded-lg border px-4 py-2 text-sm hover:bg-gray-50">
+          Cancelar
+        </a>
+        <button type="submit"
+                class="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700">
+          Continuar
+        </button>
+      </div>
+    </form>
+
+  {# ═══ PASO 2: Seleccionar Lotes y Detalles ═══ #}
+  {% else %}
+    <form method="post" class="space-y-6">
+      {% csrf_token %}
+      <input type="hidden" name="origin_id" value="{{ selected_origin.pk }}">
+      <input type="hidden" name="product_id" value="{{ selected_product.pk }}">
+
+      {# Info del origen y producto seleccionados #}
+      <div class="rounded-xl border bg-white p-4">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+          <div>
+            <span class="text-xs text-gray-500">Origen</span>
+            <div class="font-medium">{{ selected_origin.name }}</div>
+          </div>
+          <div>
+            <span class="text-xs text-gray-500">Producto</span>
+            <div class="font-medium">{{ selected_product.name }}</div>
+            <div class="text-xs text-gray-400">{{ selected_product.code }}</div>
+          </div>
+          <div class="col-span-2 flex items-end">
+            <a href="{% url 'quality:recall_create' %}" class="text-sm text-blue-600 hover:underline">
+              Cambiar selección
+            </a>
+          </div>
+        </div>
+      </div>
+
+      {# Detalles del retiro #}
+      <div class="rounded-xl border bg-white p-6">
+        <h2 class="text-lg font-semibold mb-4">Detalles del Retiro</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Severidad *</label>
+            <select name="severity" required class="w-full rounded-lg border px-3 py-2 text-sm">
+              {% for val, label in severity_choices %}
+                <option value="{{ val }}" {% if val == 'MEDIUM' %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Motivo *</label>
+            <input type="text" name="reason" required
+                   class="w-full rounded-lg border px-3 py-2 text-sm"
+                   placeholder="Describa brevemente el motivo…">
+          </div>
+          <div class="md:col-span-2">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Descripción del problema</label>
+            <textarea name="description" rows="2"
+                      class="w-full rounded-lg border px-3 py-2 text-sm"
+                      placeholder="Detalle el problema encontrado…"></textarea>
+          </div>
+        </div>
+      </div>
+
+      {# Selección de lotes #}
+      <div class="rounded-xl border bg-white p-6">
+        <h2 class="text-lg font-semibold mb-4">Lotes del Producto</h2>
+        <p class="text-xs text-gray-500 mb-4">
+          Seleccione los lotes afectados. Se muestra la distribución actual del inventario.
+        </p>
+
+        {% if lots_info %}
+          {# Desktop table #}
+          <div class="overflow-x-auto rounded-xl border">
+            <table class="min-w-full text-sm">
+              <thead>
+                <tr class="border-b bg-gray-50 text-xs font-semibold text-gray-600">
+                  <th class="px-3 py-2 text-left w-10">
+                    <input type="checkbox" id="select-all" class="text-red-600">
+                  </th>
+                  <th class="px-3 py-2 text-left">Lote</th>
+                  <th class="px-3 py-2 text-left">Vencimiento</th>
+                  <th class="px-3 py-2 text-left">Estado</th>
+                  <th class="px-3 py-2 text-right">En bodega</th>
+                  <th class="px-3 py-2 text-right">Con clientes</th>
+                  <th class="px-3 py-2 text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100">
+                {% for item in lots_info %}
+                  {% if item.has_movement %}
+                    <tr class="hover:bg-gray-50">
+                      <td class="px-3 py-2">
+                        <input type="checkbox" name="lot_ids" value="{{ item.lot.pk }}"
+                               class="lot-checkbox text-red-600">
+                      </td>
+                      <td class="px-3 py-2 font-medium">{{ item.lot.internal_lot }}</td>
+                      <td class="px-3 py-2 text-xs text-gray-600">
+                        {{ item.lot.expiration_date|date:"d/m/Y"|default:"–" }}
+                      </td>
+                      <td class="px-3 py-2">
+                        <span class="rounded-full px-2 py-0.5 text-xs
+                          {% if item.lot.status == 'APPROVED' %}bg-green-100 text-green-700
+                          {% elif item.lot.status == 'QUARANTINE' %}bg-yellow-100 text-yellow-700
+                          {% elif item.lot.status == 'REJECTED' %}bg-red-100 text-red-700
+                          {% else %}bg-gray-100 text-gray-600{% endif %}">
+                          {{ item.lot.get_status_display }}
+                        </span>
+                      </td>
+                      <td class="px-3 py-2 text-xs text-right">{{ item.in_warehouse|floatformat:2 }}</td>
+                      <td class="px-3 py-2 text-xs text-right">{{ item.with_clients|floatformat:2 }}</td>
+                      <td class="px-3 py-2 text-right font-semibold text-red-600">
+                        {{ item.total|floatformat:2 }}
+                      </td>
+                    </tr>
+                  {% endif %}
+                {% empty %}
+                  <tr>
+                    <td colspan="7" class="px-3 py-4 text-center text-gray-500">
+                      No hay lotes con movimiento para este producto.
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+          {% with has_lots=False %}
+            {% for item in lots_info %}
+              {% if item.has_movement %}
+                {% with has_lots=True %}{% endwith %}
+              {% endif %}
+            {% endfor %}
+          {% endwith %}
+
+        {% else %}
+          <div class="text-sm text-gray-500 text-center py-4 bg-gray-50 rounded-lg">
+            Este producto no tiene lotes registrados con movimiento.
+          </div>
+        {% endif %}
+      </div>
+
+      <div class="flex flex-col gap-2 md:flex-row md:justify-end">
+        <a href="{% url 'quality:recall_list' %}"
+           class="rounded-lg border px-4 py-2 text-sm text-center hover:bg-gray-50">
+          Cancelar
+        </a>
+        <button type="submit"
+                class="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700">
+          Crear Retiro de Mercado
+        </button>
+      </div>
+    </form>
+
+    <script>
+      document.getElementById('select-all')?.addEventListener('change', function() {
+        document.querySelectorAll('.lot-checkbox').forEach(cb => cb.checked = this.checked);
+      });
+    </script>
+  {% endif %}
+{% endblock %}

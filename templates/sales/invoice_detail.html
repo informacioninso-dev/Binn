@@ -1,0 +1,172 @@
+{% extends "layouts/app.html" %}
+{% load static %}
+
+{% block title %}Factura {{ invoice.full_number }} · {{ block.super }}{% endblock %}
+
+{% block app_content %}
+  {% include "sales/_nav.html" %}
+
+  <div class="mb-6 flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold">Factura {{ invoice.full_number }}</h1>
+      <p class="text-sm text-gray-500">
+        Pedido {{ invoice.order.code }} · {{ invoice.buyer_legal_name }}
+      </p>
+    </div>
+    <div class="flex gap-2">
+      <a href="{% url 'sales:invoice_list' %}"
+         class="rounded-xl border px-4 py-2 text-sm hover:bg-gray-50">Volver</a>
+      <a href="{% url 'sales:invoice_ride_pdf' invoice.pk %}"
+         class="rounded-xl border border-blue-200 px-4 py-2 text-sm text-blue-600 hover:bg-blue-50"
+         target="_blank">Descargar RIDE</a>
+    </div>
+  </div>
+
+  {# Estado SRI #}
+  <div class="mb-4 flex items-center gap-3">
+    <span class="inline-flex rounded-full px-3 py-1 text-xs font-medium
+      {% if invoice.status == 'AUTHORIZED' %}bg-green-100 text-green-700
+      {% elif invoice.status == 'REJECTED' %}bg-red-100 text-red-700
+      {% elif invoice.status == 'SIGNED' or invoice.status == 'SENT' %}bg-blue-100 text-blue-700
+      {% else %}bg-amber-100 text-amber-700{% endif %}">
+      {{ invoice.get_status_display }}
+    </span>
+    {% if invoice.authorization_number %}
+      <span class="text-xs text-gray-500">Autorización: {{ invoice.authorization_number }}</span>
+    {% endif %}
+  </div>
+
+  {# Botón enviar al SRI #}
+  {% if invoice.status == 'DRAFT' or invoice.status == 'SIGNED' %}
+    <div class="mb-6">
+      <form method="post" action="{% url 'sales:invoice_send_sri' invoice.pk %}"
+            onsubmit="return confirm('¿Firmar y enviar esta factura al SRI?');">
+        {% csrf_token %}
+        <button type="submit"
+                class="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700">
+          {% if invoice.status == 'DRAFT' %}Firmar y enviar al SRI{% else %}Enviar al SRI{% endif %}
+        </button>
+      </form>
+    </div>
+  {% endif %}
+
+  {% if invoice.status == 'REJECTED' and invoice.sri_response %}
+    <div class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+      <strong>Respuesta SRI:</strong> {{ invoice.sri_response }}
+    </div>
+  {% endif %}
+
+  {# Datos del emisor y comprador #}
+  <div class="mb-6 grid gap-6 md:grid-cols-2">
+    <div class="rounded-2xl border bg-white p-4 md:p-6">
+      <h2 class="mb-3 text-lg font-semibold text-gray-900">Comprador</h2>
+      <div class="space-y-2 text-sm">
+        <div>
+          <span class="text-xs text-gray-500">Razón social</span>
+          <p class="font-medium">{{ invoice.buyer_legal_name }}</p>
+        </div>
+        <div>
+          <span class="text-xs text-gray-500">Identificación</span>
+          <p class="font-medium">{{ invoice.buyer_identification }}</p>
+        </div>
+        {% if invoice.buyer_address %}
+        <div>
+          <span class="text-xs text-gray-500">Dirección</span>
+          <p>{{ invoice.buyer_address }}</p>
+        </div>
+        {% endif %}
+        {% if invoice.buyer_email %}
+        <div>
+          <span class="text-xs text-gray-500">Email</span>
+          <p>{{ invoice.buyer_email }}</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="rounded-2xl border bg-white p-4 md:p-6">
+      <h2 class="mb-3 text-lg font-semibold text-gray-900">Datos de la factura</h2>
+      <div class="space-y-2 text-sm">
+        <div>
+          <span class="text-xs text-gray-500">Número</span>
+          <p class="font-medium">{{ invoice.full_number }}</p>
+        </div>
+        <div>
+          <span class="text-xs text-gray-500">Fecha de emisión</span>
+          <p class="font-medium">{{ invoice.issue_date|date:"d/m/Y H:i" }}</p>
+        </div>
+        <div>
+          <span class="text-xs text-gray-500">Clave de acceso</span>
+          <p class="font-mono text-[11px] break-all">{{ invoice.access_key }}</p>
+        </div>
+        {% if invoice.authorization_date %}
+        <div>
+          <span class="text-xs text-gray-500">Fecha autorización</span>
+          <p>{{ invoice.authorization_date|date:"d/m/Y H:i" }}</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {# Detalle de líneas #}
+  <div class="rounded-2xl border bg-white p-4 md:p-6">
+    <h2 class="mb-4 text-lg font-semibold text-gray-900">Detalle</h2>
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead>
+          <tr class="border-b bg-gray-50 text-xs font-semibold text-gray-600">
+            <th class="px-3 py-2 text-left">Código</th>
+            <th class="px-3 py-2 text-left">Descripción</th>
+            <th class="px-3 py-2 text-right">Cant.</th>
+            <th class="px-3 py-2 text-right">P. Unit.</th>
+            <th class="px-3 py-2 text-right">Subtotal</th>
+            <th class="px-3 py-2 text-right">IVA %</th>
+            <th class="px-3 py-2 text-right">IVA</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          {% for line in invoice.lines.all %}
+            <tr class="hover:bg-gray-50">
+              <td class="px-3 py-2 text-xs text-gray-600">{{ line.product.code }}</td>
+              <td class="px-3 py-2 text-xs font-medium text-gray-900">{{ line.description }}</td>
+              <td class="px-3 py-2 text-right text-xs">{{ line.quantity }}</td>
+              <td class="px-3 py-2 text-right text-xs">${{ line.unit_price|floatformat:2 }}</td>
+              <td class="px-3 py-2 text-right text-xs font-semibold">${{ line.subtotal|floatformat:2 }}</td>
+              <td class="px-3 py-2 text-right text-xs text-gray-600">{{ line.tax_rate }}%</td>
+              <td class="px-3 py-2 text-right text-xs">${{ line.tax_amount|floatformat:2 }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {# Totales #}
+    <div class="mt-4 flex justify-end">
+      <div class="w-64 space-y-1 text-sm">
+        <div class="flex justify-between">
+          <span class="text-gray-600">Subtotal 0%:</span>
+          <span class="font-medium">${{ invoice.subtotal_no_tax|floatformat:2 }}</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-gray-600">Subtotal IVA:</span>
+          <span class="font-medium">${{ invoice.subtotal_iva|floatformat:2 }}</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-gray-600">IVA:</span>
+          <span class="font-medium">${{ invoice.iva_amount|floatformat:2 }}</span>
+        </div>
+        {% if invoice.total_discount > 0 %}
+        <div class="flex justify-between">
+          <span class="text-gray-600">Descuento:</span>
+          <span class="font-medium">-${{ invoice.total_discount|floatformat:2 }}</span>
+        </div>
+        {% endif %}
+        <div class="flex justify-between border-t pt-1">
+          <span class="font-semibold text-gray-900">TOTAL:</span>
+          <span class="font-bold text-gray-900">${{ invoice.total_amount|floatformat:2 }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}

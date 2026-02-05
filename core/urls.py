@@ -6,6 +6,7 @@ from core.views import (
     UnitCreateView, UnitListView,
     WarehouseCreateView, WarehouseListView,
     LocationCreateView, LocationListView,
+    CompanyConfigView,
 )
 
 app_name = "core"
@@ -20,4 +21,5 @@ urlpatterns = [
     path('warehouse/list/', WarehouseListView.as_view(), name='warehouse_list'),
     path('location/create/', LocationCreateView.as_view(), name='location_create'),
     path('location/list/', LocationListView.as_view(), name='location_list'),
+    path('company/', CompanyConfigView.as_view(), name='company_config'),
 ]

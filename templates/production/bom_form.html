@@ -1,12 +1,20 @@
 {% extends "layouts/app.html" %}
 {% load static %}
 
-{% block title %}Nuevo BOM · {{ block.super }}{% endblock %}
+{% block title %}{% if object %}Editar{% else %}Nuevo{% endif %} BOM · {{ block.super }}{% endblock %}
 
 {% block app_content %}
+{% include "production/_nav.html" %}
+
 <div class="mb-6 flex items-center justify-between">
   <div>
-    <h1 class="text-2xl font-semibold">Plano de fabricación (BOM)</h1>
+    <h1 class="text-2xl font-semibold">
+      {% if object %}
+        Editar plano de fabricación (BOM)
+      {% else %}
+        Nuevo plano de fabricación (BOM)
+      {% endif %}
+    </h1>
     <p class="text-sm text-gray-500">
       Define los componentes y cantidades por unidad de producto terminado.
     </p>
@@ -78,6 +86,55 @@
       </div>
     </div>
   </div>
+
+  {# ═══ TRAZABILIDAD: Control de cambio de diseño ═══ #}
+  {% if object %}
+    <div class="rounded-2xl border border-indigo-100 bg-indigo-50 p-4 md:p-5">
+      <div class="flex items-center gap-2 mb-3">
+        <svg class="h-5 w-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        <h3 class="text-sm font-semibold text-indigo-700 uppercase tracking-wider">
+          Control de cambio de diseño
+        </h3>
+      </div>
+      <div class="grid gap-4 md:grid-cols-2">
+        <div class="rounded-lg bg-white/70 p-3">
+          <p class="text-[10px] font-medium text-indigo-600 uppercase mb-1">Creado por</p>
+          <p class="text-sm font-medium text-gray-900">
+            {% if object.created_by %}
+              {{ object.created_by.get_full_name|default:object.created_by.username }}
+            {% else %}
+              <span class="text-gray-400">No registrado</span>
+            {% endif %}
+          </p>
+          <p class="text-xs text-gray-500">
+            {{ object.created_at|date:"d/m/Y H:i" }}
+          </p>
+        </div>
+        <div class="rounded-lg bg-white/70 p-3">
+          <p class="text-[10px] font-medium text-indigo-600 uppercase mb-1">Última modificación</p>
+          <p class="text-sm font-medium text-gray-900">
+            {% if object.updated_by %}
+              {{ object.updated_by.get_full_name|default:object.updated_by.username }}
+            {% else %}
+              <span class="text-gray-400">Sin modificaciones</span>
+            {% endif %}
+          </p>
+          <p class="text-xs text-gray-500">
+            {% if object.updated_at %}
+              {{ object.updated_at|date:"d/m/Y H:i" }}
+            {% else %}
+              —
+            {% endif %}
+          </p>
+        </div>
+      </div>
+      <p class="mt-3 text-[10px] text-indigo-600">
+        Esta información de trazabilidad garantiza el control de versiones y cambios de diseño según normativas de calidad.
+      </p>
+    </div>
+  {% endif %}
 
   <!-- CARD LÍNEAS DEL BOM -->
   <div class="rounded-2xl border bg-white p-4 md:p-6">
@@ -174,7 +231,7 @@
     </a>
     <button type="submit"
             class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
-      Guardar BOM
+      {% if object %}Guardar cambios{% else %}Guardar BOM{% endif %}
     </button>
   </div>
 </form>

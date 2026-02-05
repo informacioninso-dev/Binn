@@ -1,0 +1,200 @@
+{% extends "layouts/app.html" %}
+{% load static %}
+
+{% block title %}Verificar despacho · {{ block.super }}{% endblock %}
+
+{% block app_content %}
+  {% include "sales/_nav.html" %}
+
+  <div class="mb-6 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+    <div>
+      <h1 class="text-xl md:text-2xl font-semibold">Verificar disponibilidad</h1>
+      <p class="text-sm text-gray-500">
+        Stock del pedido {{ order.code }}.
+      </p>
+    </div>
+    <a href="{% url 'sales:order_list' %}"
+       class="rounded-xl border px-4 py-3 text-sm hover:bg-gray-50 text-center md:py-2">
+      Volver a pedidos
+    </a>
+  </div>
+
+  {# Card datos del pedido #}
+  <div class="mb-6 rounded-2xl border bg-white p-4 md:p-6">
+    <h2 class="mb-3 text-lg font-semibold text-gray-900">Datos del pedido</h2>
+    <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
+      <div>
+        <span class="text-xs text-gray-500">Código</span>
+        <p class="font-semibold text-gray-900">{{ order.code }}</p>
+      </div>
+      <div>
+        <span class="text-xs text-gray-500">Cliente</span>
+        <p class="font-semibold text-gray-900">{{ order.client.trade_name }}</p>
+      </div>
+      <div>
+        <span class="text-xs text-gray-500">Fecha de entrega</span>
+        <p class="font-semibold text-gray-900">{{ order.delivery_date|date:"d/m/Y" }}</p>
+      </div>
+      <div>
+        <span class="text-xs text-gray-500">Estado</span>
+        <p>
+          <span class="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+            {{ order.get_status_display }}
+          </span>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  {# Disponibilidad de stock #}
+  <div class="rounded-2xl border bg-white p-4 md:p-6">
+    <h2 class="mb-4 text-lg font-semibold text-gray-900">Disponibilidad de stock</h2>
+
+    {% if all_ok %}
+      <div class="mb-4 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+        Todos los productos tienen stock suficiente. Puede proceder con el despacho.
+      </div>
+    {% else %}
+      <div class="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+        Algunos productos no tienen stock suficiente. Revise los detalles a continuación.
+      </div>
+    {% endif %}
+
+    {# Mobile cards #}
+    <div class="space-y-3 md:hidden">
+      {% for item in availability %}
+        <div class="rounded-xl border p-3 {% if not item.stock_ok %}border-red-200 bg-red-50{% endif %}">
+          <div class="flex items-start justify-between mb-2">
+            <div>
+              <div class="font-medium text-sm text-gray-900">{{ item.product.name }}</div>
+              <div class="text-[11px] text-gray-500">{{ item.product.code }}</div>
+            </div>
+            {% if item.stock_ok %}
+              <span class="rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-medium text-green-700">Disponible</span>
+            {% else %}
+              <span class="rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-medium text-red-700">Sin stock</span>
+            {% endif %}
+          </div>
+          <div class="grid grid-cols-3 gap-2 text-xs">
+            <div>
+              <span class="text-gray-500">Pedido</span>
+              <p class="font-semibold">{{ item.needed }}</p>
+            </div>
+            <div>
+              <span class="text-gray-500">Disponible</span>
+              <p class="font-semibold {% if item.stock_ok %}text-green-700{% else %}text-red-600{% endif %}">{{ item.available }}</p>
+            </div>
+            <div>
+              <span class="text-gray-500">Déficit</span>
+              <p class="font-semibold">
+                {% if item.deficit > 0 %}<span class="text-red-600">-{{ item.deficit }}</span>{% else %}—{% endif %}
+              </p>
+            </div>
+          </div>
+          {% if item.production_info and item.production_info.has_route %}
+            <div class="mt-2 rounded-lg bg-amber-50 p-2 text-xs">
+              <span class="font-medium text-amber-700">~{{ item.production_info.estimated_days }} día{{ item.production_info.estimated_days|pluralize:"s" }}</span>
+              <span class="text-gray-500 ml-1">({{ item.production_info.total_minutes }} min)</span>
+            </div>
+          {% elif item.production_info %}
+            <div class="mt-2 text-[11px] text-gray-400">{{ item.production_info.message }}</div>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+
+    {# Desktop table #}
+    <div class="hidden md:block overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead>
+          <tr class="border-b bg-gray-50 text-xs font-semibold text-gray-600">
+            <th class="px-3 py-2 text-left">Producto</th>
+            <th class="px-3 py-2 text-right">Cantidad pedida</th>
+            <th class="px-3 py-2 text-right">Stock disponible</th>
+            <th class="px-3 py-2 text-right">Déficit</th>
+            <th class="px-3 py-2 text-left">Estado</th>
+            <th class="px-3 py-2 text-left">Producción estimada</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          {% for item in availability %}
+            <tr class="{% if item.stock_ok %}hover:bg-gray-50{% else %}bg-red-50 hover:bg-red-100{% endif %}">
+              <td class="px-3 py-2 text-xs">
+                <div class="font-medium text-gray-900">{{ item.product.name }}</div>
+                <div class="text-[11px] text-gray-500">{{ item.product.code }}</div>
+              </td>
+              <td class="px-3 py-2 text-right text-xs font-semibold text-gray-900">
+                {{ item.needed }}
+              </td>
+              <td class="px-3 py-2 text-right text-xs font-semibold
+                {% if item.stock_ok %}text-green-700{% else %}text-red-600{% endif %}">
+                {{ item.available }}
+              </td>
+              <td class="px-3 py-2 text-right text-xs">
+                {% if item.deficit > 0 %}
+                  <span class="font-semibold text-red-600">-{{ item.deficit }}</span>
+                {% else %}
+                  <span class="text-gray-400">—</span>
+                {% endif %}
+              </td>
+              <td class="px-3 py-2 text-xs">
+                {% if item.stock_ok %}
+                  <span class="inline-flex rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-medium text-green-700">
+                    Disponible
+                  </span>
+                {% else %}
+                  <span class="inline-flex rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-medium text-red-700">
+                    Sin stock
+                  </span>
+                {% endif %}
+              </td>
+              <td class="px-3 py-2 text-xs text-gray-700">
+                {% if item.production_info %}
+                  {% if item.production_info.has_route %}
+                    <div class="font-medium text-amber-700">
+                      ~{{ item.production_info.estimated_days }} día{{ item.production_info.estimated_days|pluralize:"s" }}
+                    </div>
+                    <div class="text-[11px] text-gray-500">
+                      {{ item.production_info.total_minutes }} min totales
+                    </div>
+                    {% for step in item.production_info.steps %}
+                      <div class="text-[10px] text-gray-400">
+                        {{ step.name }} ({{ step.work_center }}): {{ step.minutes }} min
+                      </div>
+                    {% endfor %}
+                  {% else %}
+                    <span class="text-[11px] text-gray-400">{{ item.production_info.message }}</span>
+                  {% endif %}
+                {% else %}
+                  <span class="text-gray-400">—</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {# Acciones #}
+    <div class="mt-6 flex flex-col gap-2 md:flex-row md:justify-end md:gap-3">
+      {% if all_ok %}
+        <form method="post" action="{% url 'sales:picking_create' order.pk %}"
+              onsubmit="return confirm('¿Iniciar picking para este pedido?');">
+          {% csrf_token %}
+          <button type="submit"
+                  class="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-medium text-white hover:bg-blue-700 md:w-auto md:py-2">
+            Iniciar Picking
+          </button>
+        </form>
+      {% else %}
+        <div class="rounded-xl bg-gray-200 px-4 py-3 text-sm font-medium text-gray-500 cursor-not-allowed text-center md:py-2">
+          No se puede despachar (stock insuficiente)
+        </div>
+      {% endif %}
+      <a href="{% url 'sales:order_list' %}"
+         class="rounded-xl border px-4 py-3 text-sm hover:bg-gray-50 text-center md:py-2">
+        Cancelar
+      </a>
+    </div>
+  </div>
+{% endblock %}

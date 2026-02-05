@@ -1,0 +1,154 @@
+{% extends 'layouts/app.html' %}
+
+{% block title %}Configuración de Empresa · Panel{% endblock %}
+
+{% block app_header %}
+  <div class="mb-4 flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold">Configuración de Empresa</h1>
+      <p class="mt-1 text-sm text-gray-600">
+        Datos del emisor para facturación electrónica SRI.
+      </p>
+    </div>
+    <a href="{% url 'core:settings' %}"
+       class="rounded-xl border px-4 py-2 text-sm hover:bg-gray-50">Volver a configuraciones</a>
+  </div>
+{% endblock %}
+
+{% block app_content %}
+  <form method="post" enctype="multipart/form-data" class="space-y-6">
+    {% csrf_token %}
+
+    {# ─── Datos del Emisor ─── #}
+    <div class="rounded-2xl border bg-white p-4 md:p-6">
+      <h2 class="mb-4 text-lg font-semibold text-gray-900">Datos del Emisor</h2>
+      <div class="grid gap-4 md:grid-cols-2">
+        <div>
+          <label class="mb-1 block text-xs font-medium text-gray-700">{{ form.ruc.label }}</label>
+          {{ form.ruc }}
+          {% if form.ruc.errors %}<p class="mt-1 text-xs text-red-600">{{ form.ruc.errors.0 }}</p>{% endif %}
+        </div>
+        <div>
+          <label class="mb-1 block text-xs font-medium text-gray-700">{{ form.legal_name.label }}</label>
+          {{ form.legal_name }}
+          {% if form.legal_name.errors %}<p class="mt-1 text-xs text-red-600">{{ form.legal_name.errors.0 }}</p>{% endif %}
+        </div>
+        <div>
+          <label class="mb-1 block text-xs font-medium text-gray-700">{{ form.trade_name.label }}</label>
+          {{ form.trade_name }}
+        </div>
+        <div>
+          <label class="mb-1 block text-xs font-medium text-gray-700">{{ form.address.label }}</label>
+          {{ form.address }}
+          {% if form.address.errors %}<p class="mt-1 text-xs text-red-600">{{ form.address.errors.0 }}</p>{% endif %}
+        </div>
+      </div>
+    </div>
+
+    {# ─── Numeración ─── #}
+    <div class="rounded-2xl border bg-white p-4 md:p-6">
+      <h2 class="mb-4 text-lg font-semibold text-gray-900">Numeración</h2>
+      <div class="grid gap-4 md:grid-cols-2">
+        <div>
+          <label class="mb-1 block text-xs font-medium text-gray-700">{{ form.establishment_code.label }}</label>
+          {{ form.establishment_code }}
+          <p class="mt-1 text-[11px] text-gray-500">{{ form.establishment_code.help_text }}</p>
+        </div>
+        <div>
+          <label class="mb-1 block text-xs font-medium text-gray-700">{{ form.emission_point.label }}</label>
+          {{ form.emission_point }}
+          <p class="mt-1 text-[11px] text-gray-500">{{ form.emission_point.help_text }}</p>
+        </div>
+      </div>
+    </div>
+
+    {# ─── Tributario ─── #}
+    <div class="rounded-2xl border bg-white p-4 md:p-6">
+      <h2 class="mb-4 text-lg font-semibold text-gray-900">Tributario</h2>
+      <div class="grid gap-4 md:grid-cols-2">
+        <div>
+          <label class="mb-1 block text-xs font-medium text-gray-700">{{ form.special_taxpayer.label }}</label>
+          {{ form.special_taxpayer }}
+          <p class="mt-1 text-[11px] text-gray-500">Dejar vacío si no es contribuyente especial.</p>
+        </div>
+        <div class="flex items-center gap-3 pt-5">
+          {{ form.obligated_accounting }}
+          <label class="text-sm text-gray-700">{{ form.obligated_accounting.label }}</label>
+        </div>
+      </div>
+    </div>
+
+    {# ─── Ambiente SRI ─── #}
+    <div class="rounded-2xl border bg-white p-4 md:p-6">
+      <h2 class="mb-4 text-lg font-semibold text-gray-900">Ambiente SRI</h2>
+      <div class="grid gap-4 md:grid-cols-2">
+        <div>
+          <label class="mb-1 block text-xs font-medium text-gray-700">{{ form.environment.label }}</label>
+          {{ form.environment }}
+          <p class="mt-1 text-[11px] text-gray-500">
+            Pruebas = celcer.sri.gob.ec &nbsp;|&nbsp; Producción = cel.sri.gob.ec
+          </p>
+        </div>
+        <div>
+          <label class="mb-1 block text-xs font-medium text-gray-700">{{ form.emission_type.label }}</label>
+          {{ form.emission_type }}
+          <p class="mt-1 text-[11px] text-gray-500">{{ form.emission_type.help_text }}</p>
+        </div>
+      </div>
+
+      {% if config %}
+        <div class="mt-4 rounded-xl border px-4 py-3 text-sm
+          {% if config.environment == '1' %}border-amber-200 bg-amber-50 text-amber-800
+          {% else %}border-green-200 bg-green-50 text-green-800{% endif %}">
+          {% if config.environment == '1' %}
+            Ambiente actual: <strong>PRUEBAS</strong> — Las facturas se envían al servidor de pruebas del SRI.
+          {% else %}
+            Ambiente actual: <strong>PRODUCCIÓN</strong> — Las facturas se envían al servidor real del SRI.
+          {% endif %}
+        </div>
+      {% endif %}
+    </div>
+
+    {# ─── Certificado Digital ─── #}
+    <div class="rounded-2xl border bg-white p-4 md:p-6">
+      <h2 class="mb-4 text-lg font-semibold text-gray-900">Certificado Digital (.p12)</h2>
+      <div class="grid gap-4 md:grid-cols-2">
+        <div>
+          <label class="mb-1 block text-xs font-medium text-gray-700">{{ form.certificate_file.label }}</label>
+          {% if config and config.certificate_file %}
+            <p class="mb-2 text-xs text-green-700">
+              Certificado actual: <strong>{{ config.certificate_file.name }}</strong>
+            </p>
+          {% endif %}
+          {{ form.certificate_file }}
+          <p class="mt-1 text-[11px] text-gray-500">Archivo .p12 para firma electrónica.</p>
+        </div>
+        <div>
+          <label class="mb-1 block text-xs font-medium text-gray-700">{{ form.certificate_password.label }}</label>
+          {{ form.certificate_password }}
+        </div>
+      </div>
+    </div>
+
+    {# ─── Logo ─── #}
+    <div class="rounded-2xl border bg-white p-4 md:p-6">
+      <h2 class="mb-4 text-lg font-semibold text-gray-900">Logo</h2>
+      <div>
+        {% if config and config.logo %}
+          <div class="mb-3">
+            <img src="{{ config.logo.url }}" alt="Logo" class="h-16 rounded border">
+          </div>
+        {% endif %}
+        {{ form.logo }}
+      </div>
+    </div>
+
+    {# ─── Botón guardar ─── #}
+    <div class="flex justify-end">
+      <button type="submit"
+              class="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-blue-700">
+        Guardar configuración
+      </button>
+    </div>
+  </form>
+{% endblock %}

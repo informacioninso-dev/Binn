@@ -2,11 +2,10 @@
 <nav class="mb-4 border-b border-gray-200">
   <ul class="flex flex-wrap gap-4 text-sm">
 
-    {# Pedidos #}
     <li>
       <a href="{% url 'sales:order_list' %}"
          class="pb-2 border-b-2 transition-colors
-         {% if url_name == 'order_list' %}  <!-- Verifica que la URL coincida con 'order_list' -->
+         {% if url_name == 'order_list' or url_name == 'order_detail' or url_name == 'order_create' or url_name == 'dispatch_check' %}
             border-blue-600 text-blue-600
          {% else %}
             border-transparent text-gray-600 hover:text-blue-600
@@ -15,24 +14,22 @@
       </a>
     </li>
 
-    {# Confirmación de Pedidos #}
     <li>
-      <a href="{% url 'sales:order_list' %}"
+      <a href="{% url 'sales:picking_list' %}"
          class="pb-2 border-b-2 transition-colors
-         {% if url_name == 'confirm_order' %}  <!-- Cambia esto según el nombre correcto de la URL de confirmación -->
+         {% if url_name == 'picking_list' or url_name == 'picking_detail' %}
             border-blue-600 text-blue-600
          {% else %}
             border-transparent text-gray-600 hover:text-blue-600
          {% endif %}">
-        Confirmar Pedidos
+        Picking
       </a>
     </li>
 
-    {# Despachos #}
     <li>
-      <a href="{% url 'sales:order_list' %}"
+      <a href="{% url 'sales:dispatch_list' %}"
          class="pb-2 border-b-2 transition-colors
-         {% if url_name == 'dispatch_list' %}  <!-- Cambia esto según la URL correcta para despachos -->
+         {% if url_name == 'dispatch_list' or url_name == 'dispatch_confirm' or url_name == 'packing_detail' %}
             border-blue-600 text-blue-600
          {% else %}
             border-transparent text-gray-600 hover:text-blue-600
@@ -41,16 +38,51 @@
       </a>
     </li>
 
-    {# Facturación #}
     <li>
-      <a href="{% url 'sales:order_list' %}"
+      <a href="{% url 'sales:guia_list' %}"
          class="pb-2 border-b-2 transition-colors
-         {% if url_name == 'invoice_list' %}  <!-- Cambia esto según la URL de facturación -->
+         {% if url_name == 'guia_list' or url_name == 'guia_detail' or url_name == 'guia_create' %}
             border-blue-600 text-blue-600
          {% else %}
             border-transparent text-gray-600 hover:text-blue-600
          {% endif %}">
-        Facturación
+        Guías
+      </a>
+    </li>
+
+    <li>
+      <a href="{% url 'sales:invoice_list' %}"
+         class="pb-2 border-b-2 transition-colors
+         {% if url_name == 'invoice_list' or url_name == 'invoice_detail' %}
+            border-blue-600 text-blue-600
+         {% else %}
+            border-transparent text-gray-600 hover:text-blue-600
+         {% endif %}">
+        Facturas
+      </a>
+    </li>
+
+    <li>
+      <a href="{% url 'sales:return_list' %}"
+         class="pb-2 border-b-2 transition-colors
+         {% if url_name == 'return_list' or url_name == 'return_detail' or url_name == 'return_create' %}
+            border-blue-600 text-blue-600
+         {% else %}
+            border-transparent text-gray-600 hover:text-blue-600
+         {% endif %}">
+        Devoluciones
+      </a>
+    </li>
+
+    <li>
+      <a href="{% url 'sales:credit_note_list' %}"
+         class="pb-2 border-b-2 transition-colors
+         {% if url_name == 'credit_note_list' %}
+            border-blue-600 text-blue-600
+         {% else %}
+            border-transparent text-gray-600 hover:text-blue-600
+         {% endif %}">
+        NC
       </a>
     </li>
 

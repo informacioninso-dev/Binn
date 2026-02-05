@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Pedido {{ order.code }}</title>
+  <style>
+    @page { size: A4; margin: 1.5cm; }
+    body { font-family: Helvetica, Arial, sans-serif; font-size: 11px; color: #1f2937; }
+    h1 { font-size: 20px; color: #2563eb; margin: 0 0 4px; }
+    h2 { font-size: 14px; color: #2563eb; margin: 20px 0 8px; border-bottom: 1px solid #dbeafe; padding-bottom: 4px; }
+    .date { font-size: 9px; color: #6b7280; margin-bottom: 12px; }
+    hr { border: none; border-top: 2px solid #2563eb; margin-bottom: 16px; }
+    .info-table { width: 100%; margin-bottom: 20px; table-layout: fixed; }
+    .info-table td { padding: 3px 8px; font-size: 11px; vertical-align: top; word-wrap: break-word; }
+    .info-table .label { font-weight: bold; color: #6b7280; }
+    table.lines { width: 100%; border-collapse: collapse; margin-top: 6px; table-layout: fixed; }
+    table.lines th { background-color: #2563eb; color: #fff; padding: 6px 8px; text-align: left; font-size: 9px; word-wrap: break-word; }
+    table.lines td { padding: 5px 8px; border-bottom: 1px solid #e5e7eb; font-size: 10px; word-wrap: break-word; }
+    tr.even { background-color: #f9fafb; }
+    .right { text-align: right; }
+    .center { text-align: center; }
+    .total-row { margin-top: 12px; text-align: right; font-size: 13px; font-weight: bold; }
+    .footer { margin-top: 24px; text-align: center; font-size: 8px; color: #9ca3af; border-top: 1px solid #e5e7eb; padding-top: 6px; }
+  </style>
+</head>
+<body>
+  <h1>Pedido de Venta {{ order.code }}</h1>
+  <div class="date">Generado: {{ now|date:"d/m/Y H:i" }}</div>
+  <hr>
+
+  <table class="info-table">
+    <col style="width:15%;">
+    <col style="width:35%;">
+    <col style="width:15%;">
+    <col style="width:35%;">
+    <tr>
+      <td class="label">Cliente:</td>
+      <td>{{ order.client.trade_name|default:order.client.legal_name }}</td>
+      <td class="label">RUC/CI:</td>
+      <td>{{ order.client.identification|default:"—" }}</td>
+    </tr>
+    <tr>
+      <td class="label">Fecha entrega:</td>
+      <td>{{ order.delivery_date|date:"d/m/Y"|default:"—" }}</td>
+      <td class="label">Estado:</td>
+      <td><strong>{{ order.get_status_display }}</strong></td>
+    </tr>
+    <tr>
+      <td class="label">Método pago:</td>
+      <td>{{ order.payment_method|default:"—" }}</td>
+      <td class="label">Total:</td>
+      <td><strong>{{ total|floatformat:2 }}</strong></td>
+    </tr>
+    <tr>
+      <td class="label">Creado por:</td>
+      <td>{{ order.created_by|default:"—" }}</td>
+      <td></td>
+      <td></td>
+    </tr>
+  </table>
+
+  {% if order.notes %}
+  <p style="font-size: 10px; color: #6b7280;"><strong>Notas:</strong> {{ order.notes }}</p>
+  {% endif %}
+
+  <h2>Líneas del pedido</h2>
+  <table class="lines">
+    <thead>
+      <tr>
+        <th style="width:30%;">Producto</th>
+        <th style="width:15%;">Código</th>
+        <th style="width:15%;" class="right">Cantidad</th>
+        <th style="width:20%;" class="right">Precio Unit.</th>
+        <th style="width:20%;" class="right">Total Línea</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for line in lines %}
+      <tr{% if forloop.counter|divisibleby:2 %} class="even"{% endif %}>
+        <td>{{ line.product.name }}</td>
+        <td>{{ line.product.code }}</td>
+        <td class="right">{{ line.quantity }}</td>
+        <td class="right">{{ line.unit_price|floatformat:2 }}</td>
+        <td class="right">{{ line.total_price|floatformat:2 }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" class="center" style="padding: 16px;">Sin líneas registradas.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="total-row">
+    Total: {{ total|floatformat:2 }}
+  </div>
+
+  <div class="footer">
+    Sistema ERP — Reporte generado el {{ now|date:"d/m/Y" }} a las {{ now|date:"H:i" }}
+  </div>
+</body>
+</html>

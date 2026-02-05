@@ -14,10 +14,22 @@
         Registro de órdenes de compra de materias primas e insumos.
       </p>
     </div>
-    <a href="{% url 'procurement:order_create' %}"
-       class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
-      + Nueva orden
-    </a>
+    <div class="flex items-center gap-2">
+      <a href="{% url 'procurement:order_list_pdf' %}" target="_blank"
+         class="rounded-lg border border-red-300 px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50"
+         title="Exportar listado PDF">
+        PDF
+      </a>
+      <a href="{% url 'procurement:order_list_excel' %}"
+         class="rounded-lg border border-green-300 px-3 py-2 text-xs font-medium text-green-600 hover:bg-green-50"
+         title="Exportar listado Excel">
+        Excel
+      </a>
+      <a href="{% url 'procurement:order_create' %}"
+         class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+        + Nueva orden
+      </a>
+    </div>
   </div>
 
   {# Filtros de búsqueda #}
@@ -45,7 +57,52 @@
   </form>
 
   {% if orders %}
-    <div class="overflow-x-auto rounded-2xl border bg-white">
+    {# Mobile cards #}
+    <div class="space-y-3 md:hidden">
+      {% for oc in orders %}
+        <div class="rounded-xl border bg-white p-4">
+          <div class="flex items-start justify-between mb-2">
+            <div>
+              <div class="font-semibold text-sm text-gray-900">{{ oc.number }}</div>
+              <div class="text-sm text-gray-700">{{ oc.supplier.trade_name|default:oc.supplier.legal_name }}</div>
+              <div class="text-xs text-gray-500">{{ oc.supplier.identification }}</div>
+            </div>
+            <span class="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs">
+              {{ oc.get_status_display }}
+            </span>
+          </div>
+          <div class="flex items-center justify-between text-xs text-gray-600 mb-3">
+            <span>{{ oc.order_date|date:"d/m/Y" }}</span>
+            <span class="font-medium text-gray-900">{{ oc.total_amount }} {{ oc.currency }}</span>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            {% if oc.status != 'RECEIVED' and oc.status != 'CANCELLED' %}
+            <a href="{% url 'procurement:order_update' oc.pk %}"
+               class="rounded-lg border px-3 py-2 text-sm hover:bg-gray-50">
+              Editar
+            </a>
+            {% endif %}
+            <a href="{% url 'procurement:order_detail_pdf' oc.pk %}" target="_blank"
+               class="rounded-lg border border-red-200 px-3 py-2 text-sm text-red-500 hover:bg-red-50">
+              PDF
+            </a>
+            <a href="{% url 'procurement:order_detail_excel' oc.pk %}"
+               class="rounded-lg border border-green-200 px-3 py-2 text-sm text-green-500 hover:bg-green-50">
+              Excel
+            </a>
+            {% if oc.can_be_received %}
+            <a href="{% url 'procurement:receptions_create' %}?po={{ oc.pk }}"
+               class="rounded-lg border px-3 py-2 text-sm text-emerald-700 hover:bg-emerald-50">
+              Recepcionar
+            </a>
+            {% endif %}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+
+    {# Desktop table #}
+    <div class="hidden md:block overflow-x-auto rounded-2xl border bg-white">
       <table class="min-w-full text-sm">
         <thead>
           <tr class="border-b bg-gray-50 text-xs font-semibold text-gray-600">
@@ -61,12 +118,9 @@
         <tbody class="divide-y divide-gray-100">
           {% for oc in orders %}
             <tr class="hover:bg-gray-50">
-              {# Número de OC #}
               <td class="px-3 py-2 align-top text-xs font-semibold text-gray-900">
                 {{ oc.number }}
               </td>
-
-              {# Proveedor #}
               <td class="px-3 py-2 align-top text-xs">
                 <div class="font-medium text-gray-900">
                   {{ oc.supplier.trade_name|default:oc.supplier.legal_name }}
@@ -75,38 +129,38 @@
                   {{ oc.supplier.identification }}
                 </div>
               </td>
-
-              {# Fecha #}
               <td class="px-3 py-2 align-top text-xs text-gray-700">
                 {{ oc.order_date|date:"d/m/Y" }}
               </td>
-
-              {# Estado #}
               <td class="px-3 py-2 align-top text-xs">
                 <span class="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-[11px]">
                   {{ oc.get_status_display }}
                 </span>
               </td>
-
-              {# Total aproximado (usa total_amount del modelo) #}
               <td class="px-3 py-2 align-top text-right text-xs text-gray-900">
                 {{ oc.total_amount }} {{ oc.currency }}
               </td>
-
-              {# Número de recepciones asociadas #}
               <td class="px-3 py-2 align-top text-center text-xs text-gray-700">
                 {{ oc.receptions.count|default:"0" }}
               </td>
-
-              {# Acciones #}
               <td class="px-3 py-2 align-top text-right text-xs">
                 <div class="flex justify-end gap-1">
+                  {% if oc.status != 'RECEIVED' and oc.status != 'CANCELLED' %}
                   <a href="{% url 'procurement:order_update' oc.pk %}"
                      class="inline-block rounded-lg border px-2 py-1 hover:bg-gray-50">
                     Editar
                   </a>
-
-                  {# Botón para ir a recepción de materia prima vinculada a esta OC #}
+                  {% endif %}
+                  <a href="{% url 'procurement:order_detail_pdf' oc.pk %}" target="_blank"
+                     class="inline-block rounded-lg border border-red-200 px-2 py-1 text-red-500 hover:bg-red-50"
+                     title="PDF">
+                    PDF
+                  </a>
+                  <a href="{% url 'procurement:order_detail_excel' oc.pk %}"
+                     class="inline-block rounded-lg border border-green-200 px-2 py-1 text-green-500 hover:bg-green-50"
+                     title="Excel">
+                    Excel
+                  </a>
                   {% if oc.can_be_received %}
                     <a href="{% url 'procurement:receptions_create' %}?po={{ oc.pk }}"
                        class="inline-block rounded-lg border px-2 py-1 text-emerald-700 hover:bg-emerald-50">

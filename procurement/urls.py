@@ -21,4 +21,10 @@ urlpatterns = [
     # Exportaciones — detalle individual
     path("receptions/<int:pk>/export/pdf/", exports.ReceptionDetailPDFView.as_view(), name="reception_detail_pdf"),
     path("receptions/<int:pk>/export/excel/", exports.ReceptionDetailExcelView.as_view(), name="reception_detail_excel"),
+
+    # Exportaciones — órdenes de compra
+    path("orders/export/pdf/", exports.PurchaseOrderListPDFView.as_view(), name="order_list_pdf"),
+    path("orders/export/excel/", exports.PurchaseOrderListExcelView.as_view(), name="order_list_excel"),
+    path("orders/<int:pk>/export/pdf/", exports.PurchaseOrderDetailPDFView.as_view(), name="order_detail_pdf"),
+    path("orders/<int:pk>/export/excel/", exports.PurchaseOrderDetailExcelView.as_view(), name="order_detail_excel"),
 ]

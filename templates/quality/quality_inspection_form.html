@@ -112,31 +112,54 @@
               <p class="text-[11px] text-red-600">{{ error }}</p>
             {% endfor %}
           </div>
+
+          <div id="destination-location-wrapper" class="hidden">
+            <label class="mb-1 block text-xs font-medium">
+              {{ form.destination_location.label }}
+            </label>
+            {{ form.destination_location }}
+            {% for error in form.destination_location.errors %}
+              <p class="text-[11px] text-red-600">{{ error }}</p>
+            {% endfor %}
+            <p class="mt-0.5 text-[10px] text-gray-500">
+              Seleccione la ubicación donde se almacenará el lote aprobado.
+            </p>
+          </div>
         </div>
 
-        {# Columna 3: Fecha/hora + inspector + notas (todo más apretado) #}
+        {# Columna 3: Trazabilidad automática + notas #}
         <div class="space-y-3">
-          <div class="grid grid-cols-2 gap-2">
-            <div>
-              <label class="mb-1 block text-xs font-medium">
-                {{ form.inspected_at.label }}
-              </label>
-              {{ form.inspected_at }}
-              {% for error in form.inspected_at.errors %}
-                <p class="text-[11px] text-red-600">{{ error }}</p>
-              {% endfor %}
+          {# ═══ CAMPOS DE TRAZABILIDAD (AUTOMÁTICOS - NO EDITABLES) ═══ #}
+          <div class="rounded-lg border border-indigo-100 bg-indigo-50 p-3">
+            <div class="flex items-center gap-2 mb-2">
+              <svg class="h-4 w-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+              </svg>
+              <span class="text-[10px] font-semibold text-indigo-700 uppercase tracking-wider">
+                Trazabilidad (automático)
+              </span>
             </div>
-            <div>
-              <label class="mb-1 block text-xs font-medium">
-                {{ form.inspected_by.label }}
-              </label>
+            <div class="grid grid-cols-2 gap-3 text-xs">
+              <div>
+                <span class="text-[10px] text-indigo-600">Fecha/Hora:</span>
+                <div class="font-medium text-gray-900" id="auto-datetime">
+                  {{ form.inspected_at.value|default:"Se registra al guardar" }}
+                </div>
+              </div>
+              <div>
+                <span class="text-[10px] text-indigo-600">Inspector:</span>
+                <div class="font-medium text-gray-900">
+                  {{ request.user.get_full_name|default:request.user.username }}
+                </div>
+              </div>
+            </div>
+            <p class="mt-2 text-[10px] text-indigo-600">
+              Estos campos se asignan automáticamente para garantizar la trazabilidad.
+            </p>
+            {# Campos ocultos para mantener la estructura del form #}
+            <div class="hidden">
+              {{ form.inspected_at }}
               {{ form.inspected_by }}
-              {% for error in form.inspected_by.errors %}
-                <p class="text-[11px] text-red-600">{{ error }}</p>
-              {% endfor %}
-              <p class="mt-0.5 text-[10px] text-gray-500">
-                Se asigna automáticamente al guardar.
-              </p>
             </div>
           </div>
 
@@ -242,4 +265,41 @@
       </button>
     </div>
   </form>
+
+  <script>
+  document.addEventListener("DOMContentLoaded", function () {
+    // Toggle ubicación destino según resultado
+    const resultSelect = document.getElementById("id_result");
+    const locWrapper = document.getElementById("destination-location-wrapper");
+    if (resultSelect && locWrapper) {
+      function toggleLocation() {
+        if (resultSelect.value === "APPROVED") {
+          locWrapper.classList.remove("hidden");
+        } else {
+          locWrapper.classList.add("hidden");
+        }
+      }
+      resultSelect.addEventListener("change", toggleLocation);
+      toggleLocation();
+    }
+
+    // Mostrar fecha/hora actual en tiempo real
+    const datetimeEl = document.getElementById("auto-datetime");
+    if (datetimeEl) {
+      function updateDateTime() {
+        const now = new Date();
+        const options = {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        };
+        datetimeEl.textContent = now.toLocaleString('es-EC', options);
+      }
+      updateDateTime();
+      setInterval(updateDateTime, 1000);
+    }
+  });
+  </script>
 {% endblock %}

@@ -1,0 +1,236 @@
+{% extends "layouts/app.html" %}
+{% block title %}Nueva Devolución · {{ block.super }}{% endblock %}
+
+{% block app_content %}
+  {% include "sales/_nav.html" %}
+
+  <div class="mb-6">
+    <h1 class="text-2xl font-semibold">Nueva Devolución</h1>
+    <p class="text-sm text-gray-500">
+      {% if selected_invoice %}
+        Factura {{ selected_invoice.full_number }} – {{ selected_client.trade_name }}
+      {% elif selected_client %}
+        Seleccione la factura de {{ selected_client.trade_name }}
+      {% else %}
+        Seleccione el cliente para iniciar
+      {% endif %}
+    </p>
+  </div>
+
+  <form method="post" class="space-y-6">
+    {% csrf_token %}
+
+    {# ═══ PASO 1: Seleccionar Cliente ═══ #}
+    {% if not selected_client %}
+      <div class="rounded-xl border bg-white p-6">
+        <h2 class="text-lg font-semibold mb-4">1. Seleccionar Cliente</h2>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Cliente *</label>
+          <select name="client_id" required class="w-full rounded-lg border px-3 py-2 text-sm">
+            <option value="">— Seleccionar cliente —</option>
+            {% for c in clients %}
+              <option value="{{ c.pk }}">
+                {{ c.identification }} – {{ c.trade_name|default:c.legal_name }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="mt-4 flex justify-end">
+          <button type="submit" name="action" value="select_client"
+                  class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+            Continuar
+          </button>
+        </div>
+      </div>
+
+    {# ═══ PASO 2: Seleccionar Factura ═══ #}
+    {% elif not selected_invoice %}
+      <div class="rounded-xl border bg-white p-6">
+        <h2 class="text-lg font-semibold mb-4">Información del Cliente</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+          <div>
+            <span class="text-xs text-gray-500">RUC/CI</span>
+            <div class="font-medium">{{ selected_client.identification }}</div>
+          </div>
+          <div>
+            <span class="text-xs text-gray-500">Razón Social</span>
+            <div class="font-medium">{{ selected_client.legal_name|default:selected_client.trade_name }}</div>
+          </div>
+          <div>
+            <span class="text-xs text-gray-500">Dirección</span>
+            <div class="font-medium">{{ selected_client.address|default:"–" }}</div>
+          </div>
+          <div>
+            <span class="text-xs text-gray-500">Teléfono</span>
+            <div class="font-medium">{{ selected_client.phone|default:"–" }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="rounded-xl border bg-white p-6">
+        <h2 class="text-lg font-semibold mb-4">2. Seleccionar Factura</h2>
+        <input type="hidden" name="client_id" value="{{ selected_client.pk }}">
+
+        {% if invoices %}
+          <div class="space-y-2">
+            {% for inv in invoices %}
+              <label class="flex items-center gap-3 rounded-lg border p-3 cursor-pointer hover:bg-gray-50">
+                <input type="radio" name="invoice_id" value="{{ inv.pk }}" class="text-blue-600">
+                <div class="flex-1">
+                  <div class="font-medium text-sm">{{ inv.full_number }}</div>
+                  <div class="text-xs text-gray-600">
+                    Pedido: {{ inv.order.code }} · Fecha: {{ inv.issue_date|date:"d/m/Y" }}
+                    · Total: ${{ inv.total_amount|floatformat:2 }}
+                  </div>
+                </div>
+              </label>
+            {% endfor %}
+          </div>
+          <div class="mt-4 flex gap-2 justify-end">
+            <a href="{% url 'sales:return_create' %}"
+               class="rounded-lg border px-4 py-2 text-sm hover:bg-gray-50">
+              Cambiar Cliente
+            </a>
+            <button type="submit" name="action" value="select_invoice"
+                    class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+              Continuar
+            </button>
+          </div>
+        {% else %}
+          <div class="text-sm text-gray-500 text-center py-4">
+            Este cliente no tiene facturas registradas.
+          </div>
+          <div class="mt-4 flex justify-end">
+            <a href="{% url 'sales:return_create' %}"
+               class="rounded-lg border px-4 py-2 text-sm hover:bg-gray-50">
+              Seleccionar otro cliente
+            </a>
+          </div>
+        {% endif %}
+      </div>
+
+    {# ═══ PASO 3: Productos y Motivo ═══ #}
+    {% else %}
+      <input type="hidden" name="invoice_id" value="{{ selected_invoice.pk }}">
+
+      {# Info del cliente #}
+      <div class="rounded-xl border bg-white p-6">
+        <h2 class="text-lg font-semibold mb-4">Información del Cliente</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+          <div>
+            <span class="text-xs text-gray-500">RUC/CI</span>
+            <div class="font-medium">{{ selected_client.identification }}</div>
+          </div>
+          <div>
+            <span class="text-xs text-gray-500">Razón Social</span>
+            <div class="font-medium">{{ selected_client.legal_name|default:selected_client.trade_name }}</div>
+          </div>
+          <div>
+            <span class="text-xs text-gray-500">Dirección</span>
+            <div class="font-medium">{{ selected_client.address|default:"–" }}</div>
+          </div>
+          <div>
+            <span class="text-xs text-gray-500">Factura</span>
+            <div class="font-medium">{{ selected_invoice.full_number }}</div>
+          </div>
+        </div>
+      </div>
+
+      {# Motivo #}
+      <div class="rounded-xl border bg-white p-6">
+        <h2 class="text-lg font-semibold mb-4">3. Motivo de Devolución</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Motivo *</label>
+            <select name="reason_id" required class="w-full rounded-lg border px-3 py-2 text-sm">
+              <option value="">— Seleccionar motivo —</option>
+              {% regroup reasons by get_reason_type_display as reason_groups %}
+              {% for group in reason_groups %}
+                <optgroup label="{{ group.grouper }}">
+                  {% for r in group.list %}
+                    <option value="{{ r.pk }}">{{ r.name }}</option>
+                  {% endfor %}
+                </optgroup>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Observaciones</label>
+            <textarea name="reason_notes" rows="2"
+                      class="w-full rounded-lg border px-3 py-2 text-sm"
+                      placeholder="Detalles adicionales del motivo…"></textarea>
+          </div>
+        </div>
+      </div>
+
+      {# Productos #}
+      <div class="rounded-xl border bg-white p-6">
+        <h2 class="text-lg font-semibold mb-4">4. Productos a Devolver</h2>
+        <p class="text-xs text-gray-500 mb-4">Indique la cantidad a devolver por cada producto. Deje en 0 los que no aplican.</p>
+
+        {# Mobile cards #}
+        <div class="space-y-3 md:hidden">
+          {% for line in selected_invoice.lines.all %}
+            <div class="rounded-xl border bg-gray-50 p-4">
+              <div class="font-semibold text-sm mb-1">{{ line.product.name }}</div>
+              <div class="text-xs text-gray-600 mb-3">
+                Facturado: {{ line.quantity }} · P.U.: ${{ line.unit_price|floatformat:2 }}
+              </div>
+              <div>
+                <label class="text-xs text-gray-500">Cantidad a devolver</label>
+                <input type="number" name="qty_{{ line.pk }}" value="0"
+                       min="0" max="{{ line.quantity }}" step="0.01"
+                       class="w-full rounded-lg border px-3 py-2 text-sm">
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+
+        {# Desktop table #}
+        <div class="hidden md:block overflow-x-auto rounded-xl border">
+          <table class="min-w-full text-sm">
+            <thead>
+              <tr class="border-b bg-gray-50 text-xs font-semibold text-gray-600">
+                <th class="px-3 py-2 text-left">Producto</th>
+                <th class="px-3 py-2 text-right">Facturado</th>
+                <th class="px-3 py-2 text-right">P. Unitario</th>
+                <th class="px-3 py-2 text-right">Subtotal</th>
+                <th class="px-3 py-2 text-right">Cant. a devolver</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+              {% for line in selected_invoice.lines.all %}
+                <tr>
+                  <td class="px-3 py-2 text-xs">{{ line.product.name }}</td>
+                  <td class="px-3 py-2 text-xs text-right">{{ line.quantity }}</td>
+                  <td class="px-3 py-2 text-xs text-right">${{ line.unit_price|floatformat:2 }}</td>
+                  <td class="px-3 py-2 text-xs text-right">${{ line.subtotal|floatformat:2 }}</td>
+                  <td class="px-3 py-2 text-right">
+                    <input type="number" name="qty_{{ line.pk }}" value="0"
+                           min="0" max="{{ line.quantity }}" step="0.01"
+                           class="w-24 rounded-lg border px-2 py-1 text-sm text-right">
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="flex flex-col gap-2 md:flex-row md:justify-end">
+        <a href="{% url 'sales:return_create' %}?client={{ selected_client.pk }}"
+           class="rounded-lg border px-4 py-2 text-sm text-center hover:bg-gray-50">
+          Cambiar Factura
+        </a>
+        <a href="{% url 'sales:return_list' %}"
+           class="rounded-lg border px-4 py-2 text-sm text-center hover:bg-gray-50">
+          Cancelar
+        </a>
+        <button type="submit"
+                class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+          Crear Devolución
+        </button>
+      </div>
+    {% endif %}
+  </form>
+{% endblock %}

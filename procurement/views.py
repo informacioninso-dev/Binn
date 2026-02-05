@@ -8,7 +8,6 @@ from django.urls import reverse_lazy, reverse
 from django.views import View
 from django.views.generic import ListView
 from .models import PurchaseOrder, PurchaseOrderStatus, PurchaseOrderLine, RawMaterialReception, RawMaterialReceptionLine, ReceptionStatus
-from django.shortcuts import render, redirect, get_object_or_404
 from django.core.serializers.json import DjangoJSONEncoder
 from .forms import PurchaseOrderForm, PurchaseOrderLineFormSet,RawMaterialReceptionHeaderForm,RawMaterialReceptionLineFormSet, RawMaterialReceptionLineForm
 from inventory.models import Product, ProductType
@@ -56,6 +55,7 @@ class PurchaseOrderCreateView(LoginRequiredMixin, View):
     def get(self, request, *args, **kwargs):
         form = PurchaseOrderForm()
         line_formset = PurchaseOrderLineFormSet()
+        line_formset.extra = 1
 
         # Catálogo de productos para el JS (unidad base, etc.)
         products = Product.objects.filter(is_active=True).select_related("base_unit")
@@ -158,6 +158,9 @@ class PurchaseOrderUpdateView(LoginRequiredMixin, View):
 
     def get(self, request, pk, *args, **kwargs):
         po = self.get_object(pk)
+        if po.status in (PurchaseOrderStatus.RECEIVED, PurchaseOrderStatus.CANCELLED):
+            messages.error(request, f"La orden {po.number} está {po.get_status_display()} y no puede editarse.")
+            return redirect("procurement:order_list")
         form = PurchaseOrderForm(instance=po)
         line_formset = PurchaseOrderLineFormSet(instance=po)
 
@@ -167,6 +170,7 @@ class PurchaseOrderUpdateView(LoginRequiredMixin, View):
                 str(p.id): {
                     "uom_code": getattr(p.base_unit, "code", ""),
                     "uom_name": getattr(p.base_unit, "name", ""),
+                    "base_unit_id": p.base_unit.id if p.base_unit else None,
                 }
                 for p in products
             },
@@ -187,6 +191,9 @@ class PurchaseOrderUpdateView(LoginRequiredMixin, View):
 
     def post(self, request, pk, *args, **kwargs):
         po = self.get_object(pk)
+        if po.status in (PurchaseOrderStatus.RECEIVED, PurchaseOrderStatus.CANCELLED):
+            messages.error(request, f"La orden {po.number} está {po.get_status_display()} y no puede editarse.")
+            return redirect("procurement:order_list")
         form = PurchaseOrderForm(request.POST, instance=po)
         line_formset = PurchaseOrderLineFormSet(request.POST, instance=po)
 
@@ -240,7 +247,7 @@ class PurchaseOrderUpdateView(LoginRequiredMixin, View):
 # vistas para crear recepciones de materia prima con formulario y formset
 
 
-class RawMaterialReceptionCreateView(View):
+class RawMaterialReceptionCreateView(LoginRequiredMixin, View):
     template_name = "procurement/reception_form.html"
 
     def _get_po(self, request):
@@ -278,7 +285,8 @@ class RawMaterialReceptionCreateView(View):
                 "code": p.code,
                 "name": p.name,
                 "base_unit": getattr(p.base_unit, "code", ""),
-                "base_unit_id": p.base_unit.id if p.base_unit else None,  # ⭐ AGREGAR
+                "base_unit_id": p.base_unit.id if p.base_unit else None,
+                "unit_price": str(p.unit_price or 0),
             })
         return json.dumps(data, ensure_ascii=False)
 
@@ -419,10 +427,13 @@ class RawMaterialReceptionCreateView(View):
                 lines_data=lines_data,
             )
 
-            # Amarrar la OC a la recepción (tu modelo ya tiene este campo)
+            # Amarrar la OC a la recepción y marcarla como recibida
             if po:
                 reception.purchase_order = po
                 reception.save(update_fields=["purchase_order"])
+
+                po.status = PurchaseOrderStatus.RECEIVED
+                po.save(update_fields=["status"])
 
         messages.success(
             request,

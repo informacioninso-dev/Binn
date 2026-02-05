@@ -1,0 +1,387 @@
+{% extends "layouts/app.html" %}
+{% block title %}{{ recall.code }} · {{ block.super }}{% endblock %}
+
+{% block app_content %}
+  {% include "quality/_nav.html" %}
+
+  <div class="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold">{{ recall.code }}</h1>
+      <p class="text-sm text-gray-500">
+        Retiro de mercado – {{ recall.product.name }}
+      </p>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      {# Botones según estado #}
+      {% if recall.status == 'DRAFT' %}
+        <form method="post" action="{% url 'quality:recall_activate' recall.pk %}">
+          {% csrf_token %}
+          <button type="submit"
+                  class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+            Activar Retiro
+          </button>
+        </form>
+      {% elif recall.status == 'ACTIVE' %}
+        <form method="post" action="{% url 'quality:recall_start_notification' recall.pk %}">
+          {% csrf_token %}
+          <button type="submit"
+                  class="rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700">
+            Iniciar Notificación
+          </button>
+        </form>
+      {% elif recall.status == 'NOTIFYING' or recall.status == 'RECOVERING' %}
+        <button type="button" onclick="document.getElementById('complete-modal').classList.remove('hidden')"
+                class="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700">
+          Completar Retiro
+        </button>
+      {% endif %}
+    </div>
+  </div>
+
+  {# Estado destacado #}
+  <div class="mb-6 p-4 rounded-xl border
+    {% if recall.status == 'DRAFT' %}bg-gray-50 border-gray-200
+    {% elif recall.status == 'ACTIVE' %}bg-blue-50 border-blue-200
+    {% elif recall.status == 'NOTIFYING' %}bg-orange-50 border-orange-200
+    {% elif recall.status == 'RECOVERING' %}bg-yellow-50 border-yellow-200
+    {% elif recall.status == 'COMPLETED' %}bg-green-50 border-green-200
+    {% else %}bg-red-50 border-red-200{% endif %}">
+    <div class="flex items-center gap-3">
+      <span class="rounded-full px-3 py-1 text-sm font-semibold
+        {% if recall.status == 'DRAFT' %}bg-gray-100 text-gray-800
+        {% elif recall.status == 'ACTIVE' %}bg-blue-100 text-blue-800
+        {% elif recall.status == 'NOTIFYING' %}bg-orange-100 text-orange-800
+        {% elif recall.status == 'RECOVERING' %}bg-yellow-100 text-yellow-800
+        {% elif recall.status == 'COMPLETED' %}bg-green-100 text-green-800
+        {% else %}bg-red-100 text-red-800{% endif %}">
+        {{ recall.get_status_display }}
+      </span>
+      <span class="rounded-full px-2 py-0.5 text-xs font-medium
+        {% if recall.severity == 'CRITICAL' %}bg-red-100 text-red-700
+        {% elif recall.severity == 'HIGH' %}bg-orange-100 text-orange-700
+        {% elif recall.severity == 'MEDIUM' %}bg-yellow-100 text-yellow-700
+        {% else %}bg-gray-100 text-gray-600{% endif %}">
+        Severidad: {{ recall.get_severity_display }}
+      </span>
+    </div>
+  </div>
+
+  {# Info general #}
+  <div class="mb-6 grid grid-cols-2 md:grid-cols-4 gap-4 rounded-xl border bg-white p-4 text-sm">
+    <div>
+      <span class="text-xs text-gray-500">Producto</span>
+      <div class="font-medium">{{ recall.product.name }}</div>
+      <div class="text-xs text-gray-400">{{ recall.product.code }}</div>
+    </div>
+    <div>
+      <span class="text-xs text-gray-500">Origen</span>
+      <div class="font-medium">{{ recall.origin.name|default:"–" }}</div>
+      <div class="text-xs text-gray-400">{{ recall.origin.get_origin_type_display|default:"" }}</div>
+    </div>
+    <div>
+      <span class="text-xs text-gray-500">Fecha de retiro</span>
+      <div class="font-medium">{{ recall.recall_date|date:"d/m/Y H:i" }}</div>
+    </div>
+    <div>
+      <span class="text-xs text-gray-500">Fecha de cierre</span>
+      <div class="font-medium">{{ recall.completion_date|date:"d/m/Y H:i"|default:"–" }}</div>
+    </div>
+  </div>
+
+  {# Estadísticas #}
+  <div class="mb-6 grid grid-cols-3 gap-4">
+    <div class="rounded-xl border bg-white p-4 text-center">
+      <div class="text-2xl font-bold text-gray-900">{{ affected_lots|length }}</div>
+      <div class="text-xs text-gray-500">Lotes afectados</div>
+    </div>
+    <div class="rounded-xl border bg-white p-4 text-center">
+      <div class="text-2xl font-bold text-blue-600">{{ stats.notified_clients }} / {{ stats.total_clients }}</div>
+      <div class="text-xs text-gray-500">Clientes notificados</div>
+    </div>
+    <div class="rounded-xl border bg-white p-4 text-center">
+      <div class="text-2xl font-bold text-green-600">{{ stats.recovered_clients }} / {{ stats.total_clients }}</div>
+      <div class="text-xs text-gray-500">Productos recuperados</div>
+    </div>
+  </div>
+
+  {# Motivo y descripción #}
+  <div class="mb-6 rounded-xl border bg-white p-4">
+    <h3 class="text-sm font-semibold mb-2">Motivo del Retiro</h3>
+    <p class="text-sm text-gray-700">{{ recall.reason }}</p>
+    {% if recall.description %}
+      <div class="mt-3 pt-3 border-t">
+        <h4 class="text-xs text-gray-500 mb-1">Descripción del problema</h4>
+        <p class="text-sm text-gray-700">{{ recall.description }}</p>
+      </div>
+    {% endif %}
+    {% if recall.corrective_action %}
+      <div class="mt-3 pt-3 border-t">
+        <h4 class="text-xs text-gray-500 mb-1">Acción correctiva</h4>
+        <p class="text-sm text-gray-700">{{ recall.corrective_action }}</p>
+      </div>
+    {% endif %}
+  </div>
+
+  {# Lotes afectados #}
+  <h2 class="text-lg font-semibold mb-3">Lotes Afectados</h2>
+  <div class="mb-6 overflow-x-auto rounded-xl border bg-white">
+    <table class="min-w-full text-sm">
+      <thead>
+        <tr class="border-b bg-gray-50 text-xs font-semibold text-gray-600">
+          <th class="px-3 py-2 text-left">Lote</th>
+          <th class="px-3 py-2 text-right">En bodega</th>
+          <th class="px-3 py-2 text-right">Con clientes</th>
+          <th class="px-3 py-2 text-right">Total afectado</th>
+          <th class="px-3 py-2 text-right">Recuperado</th>
+          <th class="px-3 py-2 text-right">Acciones</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for rl in affected_lots %}
+          <tr class="hover:bg-gray-50">
+            <td class="px-3 py-2">
+              <div class="font-medium">{{ rl.lot.internal_lot }}</div>
+              <div class="text-xs text-gray-500">Venc: {{ rl.lot.expiration_date|date:"d/m/Y"|default:"–" }}</div>
+            </td>
+            <td class="px-3 py-2 text-xs text-right">{{ rl.quantity_in_warehouse|floatformat:2 }}</td>
+            <td class="px-3 py-2 text-xs text-right">{{ rl.quantity_with_clients|floatformat:2 }}</td>
+            <td class="px-3 py-2 text-right font-semibold text-red-600">{{ rl.quantity_affected|floatformat:2 }}</td>
+            <td class="px-3 py-2 text-right font-semibold text-green-600">{{ rl.quantity_recovered|floatformat:2 }}</td>
+            <td class="px-3 py-2 text-right">
+              <a href="{% url 'quality:recall_lot_audit' rl.pk %}" class="text-xs text-blue-600 hover:underline">
+                Ver trazabilidad
+              </a>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {# Clientes afectados #}
+  <h2 class="text-lg font-semibold mb-3">Clientes Afectados</h2>
+
+  {# Mobile cards #}
+  <div class="space-y-3 md:hidden mb-6">
+    {% for ac in affected_clients %}
+      <div class="rounded-xl border bg-white p-4">
+        <div class="flex items-start justify-between mb-2">
+          <div>
+            <div class="font-semibold text-sm">{{ ac.client_name }}</div>
+            <div class="text-xs text-gray-600">{{ ac.client_address }}</div>
+          </div>
+          <div class="flex flex-col items-end gap-1">
+            {% if ac.notified %}
+              <span class="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">Notificado</span>
+            {% else %}
+              <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">Pendiente</span>
+            {% endif %}
+            {% if ac.recovered %}
+              <span class="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">Recuperado</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="text-xs text-gray-500 mb-2">
+          Despacho: {{ ac.dispatch_code }} · {{ ac.dispatch_date|date:"d/m/Y" }} · {{ ac.quantity_dispatched|floatformat:2 }} un.
+        </div>
+        <div class="text-xs text-gray-500 mb-3">
+          Tel: {{ ac.client_phone|default:"–" }} · {{ ac.client_email|default:"–" }}
+        </div>
+        {% if recall.status == 'NOTIFYING' or recall.status == 'RECOVERING' %}
+          <div class="flex gap-2">
+            {% if not ac.notified %}
+              <form method="post" action="{% url 'quality:recall_mark_notified' recall.pk ac.pk %}" class="inline">
+                {% csrf_token %}
+                <input type="hidden" name="notification_method" value="Manual">
+                <button type="submit" class="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700">
+                  Marcar notificado
+                </button>
+              </form>
+            {% endif %}
+            {% if ac.notified and not ac.recovered %}
+              <button type="button"
+                      onclick="document.getElementById('recover-modal-{{ ac.pk }}').classList.remove('hidden')"
+                      class="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700">
+                Registrar recuperación
+              </button>
+            {% endif %}
+          </div>
+        {% endif %}
+      </div>
+
+      {# Modal de recuperación #}
+      <div id="recover-modal-{{ ac.pk }}" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-xl p-6 w-full max-w-md mx-4">
+          <h3 class="text-lg font-semibold mb-4">Registrar Recuperación - {{ ac.client_name }}</h3>
+          <form method="post" action="{% url 'quality:recall_mark_recovered' recall.pk ac.pk %}">
+            {% csrf_token %}
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-gray-700 mb-1">Cantidad recuperada</label>
+              <input type="number" name="quantity_recovered" step="0.01" max="{{ ac.quantity_dispatched }}"
+                     value="{{ ac.quantity_dispatched }}"
+                     class="w-full rounded-lg border px-3 py-2 text-sm">
+              <div class="text-xs text-gray-500 mt-1">Máximo: {{ ac.quantity_dispatched|floatformat:2 }}</div>
+            </div>
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-gray-700 mb-1">Notas de recuperación</label>
+              <textarea name="recovery_notes" rows="2"
+                        class="w-full rounded-lg border px-3 py-2 text-sm"
+                        placeholder="Observaciones…"></textarea>
+            </div>
+            <div class="flex gap-2 justify-end">
+              <button type="button"
+                      onclick="document.getElementById('recover-modal-{{ ac.pk }}').classList.add('hidden')"
+                      class="rounded-lg border px-4 py-2 text-sm hover:bg-gray-50">
+                Cancelar
+              </button>
+              <button type="submit"
+                      class="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700">
+                Confirmar
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
+  {# Desktop table #}
+  <div class="hidden md:block overflow-x-auto rounded-xl border bg-white mb-6">
+    <table class="min-w-full text-sm">
+      <thead>
+        <tr class="border-b bg-gray-50 text-xs font-semibold text-gray-600">
+          <th class="px-3 py-2 text-left">Cliente</th>
+          <th class="px-3 py-2 text-left">Dirección</th>
+          <th class="px-3 py-2 text-left">Contacto</th>
+          <th class="px-3 py-2 text-left">Despacho</th>
+          <th class="px-3 py-2 text-right">Cantidad</th>
+          <th class="px-3 py-2 text-center">Estado</th>
+          <th class="px-3 py-2 text-right">Acciones</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for ac in affected_clients %}
+          <tr class="hover:bg-gray-50">
+            <td class="px-3 py-2">
+              <div class="font-medium">{{ ac.client_name }}</div>
+              <div class="text-xs text-gray-500">{{ ac.recall_lot.lot.internal_lot }}</div>
+            </td>
+            <td class="px-3 py-2 text-xs">
+              <div>{{ ac.client_address|default:"–" }}</div>
+              <div class="text-gray-500">{{ ac.client_city }}</div>
+            </td>
+            <td class="px-3 py-2 text-xs">
+              <div>{{ ac.client_phone|default:"–" }}</div>
+              <div class="text-gray-500">{{ ac.client_email|default:"–" }}</div>
+            </td>
+            <td class="px-3 py-2 text-xs">
+              <div>{{ ac.dispatch_code }}</div>
+              <div class="text-gray-500">{{ ac.dispatch_date|date:"d/m/Y" }}</div>
+            </td>
+            <td class="px-3 py-2 text-xs text-right font-medium">{{ ac.quantity_dispatched|floatformat:2 }}</td>
+            <td class="px-3 py-2 text-center">
+              <div class="flex flex-col items-center gap-1">
+                {% if ac.notified %}
+                  <span class="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] text-blue-700">
+                    Notif. {{ ac.notified_date|date:"d/m" }}
+                  </span>
+                {% endif %}
+                {% if ac.recovered %}
+                  <span class="rounded-full bg-green-100 px-2 py-0.5 text-[10px] text-green-700">
+                    Recup. {{ ac.quantity_recovered|floatformat:0 }}
+                  </span>
+                {% endif %}
+                {% if not ac.notified and not ac.recovered %}
+                  <span class="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-600">Pendiente</span>
+                {% endif %}
+              </div>
+            </td>
+            <td class="px-3 py-2 text-right">
+              {% if recall.status == 'NOTIFYING' or recall.status == 'RECOVERING' %}
+                <div class="flex items-center justify-end gap-1">
+                  {% if not ac.notified %}
+                    <form method="post" action="{% url 'quality:recall_mark_notified' recall.pk ac.pk %}" class="inline">
+                      {% csrf_token %}
+                      <input type="hidden" name="notification_method" value="Manual">
+                      <button type="submit" class="rounded-lg bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-700">
+                        Notificar
+                      </button>
+                    </form>
+                  {% endif %}
+                  {% if ac.notified and not ac.recovered %}
+                    <button type="button"
+                            onclick="document.getElementById('recover-modal-{{ ac.pk }}').classList.remove('hidden')"
+                            class="rounded-lg bg-green-600 px-2 py-1 text-xs font-medium text-white hover:bg-green-700">
+                      Recuperar
+                    </button>
+                  {% endif %}
+                </div>
+              {% else %}
+                <span class="text-xs text-gray-400">–</span>
+              {% endif %}
+            </td>
+          </tr>
+
+          {# Modal de recuperación para desktop #}
+          <div id="recover-modal-{{ ac.pk }}" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div class="bg-white rounded-xl p-6 w-full max-w-md mx-4">
+              <h3 class="text-lg font-semibold mb-4">Registrar Recuperación</h3>
+              <p class="text-sm text-gray-600 mb-4">{{ ac.client_name }}</p>
+              <form method="post" action="{% url 'quality:recall_mark_recovered' recall.pk ac.pk %}">
+                {% csrf_token %}
+                <div class="mb-4">
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Cantidad recuperada</label>
+                  <input type="number" name="quantity_recovered" step="0.01" max="{{ ac.quantity_dispatched }}"
+                         value="{{ ac.quantity_dispatched }}"
+                         class="w-full rounded-lg border px-3 py-2 text-sm">
+                </div>
+                <div class="mb-4">
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Notas</label>
+                  <textarea name="recovery_notes" rows="2"
+                            class="w-full rounded-lg border px-3 py-2 text-sm"></textarea>
+                </div>
+                <div class="flex gap-2 justify-end">
+                  <button type="button"
+                          onclick="document.getElementById('recover-modal-{{ ac.pk }}').classList.add('hidden')"
+                          class="rounded-lg border px-4 py-2 text-sm hover:bg-gray-50">
+                    Cancelar
+                  </button>
+                  <button type="submit"
+                          class="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700">
+                    Confirmar
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {# Modal de completar retiro #}
+  <div id="complete-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl p-6 w-full max-w-md mx-4">
+      <h3 class="text-lg font-semibold mb-4">Completar Retiro {{ recall.code }}</h3>
+      <form method="post" action="{% url 'quality:recall_complete' recall.pk %}">
+        {% csrf_token %}
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Acción correctiva tomada</label>
+          <textarea name="corrective_action" rows="4" required
+                    class="w-full rounded-lg border px-3 py-2 text-sm"
+                    placeholder="Describa las acciones correctivas implementadas…"></textarea>
+        </div>
+        <div class="flex gap-2 justify-end">
+          <button type="button" onclick="document.getElementById('complete-modal').classList.add('hidden')"
+                  class="rounded-lg border px-4 py-2 text-sm hover:bg-gray-50">
+            Cancelar
+          </button>
+          <button type="submit"
+                  class="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700">
+            Completar Retiro
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+{% endblock %}

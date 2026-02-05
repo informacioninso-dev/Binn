@@ -173,3 +173,62 @@ class Location(AuditModel):
 
     def __str__(self):
         return f"{self.warehouse.code} / {self.code}"
+
+
+# ─── Configuración del Emisor (Singleton) ──────────────────
+class SRIEnvironment(models.TextChoices):
+    PRUEBAS = "1", "Pruebas"
+    PRODUCCION = "2", "Producción"
+
+
+class CompanyConfig(AuditModel):
+    ruc = models.CharField("RUC", max_length=13)
+    legal_name = models.CharField("Razón social", max_length=300)
+    trade_name = models.CharField("Nombre comercial", max_length=300, blank=True)
+    address = models.CharField("Dirección matriz", max_length=300)
+    establishment_code = models.CharField(
+        "Código establecimiento", max_length=3, default="001",
+        help_text="Ej: 001",
+    )
+    emission_point = models.CharField(
+        "Punto de emisión", max_length=3, default="001",
+        help_text="Ej: 001",
+    )
+    special_taxpayer = models.CharField(
+        "Contribuyente especial Nº", max_length=13, blank=True,
+    )
+    obligated_accounting = models.BooleanField(
+        "Obligado a llevar contabilidad", default=True,
+    )
+    environment = models.CharField(
+        "Ambiente SRI", max_length=1,
+        choices=SRIEnvironment.choices, default=SRIEnvironment.PRUEBAS,
+    )
+    emission_type = models.CharField(
+        "Tipo de emisión", max_length=1, default="1",
+        help_text="1 = Emisión normal",
+    )
+    certificate_file = models.FileField(
+        "Certificado .p12", upload_to="sri_certs/", blank=True,
+    )
+    certificate_password = models.CharField(
+        "Contraseña del certificado", max_length=200, blank=True,
+    )
+    logo = models.ImageField("Logo", upload_to="company/", blank=True)
+
+    class Meta:
+        verbose_name = "Configuración de empresa"
+        verbose_name_plural = "Configuración de empresa"
+
+    def __str__(self):
+        return f"{self.ruc} – {self.legal_name}"
+
+    def save(self, *args, **kwargs):
+        # Singleton: solo permite 1 registro
+        if not self.pk and CompanyConfig.objects.exists():
+            raise ValidationError("Solo puede existir un registro de configuración de empresa.")
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def get(cls):
+        return cls.objects.first()

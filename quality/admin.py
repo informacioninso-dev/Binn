@@ -2,7 +2,10 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from django.utils.text import Truncator
-from .models import QAPlan, QAParameterTemplate, QualityInspection
+from .models import (
+    QAPlan, QAParameterTemplate, QualityInspection,
+    RecallOrigin, ProductRecall, RecallLot, RecallAffectedClient,
+)
 
 
 class QAParameterTemplateInline(admin.TabularInline):
@@ -125,4 +128,45 @@ class QualityInspectionAdmin(admin.ModelAdmin):
     def checklist_short(self, obj: QualityInspection):
         return _checklist_preview(obj)
     checklist_short.short_description = "Checklist (resumen)"
+
+
+# ─── Retiro de Mercado ──────────────────────────────────────────
+
+
+@admin.register(RecallOrigin)
+class RecallOriginAdmin(admin.ModelAdmin):
+    list_display = ("code", "name", "origin_type", "is_active")
+    list_filter = ("origin_type", "is_active")
+    search_fields = ("code", "name")
+
+
+class RecallLotInline(admin.TabularInline):
+    model = RecallLot
+    extra = 0
+    fields = ("lot", "quantity_affected", "quantity_in_warehouse", "quantity_with_clients", "quantity_recovered")
+    raw_id_fields = ("lot",)
+
+
+class RecallAffectedClientInline(admin.TabularInline):
+    model = RecallAffectedClient
+    extra = 0
+    fields = ("client", "client_name", "dispatch_code", "quantity_dispatched", "notified", "recovered")
+    raw_id_fields = ("client",)
+
+
+@admin.register(ProductRecall)
+class ProductRecallAdmin(admin.ModelAdmin):
+    list_display = ("code", "product", "origin", "severity", "status", "recall_date")
+    list_filter = ("status", "severity", "origin__origin_type")
+    search_fields = ("code", "product__name", "product__code", "reason")
+    raw_id_fields = ("product", "origin")
+    inlines = [RecallLotInline, RecallAffectedClientInline]
+
+
+@admin.register(RecallLot)
+class RecallLotAdmin(admin.ModelAdmin):
+    list_display = ("recall", "lot", "quantity_affected", "quantity_recovered")
+    list_filter = ("recall__status",)
+    search_fields = ("recall__code", "lot__internal_lot")
+    raw_id_fields = ("recall", "lot")
 

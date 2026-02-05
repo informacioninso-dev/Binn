@@ -90,7 +90,7 @@
 
       <!-- Columna 2 -->
       <div class="space-y-4">
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid md:grid-cols-2 gap-4">
           <div>
             <label class="mb-1 block text-sm font-medium">
               {{ header_form.reception_date.label }}
@@ -198,7 +198,7 @@
     {{ line_formset.management_form }}
 
     <div class="overflow-x-auto">
-      <table class="min-w-full text-sm">
+      <table class="min-w-full text-xs md:text-sm">
         <thead>
           <tr class="border-b text-left text-gray-600">
             <th class="px-2 py-1">Código</th>
@@ -207,6 +207,7 @@
             <th class="px-2 py-1">Unidad</th>
             <th class="px-2 py-1">Costo unit.</th>
             <th class="px-2 py-1">Lote prov.</th>
+            <th class="px-2 py-1">F. elaboración</th>
             <th class="px-2 py-1">F. caducidad</th>
             <th class="px-2 py-1">Zona</th>
             <th class="px-2 py-1">Notas</th>
@@ -249,6 +250,12 @@
               <td class="px-2 py-1">
                 {{ form.supplier_lot }}
                 {% for error in form.supplier_lot.errors %}
+                  <p class="text-xs text-red-600">{{ error }}</p>
+                {% endfor %}
+              </td>
+              <td class="px-2 py-1">
+                {{ form.manufacturing_date }}
+                {% for error in form.manufacturing_date.errors %}
                   <p class="text-xs text-red-600">{{ error }}</p>
                 {% endfor %}
               </td>
@@ -302,6 +309,9 @@
             {{ line_formset.empty_form.supplier_lot }}
           </td>
           <td class="px-2 py-1">
+            {{ line_formset.empty_form.manufacturing_date }}
+          </td>
+          <td class="px-2 py-1">
             {{ line_formset.empty_form.expiry_date  }}
           </td>
           <td class="px-2 py-1">
@@ -346,6 +356,7 @@
       const codeInput = row.querySelector('[data-role="product-code"]');
       const productSelect = row.querySelector('[data-role="product-select"]');
       const unitSelect = row.querySelector('select[name*="-unit"]');
+      const costInput = row.querySelector('input[name*="-unit_cost"]');
 
       if (!productSelect) return;
 
@@ -366,6 +377,11 @@
           if (forceUnit && unitSelect && p.base_unit_id) {
             unitSelect.value = p.base_unit_id;
           }
+
+          // Auto-llenar costo unitario si está vacío
+          if (forceUnit && costInput && !costInput.value) {
+            costInput.value = p.unit_price;
+          }
         }
       }
 
@@ -383,6 +399,11 @@
           // Acción del usuario → sí cambiar unidad
           if (unitSelect && p.base_unit_id) {
             unitSelect.value = p.base_unit_id;
+          }
+
+          // Auto-llenar costo unitario si está vacío
+          if (costInput && !costInput.value) {
+            costInput.value = p.unit_price;
           }
         } else {
           productSelect.value = "";

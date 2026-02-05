@@ -64,13 +64,6 @@ def create_raw_material_reception(
         product = line_data["product"]
         received_quantity_raw = _to_decimal(line_data.get("received_quantity"))
 
-                # ⭐ DEBUG
-        print("=" * 60)
-        print(f"DEBUG create_raw_material_reception:")
-        print(f"  Producto: {product.code}")
-        print(f"  Base unit producto: {product.base_unit.code} (id={product.base_unit.id})")
-        print(f"  Cantidad RAW: {received_quantity_raw}")
-
         if received_quantity_raw <= 0:
             raise ValidationError(
                 f"Cantidad recibida inválida para {product.code}."
@@ -87,11 +80,6 @@ def create_raw_material_reception(
             from_unit=from_unit,
             product=product
         )
-        print(f"  Factor de '{from_unit.code}': {from_unit.factor_to_base}")
-        print(f"  Cálculo: {received_quantity_raw} × {from_unit.factor_to_base} = {received_quantity_base}")
-        print(f"  ✅ Guardará: {received_quantity_base} kg, unit_id={from_unit.id}")
-        print("=" * 60)
-
         # Crear línea (guarda en UNIDAD BASE para contabilidad e inventario)
         line = RawMaterialReceptionLine.objects.create(
             reception=reception,
@@ -105,6 +93,7 @@ def create_raw_material_reception(
             storage_area=line_data.get("storage_area"),
             notes=line_data.get("line_notes") or line_data.get("notes"),
             expiry_date=line_data.get("expiry_date"),
+            manufacturing_date=line_data.get("manufacturing_date"),
         )
 
         internal_lot = line.internal_lot or generate_internal_lot(product)
@@ -121,6 +110,7 @@ def create_raw_material_reception(
             warehouse=quarantine_wh,
             location=None,
             expiry_date=line.expiry_date,
+            manufacturing_date=line.manufacturing_date,
             created_by=user,
             updated_by=user,
         )

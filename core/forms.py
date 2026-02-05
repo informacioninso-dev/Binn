@@ -1,5 +1,5 @@
 from django import forms
-from .models import TaxScheme, Location, Warehouse, WarehouseType, Unit, UnitCategory
+from .models import TaxScheme, Location, Warehouse, WarehouseType, Unit, UnitCategory, CompanyConfig
 
 
 class TaxSchemeForm(forms.ModelForm):
@@ -58,4 +58,35 @@ class LocationForm(forms.ModelForm):
             'rack': forms.TextInput(attrs={'class': 'w-full rounded-lg border px-3 py-2'}),
             'level': forms.TextInput(attrs={'class': 'w-full rounded-lg border px-3 py-2'}),
             'is_active': forms.CheckboxInput(attrs={'class': 'rounded'})
+        }
+
+
+_tw = 'w-full rounded-lg border px-3 py-2'
+
+
+class CompanyConfigForm(forms.ModelForm):
+    class Meta:
+        model = CompanyConfig
+        fields = [
+            'ruc', 'legal_name', 'trade_name', 'address',
+            'establishment_code', 'emission_point',
+            'special_taxpayer', 'obligated_accounting',
+            'environment', 'emission_type',
+            'certificate_file', 'certificate_password',
+            'logo',
+        ]
+        widgets = {
+            'ruc': forms.TextInput(attrs={'class': _tw, 'placeholder': '1790012345001'}),
+            'legal_name': forms.TextInput(attrs={'class': _tw}),
+            'trade_name': forms.TextInput(attrs={'class': _tw}),
+            'address': forms.TextInput(attrs={'class': _tw}),
+            'establishment_code': forms.TextInput(attrs={'class': _tw, 'maxlength': 3}),
+            'emission_point': forms.TextInput(attrs={'class': _tw, 'maxlength': 3}),
+            'special_taxpayer': forms.TextInput(attrs={'class': _tw}),
+            'obligated_accounting': forms.CheckboxInput(attrs={'class': 'rounded'}),
+            'environment': forms.Select(attrs={'class': _tw}),
+            'emission_type': forms.TextInput(attrs={'class': _tw, 'readonly': True}),
+            'certificate_file': forms.ClearableFileInput(attrs={'class': _tw}),
+            'certificate_password': forms.PasswordInput(attrs={'class': _tw, 'render_value': True}),
+            'logo': forms.ClearableFileInput(attrs={'class': _tw}),
         }

@@ -1,107 +1,426 @@
 {% extends "layouts/app.html" %}
+{% load static %}
 
-{% block title %}Nuevo Pedido · {{ block.super }}{% endblock %}
+{% block title %}Nuevo pedido · {{ block.super }}{% endblock %}
 
 {% block app_content %}
-{% include "sales/_nav.html" %}
+  {% include "sales/_nav.html" %}
 
-<div class="mb-6">
-  <h1 class="text-2xl font-semibold">Crear Nuevo Pedido</h1>
-
-  <form method="POST">
-    {% csrf_token %}
-    
-    <!-- CARD ENCABEZADO: Información del Cliente -->
-    <div class="rounded-xl bg-white p-4 mb-6">
-      <h2 class="text-lg font-semibold">Información del Cliente</h2>
-      <div class="mt-4 grid gap-4 md:grid-cols-2">
-        <div class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700">Cliente</label>
-            {{ form.client }}
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700">Fecha de Entrega</label>
-            {{ form.delivery_date }}
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700">Método de Pago</label>
-            {{ form.payment_method }}
-          </div>
-        </div>
-      </div>
+  <div class="mb-6 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold">Nuevo pedido de venta</h1>
+      <p class="text-sm text-gray-500">
+        Registra un pedido (proforma) con productos terminados para un cliente.
+      </p>
     </div>
+    <a href="{% url 'sales:order_list' %}"
+       class="rounded-xl border px-4 py-2 text-sm hover:bg-gray-50 text-center">
+      Volver a pedidos
+    </a>
+  </div>
 
-    <!-- CARD DETALLE DE PRODUCTOS -->
-    <div class="rounded-xl bg-white p-4 mb-6">
-      <h2 class="text-lg font-semibold">Detalle de Productos</h2>
-      <div class="mt-4">
-        <div class="space-y-4">
-          <!-- Formset para las líneas de productos -->
-          {% for form in line_formset %}
-            <div class="flex justify-between items-center py-2">
-              <div class="flex items-center gap-2">
-                <label for="product_{{ form.prefix }}" class="text-sm">{{ form.product }}</label>
-                {{ form.product }}
-              </div>
-              <input type="number" name="quantity_{{ form.prefix }}" value="1" min="1" class="w-16 p-2 text-sm border rounded-md" />
-            </div>
+  {% if form.non_field_errors %}
+    <div class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+      {% for error in form.non_field_errors %}
+        <p>{{ error }}</p>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <form method="post" class="space-y-6">
+    {% csrf_token %}
+
+    {# CARD 1: Datos del cliente #}
+    <div class="rounded-2xl border bg-white p-4 md:p-6">
+      <h2 class="mb-4 text-lg font-semibold text-gray-900">Datos del pedido</h2>
+      <div class="grid gap-4 md:grid-cols-4">
+        <div class="md:col-span-2">
+          <label class="mb-1 block text-sm font-medium">{{ form.client.label }}</label>
+          {{ form.client }}
+          {% for error in form.client.errors %}
+            <p class="text-xs text-red-600">{{ error }}</p>
+          {% endfor %}
+          <p class="mt-1 text-[11px] text-gray-500">
+            Solo se muestran socios marcados como <strong>clientes</strong>.
+          </p>
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium">{{ form.delivery_date.label }}</label>
+          {{ form.delivery_date }}
+          {% for error in form.delivery_date.errors %}
+            <p class="text-xs text-red-600">{{ error }}</p>
+          {% endfor %}
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium">{{ form.payment_method.label }}</label>
+          {{ form.payment_method }}
+          {% for error in form.payment_method.errors %}
+            <p class="text-xs text-red-600">{{ error }}</p>
+          {% endfor %}
+        </div>
+        <div class="md:col-span-4">
+          <label class="mb-1 block text-sm font-medium">{{ form.notes.label }}</label>
+          {{ form.notes }}
+          {% for error in form.notes.errors %}
+            <p class="text-xs text-red-600">{{ error }}</p>
           {% endfor %}
         </div>
       </div>
+    </div>
 
-      <!-- Botón para agregar más productos -->
-      <div class="mt-4">
-        <button type="button" id="add-product" class="rounded-xl border px-4 py-2 text-sm text-blue-600 hover:bg-blue-50">
-          + Añadir Producto
+    {# CARD 2: Líneas de productos #}
+    <div class="rounded-2xl border bg-white p-4 md:p-6">
+      <div class="mb-4 flex items-center justify-between">
+        <h2 class="text-lg font-semibold text-gray-900">Productos del pedido</h2>
+        <button type="button" id="add-line"
+                class="rounded-xl border px-3 py-1.5 text-xs font-medium hover:bg-gray-50">
+          + Agregar línea
         </button>
       </div>
-    </div>
 
-    <!-- CARD TOTAL -->
-    <div class="rounded-xl bg-white p-4 mb-6">
-      <h2 class="text-lg font-semibold">Resumen de Pedido</h2>
-      <div class="mt-4">
-        <p><strong>Total:</strong> ${{ total_price|floatformat:2 }}</p>
+      {{ line_formset.management_form }}
+
+      {% if line_formset.non_form_errors %}
+        <div class="mb-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+          {% for error in line_formset.non_form_errors %}
+            <p>{{ error }}</p>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      {# Mobile card layout #}
+      <div id="lines-body-mobile" class="space-y-3 md:hidden">
+        {% for lf in line_formset %}
+          <div class="rounded-xl border p-3 line-row-mobile">
+            <div class="mb-2">
+              <label class="text-xs font-medium text-gray-600">Producto</label>
+              {{ lf.product }}
+              {% for error in lf.product.errors %}
+                <p class="mt-0.5 text-[10px] text-red-600">{{ error }}</p>
+              {% endfor %}
+            </div>
+            <div class="grid grid-cols-2 gap-2 mb-2">
+              <div>
+                <label class="text-xs font-medium text-gray-600">Cantidad</label>
+                {{ lf.quantity }}
+                {% for error in lf.quantity.errors %}
+                  <p class="mt-0.5 text-[10px] text-red-600">{{ error }}</p>
+                {% endfor %}
+              </div>
+              <div>
+                <label class="text-xs font-medium text-gray-600">Precio unit.</label>
+                {{ lf.unit_price }}
+                {% for error in lf.unit_price.errors %}
+                  <p class="mt-0.5 text-[10px] text-red-600">{{ error }}</p>
+                {% endfor %}
+              </div>
+            </div>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="text-xs text-gray-600">Subtotal:</span>
+                <span class="line-subtotal text-sm font-semibold text-gray-900">0.00</span>
+              </div>
+              <span class="line-stock-badge"></span>
+              {% if lf.DELETE %}
+                <label class="flex items-center gap-1 text-xs text-red-600">
+                  {{ lf.DELETE }} Eliminar
+                </label>
+              {% endif %}
+            </div>
+            {% for hidden in lf.hidden_fields %}
+              {{ hidden }}
+            {% endfor %}
+          </div>
+        {% endfor %}
+      </div>
+
+      {# Desktop table layout #}
+      <div class="hidden md:block overflow-x-auto">
+        <table class="min-w-full text-xs md:text-sm">
+          <thead>
+            <tr class="border-b bg-gray-50 text-[11px] font-semibold text-gray-600">
+              <th class="px-2 py-1">Producto</th>
+              <th class="px-2 py-1 text-right">Cantidad</th>
+              <th class="px-2 py-1 text-right">Precio unitario</th>
+              <th class="px-2 py-1 text-right">Subtotal</th>
+              <th class="px-2 py-1 text-center">Disponibilidad</th>
+              <th class="px-2 py-1 text-center">Eliminar</th>
+            </tr>
+          </thead>
+          <tbody id="lines-body">
+            {% for lf in line_formset %}
+              <tr class="border-b last:border-0 line-row">
+                <td class="px-2 py-1 align-top">
+                  {{ lf.product }}
+                  {% for error in lf.product.errors %}
+                    <p class="mt-0.5 text-[10px] text-red-600">{{ error }}</p>
+                  {% endfor %}
+                </td>
+                <td class="px-2 py-1 align-top text-right">
+                  {{ lf.quantity }}
+                  {% for error in lf.quantity.errors %}
+                    <p class="mt-0.5 text-[10px] text-red-600">{{ error }}</p>
+                  {% endfor %}
+                </td>
+                <td class="px-2 py-1 align-top text-right">
+                  {{ lf.unit_price }}
+                  {% for error in lf.unit_price.errors %}
+                    <p class="mt-0.5 text-[10px] text-red-600">{{ error }}</p>
+                  {% endfor %}
+                </td>
+                <td class="px-2 py-1 align-top text-right">
+                  <span class="line-subtotal text-xs md:text-sm text-gray-900">0.00</span>
+                </td>
+                <td class="px-2 py-1 align-top text-center">
+                  <span class="line-stock-badge"></span>
+                </td>
+                <td class="px-2 py-1 align-top text-center">
+                  {% if lf.DELETE %}
+                    {{ lf.DELETE }}
+                  {% endif %}
+                </td>
+                {% for hidden in lf.hidden_fields %}
+                  {{ hidden }}
+                {% endfor %}
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="mt-4 flex justify-end text-sm">
+        <div class="rounded-xl bg-gray-50 px-4 py-2">
+          <span class="text-gray-600">Total del pedido:</span>
+          <span id="order-total" class="ml-2 font-semibold text-gray-900">0.00</span>
+        </div>
       </div>
     </div>
 
-    <!-- BOTÓN -->
-    <div class="flex justify-end gap-3">
-      <a href="{% url 'sales:order_list' %}" class="rounded-xl border px-4 py-2 text-sm hover:bg-gray-50">
+    <div class="flex flex-col gap-2 md:flex-row md:justify-end md:gap-3">
+      <button type="submit"
+              class="rounded-xl bg-blue-600 px-4 py-3 text-sm font-medium text-white hover:bg-blue-700 md:py-2 md:order-2">
+        Crear pedido
+      </button>
+      <a href="{% url 'sales:order_list' %}"
+         class="rounded-xl border px-4 py-3 text-sm hover:bg-gray-50 text-center md:py-2 md:order-1">
         Cancelar
       </a>
-      <button type="submit" class="rounded-xl bg-blue-600 px-6 py-2 text-sm font-medium text-white hover:bg-blue-700">
-        Crear Pedido
-      </button>
     </div>
   </form>
-</div>
 
-<!-- JS para agregar nuevas líneas dinámicamente -->
-<script>
-  document.getElementById('add-product').addEventListener('click', function() {
-    // Obtener el formulario vacío y el contenedor de productos
-    var formset = document.getElementById('product-list');
-    var totalForms = document.querySelector('[name="line_form-TOTAL_FORMS"]').value;
-    var newIndex = parseInt(totalForms);
+  {# Plantillas ocultas para agregar líneas #}
+  <div class="hidden">
+    {# Mobile template #}
+    <div id="empty-line-card" class="rounded-xl border p-3 line-row-mobile">
+      <div class="mb-2">
+        <label class="text-xs font-medium text-gray-600">Producto</label>
+        {{ line_formset.empty_form.product }}
+      </div>
+      <div class="grid grid-cols-2 gap-2 mb-2">
+        <div>
+          <label class="text-xs font-medium text-gray-600">Cantidad</label>
+          {{ line_formset.empty_form.quantity }}
+        </div>
+        <div>
+          <label class="text-xs font-medium text-gray-600">Precio unit.</label>
+          {{ line_formset.empty_form.unit_price }}
+        </div>
+      </div>
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-gray-600">Subtotal:</span>
+          <span class="line-subtotal text-sm font-semibold text-gray-900">0.00</span>
+        </div>
+        <span class="line-stock-badge"></span>
+        {% if line_formset.empty_form.DELETE %}
+          <label class="flex items-center gap-1 text-xs text-red-600">
+            {{ line_formset.empty_form.DELETE }} Eliminar
+          </label>
+        {% endif %}
+      </div>
+      {% for hidden in line_formset.empty_form.hidden_fields %}
+        {{ hidden }}
+      {% endfor %}
+    </div>
+    {# Desktop template #}
+    <table>
+      <tbody>
+        <tr id="empty-line-row" class="line-row">
+          <td class="px-2 py-1 align-top">
+            {{ line_formset.empty_form.product }}
+          </td>
+          <td class="px-2 py-1 align-top text-right">
+            {{ line_formset.empty_form.quantity }}
+          </td>
+          <td class="px-2 py-1 align-top text-right">
+            {{ line_formset.empty_form.unit_price }}
+          </td>
+          <td class="px-2 py-1 align-top text-right">
+            <span class="line-subtotal text-xs md:text-sm text-gray-900">0.00</span>
+          </td>
+          <td class="px-2 py-1 align-top text-center">
+            <span class="line-stock-badge"></span>
+          </td>
+          <td class="px-2 py-1 align-top text-center">
+            {% if line_formset.empty_form.DELETE %}
+              {{ line_formset.empty_form.DELETE }}
+            {% endif %}
+          </td>
+          {% for hidden in line_formset.empty_form.hidden_fields %}
+            {{ hidden }}
+          {% endfor %}
+        </tr>
+      </tbody>
+    </table>
+  </div>
 
-    // Clonar el formulario vacío
-    var newRow = formset.querySelector('.line-row').cloneNode(true);
+  <script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const addBtn = document.getElementById("add-line");
+    const body = document.getElementById("lines-body");
+    const bodyMobile = document.getElementById("lines-body-mobile");
+    const emptyRow = document.getElementById("empty-line-row");
+    const emptyCard = document.getElementById("empty-line-card");
+    const prefix = "{{ line_formset.prefix }}";
+    const totalFormsInput = document.getElementById("id_" + prefix + "-TOTAL_FORMS");
+    const orderTotalEl = document.getElementById("order-total");
 
-    // Modificar los nombres de los campos para que sean dinámicos
-    newRow.querySelectorAll('input').forEach(function(input) {
-      var name = input.name.replace('__prefix__', newIndex);
-      input.name = name;
-      input.id = name;
+    let productsMap = {};
+    try {
+      productsMap = JSON.parse("{{ products_json|escapejs }}") || {};
+    } catch (e) {
+      productsMap = {};
+    }
+
+    if (!addBtn || !totalFormsInput) return;
+
+    function updateStockBadge(row) {
+      const productSelect = row.querySelector('select[name$="-product"]');
+      const qtyInput = row.querySelector('input[name$="-quantity"]');
+      const badge = row.querySelector(".line-stock-badge");
+      if (!badge || !productSelect) return;
+
+      const productId = productSelect.value;
+      const qty = parseFloat(qtyInput && qtyInput.value) || 0;
+
+      if (!productId || qty <= 0) {
+        badge.innerHTML = "";
+        return;
+      }
+
+      const data = productsMap[productId];
+      if (!data) { badge.innerHTML = ""; return; }
+
+      const stock = parseFloat(data.stock) || 0;
+      const deficit = qty - stock;
+
+      if (deficit <= 0) {
+        badge.innerHTML =
+          '<span class="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-medium text-green-700">' +
+          'En stock (' + stock + ')' +
+          '</span>';
+      } else if (stock > 0) {
+        badge.innerHTML =
+          '<span class="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">' +
+          'Parcial: ' + stock + ' disp.<br>Producir: ' + deficit.toFixed(2) +
+          '</span>';
+      } else {
+        badge.innerHTML =
+          '<span class="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-medium text-red-700">' +
+          'Requiere producción (' + qty + ')' +
+          '</span>';
+      }
+    }
+
+    function recalcLine(row) {
+      const qtyInput = row.querySelector('input[name$="-quantity"]');
+      const priceInput = row.querySelector('input[name$="-unit_price"]');
+      const subtotalEl = row.querySelector(".line-subtotal");
+      const qty = parseFloat(qtyInput && qtyInput.value) || 0;
+      const price = parseFloat(priceInput && priceInput.value) || 0;
+      if (subtotalEl) subtotalEl.textContent = (qty * price).toFixed(2);
+      updateStockBadge(row);
+    }
+
+    function recalcTotal() {
+      let total = 0;
+      document.querySelectorAll(".line-subtotal").forEach(function (el) {
+        if (!el.closest(".hidden")) {
+          total += parseFloat(el.textContent) || 0;
+        }
+      });
+      if (orderTotalEl) orderTotalEl.textContent = total.toFixed(2);
+    }
+
+    function hookRowEvents(row) {
+      row.querySelectorAll('input[name$="-quantity"], input[name$="-unit_price"]')
+        .forEach(function (input) {
+          input.addEventListener("input", function () {
+            recalcLine(row);
+            recalcTotal();
+          });
+        });
+
+      var productSelect = row.querySelector('select[name$="-product"]');
+      var priceInput = row.querySelector('input[name$="-unit_price"]');
+      if (productSelect) {
+        productSelect.addEventListener("change", function () {
+          var data = productsMap[productSelect.value];
+          if (data && data.unit_price && priceInput && !priceInput.value) {
+            priceInput.value = data.unit_price;
+          }
+          recalcLine(row);
+          recalcTotal();
+        });
+      }
+    }
+
+    // Hook initial rows (both mobile and desktop)
+    document.querySelectorAll("#lines-body .line-row, #lines-body-mobile .line-row-mobile").forEach(function (row) {
+      hookRowEvents(row);
+      recalcLine(row);
     });
+    recalcTotal();
 
-    // Añadir la nueva fila al contenedor
-    formset.appendChild(newRow);
+    // Add line button — adds to both mobile and desktop containers
+    addBtn.addEventListener("click", function () {
+      var currentCount = parseInt(totalFormsInput.value, 10) || 0;
 
-    // Actualizar el total de formularios
-    document.querySelector('[name="line_form-TOTAL_FORMS"]').value = newIndex + 1;
+      // Desktop row
+      if (body && emptyRow) {
+        var newRow = emptyRow.cloneNode(true);
+        newRow.id = "";
+        newRow.classList.add("line-row");
+        newRow.querySelectorAll("input, select, textarea").forEach(function (el) {
+          if (el.name) el.name = el.name.replace("__prefix__", currentCount);
+          if (el.id) el.id = el.id.replace("__prefix__", currentCount);
+          if (el.type === "checkbox" || el.type === "radio") el.checked = false;
+          else el.value = "";
+        });
+        body.appendChild(newRow);
+        hookRowEvents(newRow);
+        recalcLine(newRow);
+      }
+
+      // Mobile card
+      if (bodyMobile && emptyCard) {
+        var newCard = emptyCard.cloneNode(true);
+        newCard.id = "";
+        newCard.classList.add("line-row-mobile");
+        newCard.querySelectorAll("input, select, textarea").forEach(function (el) {
+          if (el.name) el.name = el.name.replace("__prefix__", currentCount);
+          if (el.id) el.id = el.id.replace("__prefix__", currentCount);
+          if (el.type === "checkbox" || el.type === "radio") el.checked = false;
+          else el.value = "";
+        });
+        bodyMobile.appendChild(newCard);
+        hookRowEvents(newCard);
+        recalcLine(newCard);
+      }
+
+      totalFormsInput.value = currentCount + 1;
+      recalcTotal();
+    });
   });
-</script>
-
+  </script>
 {% endblock %}

@@ -38,14 +38,15 @@
           <th class="px-3 py-2">Código producto</th>
           <th class="px-3 py-2">Producto terminado</th>
           <th class="px-3 py-2">Revisión</th>
-          <th class="px-3 py-2">Descripción</th>
           <th class="px-3 py-2">Estado</th>
-          <th class="px-3 py-2">N° componentes</th>
+          <th class="px-3 py-2 text-center">Comp.</th>
+          <th class="px-3 py-2">Última modificación</th>
+          <th class="px-3 py-2">Acciones</th>
         </tr>
       </thead>
       <tbody>
         {% for bom in page %}
-          <tr class="border-t">
+          <tr class="border-t hover:bg-gray-50">
             <td class="px-3 py-2 font-mono text-xs">
               {{ bom.product_finished.code }}
             </td>
@@ -53,10 +54,12 @@
               {{ bom.product_finished.name }}
             </td>
             <td class="px-3 py-2">
-              {{ bom.revision }}
-            </td>
-            <td class="px-3 py-2 text-gray-700">
-              {{ bom.description|default:"—" }}
+              <span class="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2 py-0.5 text-xs text-indigo-700">
+                <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+                </svg>
+                Rev {{ bom.revision }}
+              </span>
             </td>
             <td class="px-3 py-2">
               {% if bom.is_active %}
@@ -72,10 +75,44 @@
             <td class="px-3 py-2 text-center">
               {{ bom.lines.count }}
             </td>
+            <td class="px-3 py-2">
+              {# ═══ TRAZABILIDAD: Control de cambio de diseño ═══ #}
+              <div class="text-[11px]">
+                {% if bom.updated_by %}
+                  <div class="flex items-center gap-1 text-gray-700">
+                    <svg class="h-3 w-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                    </svg>
+                    <span class="font-medium">{{ bom.updated_by.get_full_name|default:bom.updated_by.username }}</span>
+                  </div>
+                  <div class="text-[10px] text-gray-500">
+                    {{ bom.updated_at|date:"d/m/Y H:i" }}
+                  </div>
+                {% elif bom.created_by %}
+                  <div class="flex items-center gap-1 text-gray-700">
+                    <svg class="h-3 w-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                    </svg>
+                    <span class="font-medium">{{ bom.created_by.get_full_name|default:bom.created_by.username }}</span>
+                  </div>
+                  <div class="text-[10px] text-gray-500">
+                    {{ bom.created_at|date:"d/m/Y H:i" }} (creado)
+                  </div>
+                {% else %}
+                  <span class="text-gray-400">—</span>
+                {% endif %}
+              </div>
+            </td>
+            <td class="px-3 py-2">
+              <a href="{% url 'production:bom_update' bom.pk %}"
+                 class="rounded-full border px-2 py-0.5 text-[11px] hover:bg-gray-50">
+                Editar
+              </a>
+            </td>
           </tr>
         {% empty %}
           <tr>
-            <td colspan="6" class="px-3 py-6 text-center text-gray-500">
+            <td colspan="7" class="px-3 py-6 text-center text-gray-500">
               No hay BOM configurados todavía.
             </td>
           </tr>
@@ -84,4 +121,27 @@
     </table>
   </div>
 </div>
+
+{# Paginación #}
+{% if is_paginated %}
+  <div class="mt-4 flex items-center justify-between text-xs text-gray-600">
+    <div>
+      Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+    </div>
+    <div class="space-x-1">
+      {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}"
+           class="rounded-lg border px-2 py-1 hover:bg-gray-50">
+          Anterior
+        </a>
+      {% endif %}
+      {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}"
+           class="rounded-lg border px-2 py-1 hover:bg-gray-50">
+          Siguiente
+        </a>
+      {% endif %}
+    </div>
+  </div>
+{% endif %}
 {% endblock %}

@@ -1,8 +1,185 @@
 from django.db import models
 from django.conf import settings
+from django.utils import timezone
 from core.models import AuditModel
 from django.db.models import Q, Case, When, Value, IntegerField
 from inventory.models import LotStatus
+
+
+# ─── Retiro de Mercado ──────────────────────────────────────────
+
+
+class RecallOriginType(models.TextChoices):
+    NON_CONFORMITY = "NON_CONFORMITY", "Producto no conforme"
+    HEALTH_RISK = "HEALTH_RISK", "Riesgo para la salud"
+    REGULATORY = "REGULATORY", "Notificación de ente regulador"
+    QUALITY_ISSUE = "QUALITY_ISSUE", "Problema de calidad detectado"
+    OTHER = "OTHER", "Otro"
+
+
+class RecallOrigin(AuditModel):
+    """Motivos/orígenes configurables para retiro de mercado."""
+    code = models.CharField("Código", max_length=20, unique=True)
+    name = models.CharField("Nombre", max_length=200)
+    origin_type = models.CharField(
+        "Tipo", max_length=20,
+        choices=RecallOriginType.choices,
+        default=RecallOriginType.OTHER,
+    )
+    description = models.TextField("Descripción", blank=True)
+    is_active = models.BooleanField("Activo", default=True)
+
+    class Meta:
+        verbose_name = "Origen de retiro"
+        verbose_name_plural = "Orígenes de retiro"
+        ordering = ["origin_type", "name"]
+
+    def __str__(self):
+        return f"{self.name} ({self.get_origin_type_display()})"
+
+
+class RecallStatus(models.TextChoices):
+    DRAFT = "DRAFT", "Borrador"
+    ACTIVE = "ACTIVE", "Activo"
+    NOTIFYING = "NOTIFYING", "Notificando clientes"
+    RECOVERING = "RECOVERING", "Recuperando producto"
+    COMPLETED = "COMPLETED", "Completado"
+    CANCELED = "CANCELED", "Cancelado"
+
+
+class RecallSeverity(models.TextChoices):
+    LOW = "LOW", "Baja"
+    MEDIUM = "MEDIUM", "Media"
+    HIGH = "HIGH", "Alta"
+    CRITICAL = "CRITICAL", "Crítica"
+
+
+class ProductRecall(AuditModel):
+    """Retiro de mercado gestionado por Calidad."""
+    code = models.CharField("Código", max_length=50, unique=True, blank=True)
+    origin = models.ForeignKey(
+        RecallOrigin, on_delete=models.PROTECT,
+        related_name="recalls", verbose_name="Origen",
+        null=True, blank=True,
+    )
+    product = models.ForeignKey(
+        "inventory.Product", on_delete=models.PROTECT,
+        related_name="recalls", verbose_name="Producto",
+    )
+    status = models.CharField(
+        "Estado", max_length=20,
+        choices=RecallStatus.choices,
+        default=RecallStatus.DRAFT,
+    )
+    severity = models.CharField(
+        "Severidad", max_length=20,
+        choices=RecallSeverity.choices,
+        default=RecallSeverity.MEDIUM,
+    )
+    recall_date = models.DateTimeField("Fecha de retiro", auto_now_add=True)
+    completion_date = models.DateTimeField("Fecha de finalización", null=True, blank=True)
+    reason = models.TextField("Motivo detallado")
+    description = models.TextField("Descripción del problema", blank=True)
+    corrective_action = models.TextField("Acción correctiva", blank=True)
+    notes = models.TextField("Notas internas", blank=True)
+
+    class Meta:
+        verbose_name = "Retiro de mercado"
+        verbose_name_plural = "Retiros de mercado"
+        ordering = ["-recall_date"]
+
+    def _generate_code(self):
+        year = timezone.now().year
+        prefix = f"RET-{year}-"
+        last = (
+            ProductRecall.objects.filter(code__startswith=prefix)
+            .order_by("-code").values_list("code", flat=True).first()
+        )
+        seq = int(last.split("-")[-1]) + 1 if last else 1
+        return f"{prefix}{seq:04d}"
+
+    def save(self, *args, **kwargs):
+        if not self.code:
+            self.code = self._generate_code()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.code} – {self.product.name}"
+
+    @property
+    def total_affected(self):
+        return sum(lot.quantity_affected for lot in self.lots.all())
+
+    @property
+    def total_recovered(self):
+        return sum(lot.quantity_recovered for lot in self.lots.all())
+
+
+class RecallLot(AuditModel):
+    """Lote afectado por un retiro de mercado."""
+    recall = models.ForeignKey(
+        ProductRecall, on_delete=models.CASCADE,
+        related_name="lots", verbose_name="Retiro",
+    )
+    lot = models.ForeignKey(
+        "inventory.Lot", on_delete=models.PROTECT,
+        related_name="recall_records", verbose_name="Lote",
+    )
+    quantity_affected = models.DecimalField("Cantidad afectada", max_digits=12, decimal_places=4)
+    quantity_in_warehouse = models.DecimalField("En bodega", max_digits=12, decimal_places=4, default=0)
+    quantity_with_clients = models.DecimalField("Con clientes", max_digits=12, decimal_places=4, default=0)
+    quantity_recovered = models.DecimalField("Cantidad recuperada", max_digits=12, decimal_places=4, default=0)
+    notes = models.TextField("Notas", blank=True)
+
+    class Meta:
+        verbose_name = "Lote afectado"
+        verbose_name_plural = "Lotes afectados"
+        unique_together = ("recall", "lot")
+
+    def __str__(self):
+        return f"{self.lot.internal_lot} – {self.quantity_affected}"
+
+
+class RecallAffectedClient(AuditModel):
+    """Cliente afectado por un retiro de mercado (recibió producto del lote)."""
+    recall = models.ForeignKey(
+        ProductRecall, on_delete=models.CASCADE,
+        related_name="affected_clients", verbose_name="Retiro",
+    )
+    recall_lot = models.ForeignKey(
+        RecallLot, on_delete=models.CASCADE,
+        related_name="clients", verbose_name="Lote afectado",
+    )
+    client = models.ForeignKey(
+        "partners.Partner", on_delete=models.PROTECT,
+        related_name="recall_notifications", verbose_name="Cliente",
+    )
+    # Snapshot de dirección al momento del retiro
+    client_name = models.CharField("Nombre", max_length=300)
+    client_address = models.CharField("Dirección", max_length=300, blank=True)
+    client_city = models.CharField("Ciudad", max_length=100, blank=True)
+    client_phone = models.CharField("Teléfono", max_length=50, blank=True)
+    client_email = models.EmailField("Email", blank=True)
+    # Despacho original
+    dispatch_code = models.CharField("Código despacho", max_length=50, blank=True)
+    dispatch_date = models.DateField("Fecha despacho", null=True, blank=True)
+    quantity_dispatched = models.DecimalField("Cantidad despachada", max_digits=12, decimal_places=4)
+    # Seguimiento de notificación
+    notified = models.BooleanField("Notificado", default=False)
+    notified_date = models.DateTimeField("Fecha notificación", null=True, blank=True)
+    notification_method = models.CharField("Método", max_length=100, blank=True)
+    # Seguimiento de recuperación
+    recovered = models.BooleanField("Producto recuperado", default=False)
+    quantity_recovered = models.DecimalField("Cantidad recuperada", max_digits=12, decimal_places=4, default=0)
+    recovery_date = models.DateTimeField("Fecha recuperación", null=True, blank=True)
+    recovery_notes = models.TextField("Notas de recuperación", blank=True)
+
+    class Meta:
+        verbose_name = "Cliente afectado"
+        verbose_name_plural = "Clientes afectados"
+
+    def __str__(self):
+        return f"{self.client_name} – {self.quantity_dispatched}"
 
 
 class InspectionStage(models.TextChoices):

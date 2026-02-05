@@ -1,4 +1,5 @@
 {% extends "layouts/app.html" %}
+{% load static %}
 
 {% block title %}Pedidos · {{ block.super }}{% endblock %}
 
@@ -12,38 +13,17 @@
       Registro de pedidos de venta, con detalles de productos, cantidades y estado.
     </p>
   </div>
-
-  <div class="flex flex-col items-stretch gap-2 md:flex-row md:items-center">
-    <form method="get" class="flex items-center gap-2">
-      <div class="relative">
-        <input
-          type="text"
-          name="q"
-          value="{{ request.GET.q|default_if_none:'' }}"
-          placeholder="Buscar por código o cliente…"
-          class="w-48 rounded-xl border px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-        />
-      </div>
-      <select
-        name="status"
-        class="rounded-xl border px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-        onchange="this.form.submit()"
-      >
-        <option value="">Todos los estados</option>
-        {% for value, label in status_choices %}
-          <option value="{{ value }}" {% if request.GET.status == value %}selected{% endif %}>
-            {{ label }}
-          </option>
-        {% endfor %}
-      </select>
-      <button
-        type="submit"
-        class="hidden md:inline-flex rounded-xl border px-3 py-1.5 text-xs hover:bg-gray-50"
-      >
-        Filtrar
-      </button>
-    </form>
-
+  <div class="flex items-center gap-2">
+    <a href="{% url 'sales:order_list_pdf' %}" target="_blank"
+       class="rounded-lg border border-red-300 px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50"
+       title="Exportar listado PDF">
+      PDF
+    </a>
+    <a href="{% url 'sales:order_list_excel' %}"
+       class="rounded-lg border border-green-300 px-3 py-2 text-xs font-medium text-green-600 hover:bg-green-50"
+       title="Exportar listado Excel">
+      Excel
+    </a>
     <a href="{% url 'sales:order_create' %}"
        class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 text-center">
       + Nuevo Pedido
@@ -51,8 +31,92 @@
   </div>
 </div>
 
-{% if page %}
-  <div class="overflow-x-auto rounded-2xl border bg-white">
+{# Filtros #}
+<form method="get" class="mb-4 flex flex-wrap items-center gap-2 text-sm">
+  <input type="text" name="q" value="{{ request.GET.q|default_if_none:'' }}"
+         placeholder="Buscar por código o cliente…"
+         class="w-full max-w-xs rounded-lg border px-3 py-2">
+  <select name="status" class="w-full max-w-xs rounded-lg border px-3 py-2">
+    <option value="">Todos los estados</option>
+    {% for value, label in status_choices %}
+      <option value="{{ value }}" {% if request.GET.status == value %}selected{% endif %}>
+        {{ label }}
+      </option>
+    {% endfor %}
+  </select>
+  <button type="submit"
+          class="rounded-lg border px-3 py-2 text-sm hover:bg-gray-50">
+    Filtrar
+  </button>
+</form>
+
+{% if orders %}
+  {# Mobile cards #}
+  <div class="space-y-3 md:hidden">
+    {% for order in orders %}
+      <div class="rounded-xl border bg-white p-4">
+        <div class="flex items-start justify-between mb-2">
+          <div>
+            <div class="font-semibold text-sm text-gray-900">{{ order.code }}</div>
+            <div class="text-sm text-gray-700">{{ order.client.trade_name }}</div>
+          </div>
+          <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium
+            {% if order.status == 'CONFIRMED' %}bg-blue-100 text-blue-700
+            {% elif order.status == 'PICKING' %}bg-amber-100 text-amber-700
+            {% elif order.status == 'PACKING' %}bg-purple-100 text-purple-700
+            {% elif order.status == 'DISPATCHED' %}bg-green-100 text-green-700
+            {% elif order.status == 'CANCELED' %}bg-red-100 text-red-700
+            {% else %}bg-gray-100 text-gray-600{% endif %}">
+            {{ order.get_status_display }}
+          </span>
+        </div>
+        <div class="flex items-center justify-between text-xs text-gray-600 mb-3">
+          <span>Entrega: {{ order.delivery_date|date:"d/m/Y"|default:"–" }}</span>
+          <span class="font-medium text-gray-900">{{ order.total_amount|floatformat:2|default:"0.00" }}</span>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <a href="{% url 'sales:order_detail' order.pk %}"
+             class="rounded-lg border px-3 py-2 text-sm hover:bg-gray-50">
+            Ver
+          </a>
+          <a href="{% url 'sales:order_detail_pdf' order.pk %}" target="_blank"
+             class="rounded-lg border border-red-300 px-3 py-2 text-sm text-red-600 hover:bg-red-50">
+            PDF
+          </a>
+          <a href="{% url 'sales:order_detail_excel' order.pk %}"
+             class="rounded-lg border border-green-300 px-3 py-2 text-sm text-green-600 hover:bg-green-50">
+            Excel
+          </a>
+          {% if order.status == 'PENDING' or order.status == 'PROFORMA' %}
+          <a href="{% url 'sales:confirm_order' order.pk %}"
+             class="rounded-lg border border-blue-200 px-3 py-2 text-sm text-blue-600 hover:bg-blue-50"
+             onclick="return confirm('¿Confirmar este pedido?');">
+            Confirmar
+          </a>
+          {% endif %}
+          {% if order.can_start_picking %}
+          <a href="{% url 'sales:dispatch_check' order.pk %}"
+             class="rounded-lg border border-emerald-200 px-3 py-2 text-sm text-emerald-700 hover:bg-emerald-50">
+            Picking
+          </a>
+          {% endif %}
+          {% if order.status == 'DISPATCHED' %}
+          <form method="post" action="{% url 'sales:invoice_create' order.pk %}" class="inline">
+            {% csrf_token %}
+            <button type="submit"
+                    class="rounded-lg border border-indigo-200 px-3 py-2 text-sm text-indigo-700 hover:bg-indigo-50"
+                    onclick="return confirm('¿Generar factura para este pedido?');">
+              Facturar
+            </button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
+  {# Desktop table #}
+  <div class="hidden md:block overflow-x-auto rounded-2xl border bg-white">
     <table class="min-w-full text-sm">
       <thead>
         <tr class="border-b bg-gray-50 text-xs font-semibold text-gray-600">
@@ -60,12 +124,12 @@
           <th class="px-3 py-2 text-left">Cliente</th>
           <th class="px-3 py-2 text-right">Total</th>
           <th class="px-3 py-2 text-left">Estado</th>
-          <th class="px-3 py-2 text-left">Fecha de Entrega</th>
+          <th class="px-3 py-2 text-left">Fecha entrega</th>
           <th class="px-3 py-2 text-right">Acciones</th>
         </tr>
       </thead>
       <tbody class="divide-y divide-gray-100">
-        {% for order in page %}
+        {% for order in orders %}
           <tr class="hover:bg-gray-50">
             <td class="px-3 py-2 text-xs font-semibold text-gray-900">
               {{ order.code }}
@@ -76,27 +140,69 @@
               </div>
             </td>
             <td class="px-3 py-2 text-right text-xs text-gray-900">
-              {{ order.total_amount|floatformat:2 }}
+              {{ order.total_amount|floatformat:2|default:"0.00" }}
             </td>
             <td class="px-3 py-2 text-xs">
-              <span class="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-[11px]">
+              <span class="inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium
+                {% if order.status == 'CONFIRMED' %}bg-blue-100 text-blue-700
+                {% elif order.status == 'PICKING' %}bg-amber-100 text-amber-700
+                {% elif order.status == 'PACKING' %}bg-purple-100 text-purple-700
+                {% elif order.status == 'DISPATCHED' %}bg-green-100 text-green-700
+                {% elif order.status == 'CANCELED' %}bg-red-100 text-red-700
+                {% else %}bg-gray-100 text-gray-600{% endif %}">
                 {{ order.get_status_display }}
               </span>
             </td>
             <td class="px-3 py-2 text-xs text-gray-700">
-              {{ order.delivery_date|default:"–" }}
+              {{ order.delivery_date|date:"d/m/Y"|default:"–" }}
             </td>
             <td class="px-3 py-2 text-right text-xs">
-              <div class="flex justify-end gap-2">
+              <div class="flex justify-end gap-1">
                 <a href="{% url 'sales:order_detail' order.pk %}"
-                   class="rounded-xl border px-2 py-1 text-[11px] hover:bg-gray-50">
+                   class="inline-block rounded-lg border px-2 py-1 hover:bg-gray-50">
                   Ver
                 </a>
-
-                <a href="{% url 'sales:invoice_create' %}?order={{ order.pk }}"
-                   class="rounded-xl bg-emerald-600 px-3 py-1 text-[11px] font-semibold text-white hover:bg-emerald-700">
-                  Generar Factura
+                <a href="{% url 'sales:order_detail_pdf' order.pk %}" target="_blank"
+                   class="inline-block rounded-lg border border-red-300 px-2 py-1 text-red-600 hover:bg-red-50">
+                  PDF
                 </a>
+                <a href="{% url 'sales:order_detail_excel' order.pk %}"
+                   class="inline-block rounded-lg border border-green-300 px-2 py-1 text-green-600 hover:bg-green-50">
+                  Excel
+                </a>
+                {% if order.status == 'PENDING' or order.status == 'PROFORMA' %}
+                  <a href="{% url 'sales:confirm_order' order.pk %}"
+                     class="inline-block rounded-lg border border-blue-200 px-2 py-1 text-blue-600 hover:bg-blue-50"
+                     onclick="return confirm('¿Confirmar este pedido?');">
+                    Confirmar
+                  </a>
+                {% endif %}
+                {% if order.can_start_picking %}
+                  <a href="{% url 'sales:dispatch_check' order.pk %}"
+                     class="inline-block rounded-lg border border-emerald-200 px-2 py-1 text-emerald-700 hover:bg-emerald-50">
+                    Picking
+                  </a>
+                {% endif %}
+                {% if order.status == 'PICKING' %}
+                  <span class="inline-block rounded-lg border border-amber-200 px-2 py-1 text-amber-700 text-[11px]">
+                    En picking
+                  </span>
+                {% endif %}
+                {% if order.status == 'PACKING' %}
+                  <span class="inline-block rounded-lg border border-purple-200 px-2 py-1 text-purple-700 text-[11px]">
+                    En packing
+                  </span>
+                {% endif %}
+                {% if order.status == 'DISPATCHED' %}
+                  <form method="post" action="{% url 'sales:invoice_create' order.pk %}" class="inline">
+                    {% csrf_token %}
+                    <button type="submit"
+                            class="inline-block rounded-lg border border-indigo-200 px-2 py-1 text-indigo-700 hover:bg-indigo-50 text-[11px]"
+                            onclick="return confirm('¿Generar factura para este pedido?');">
+                      Facturar
+                    </button>
+                  </form>
+                {% endif %}
               </div>
             </td>
           </tr>
@@ -105,7 +211,28 @@
     </table>
   </div>
 
-  {% include "partials/pagination.html" with page_obj=page %}
+  {# Paginación #}
+  {% if is_paginated %}
+    <div class="mt-4 flex items-center justify-between text-xs text-gray-600">
+      <div>
+        Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+      </div>
+      <div class="space-x-1">
+        {% if page_obj.has_previous %}
+          <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}"
+             class="rounded-lg border px-2 py-1 hover:bg-gray-50">
+            Anterior
+          </a>
+        {% endif %}
+        {% if page_obj.has_next %}
+          <a href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}"
+             class="rounded-lg border px-2 py-1 hover:bg-gray-50">
+            Siguiente
+          </a>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
 {% else %}
   <div class="rounded-2xl border border-dashed bg-white p-6 text-center text-sm text-gray-500">
     No hay pedidos de venta registrados aún.

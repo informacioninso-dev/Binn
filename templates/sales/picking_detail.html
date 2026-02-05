@@ -1,0 +1,163 @@
+{% extends "layouts/app.html" %}
+{% load static %}
+
+{% block title %}Picking {{ picking.code }} · {{ block.super }}{% endblock %}
+
+{% block app_content %}
+  {% include "sales/_nav.html" %}
+
+  <div class="mb-6 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+    <div>
+      <h1 class="text-xl md:text-2xl font-semibold">Guía de Picking</h1>
+      <p class="text-sm text-gray-500">
+        {{ picking.code }} · Pedido {{ picking.order.code }} · {{ picking.order.client.trade_name }}
+      </p>
+    </div>
+    <a href="{% url 'sales:picking_list' %}"
+       class="rounded-xl border px-4 py-3 text-sm hover:bg-gray-50 text-center md:py-2">
+      Volver a pickings
+    </a>
+  </div>
+
+  {# Estado #}
+  <div class="mb-4">
+    <span class="inline-flex rounded-full px-3 py-1 text-xs font-medium
+      {% if picking.status == 'COMPLETED' %}bg-green-100 text-green-700
+      {% elif picking.status == 'CANCELED' %}bg-red-100 text-red-700
+      {% else %}bg-amber-100 text-amber-700{% endif %}">
+      {{ picking.get_status_display }}
+    </span>
+  </div>
+
+  {# Picking form #}
+  <form method="post">
+    {% csrf_token %}
+    <div class="rounded-2xl border bg-white p-4 md:p-6">
+      <h2 class="mb-4 text-lg font-semibold text-gray-900">Productos a recoger</h2>
+
+      {# Mobile cards — optimized for warehouse workers #}
+      <div class="space-y-3 md:hidden">
+        {% for line in picking.lines.all %}
+          <div class="rounded-xl border p-3 {% if line.picked %}border-green-200 bg-green-50{% endif %}">
+            <div class="flex items-start justify-between mb-2">
+              <div>
+                <div class="font-semibold text-sm text-gray-900">{{ line.product.name }}</div>
+                <div class="text-[11px] text-gray-500">{{ line.product.code }}</div>
+              </div>
+              {% if line.picked %}
+                <span class="rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-medium text-green-700">Recogido</span>
+              {% else %}
+                <span class="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">Pendiente</span>
+              {% endif %}
+            </div>
+            <div class="grid grid-cols-2 gap-2 text-xs mb-2">
+              <div>
+                <span class="text-gray-500">Lote</span>
+                <p class="font-medium">{{ line.lot.internal_lot }}</p>
+                {% if line.lot.expiry_date %}
+                  <p class="text-[11px] text-gray-500">Vence: {{ line.lot.expiry_date|date:"d/m/Y" }}</p>
+                {% endif %}
+              </div>
+              <div>
+                <span class="text-gray-500">Ubicación</span>
+                <p class="font-medium">{{ line.location|default:"–" }}</p>
+              </div>
+            </div>
+            <div class="flex items-center justify-between gap-3">
+              <div class="text-xs">
+                <span class="text-gray-500">Solicitado:</span>
+                <span class="font-semibold">{{ line.quantity_requested }}</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <label class="text-xs text-gray-500">Recogido:</label>
+                {% if picking.status == 'COMPLETED' %}
+                  <span class="text-sm font-semibold text-green-700">{{ line.quantity_picked }}</span>
+                {% else %}
+                  <input type="number" name="picked_{{ line.pk }}"
+                         value="{{ line.quantity_requested }}"
+                         step="0.0001" min="0"
+                         max="{{ line.quantity_requested }}"
+                         class="w-20 rounded-lg border px-3 py-2 text-sm text-right">
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+
+      {# Desktop table #}
+      <div class="hidden md:block overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead>
+            <tr class="border-b bg-gray-50 text-xs font-semibold text-gray-600">
+              <th class="px-3 py-2 text-left">Producto</th>
+              <th class="px-3 py-2 text-left">Lote</th>
+              <th class="px-3 py-2 text-left">Ubicación</th>
+              <th class="px-3 py-2 text-right">Cant. solicitada</th>
+              <th class="px-3 py-2 text-right">Cant. recogida</th>
+              <th class="px-3 py-2 text-center">Estado</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            {% for line in picking.lines.all %}
+              <tr class="hover:bg-gray-50">
+                <td class="px-3 py-2">
+                  <div class="font-medium text-gray-900">{{ line.product.name }}</div>
+                  <div class="text-[11px] text-gray-500">{{ line.product.code }}</div>
+                </td>
+                <td class="px-3 py-2 text-xs">
+                  <div class="font-medium">{{ line.lot.internal_lot }}</div>
+                  {% if line.lot.expiry_date %}
+                    <div class="text-[11px] text-gray-500">Vence: {{ line.lot.expiry_date|date:"d/m/Y" }}</div>
+                  {% endif %}
+                </td>
+                <td class="px-3 py-2 text-xs text-gray-700">
+                  {{ line.location|default:"–" }}
+                </td>
+                <td class="px-3 py-2 text-right text-xs font-semibold">
+                  {{ line.quantity_requested }}
+                </td>
+                <td class="px-3 py-2 text-right">
+                  {% if picking.status == 'COMPLETED' %}
+                    <span class="text-xs font-semibold text-green-700">{{ line.quantity_picked }}</span>
+                  {% else %}
+                    <input type="number" name="picked_{{ line.pk }}"
+                           value="{{ line.quantity_requested }}"
+                           step="0.0001" min="0"
+                           max="{{ line.quantity_requested }}"
+                           class="w-24 rounded-lg border px-2 py-1 text-xs text-right">
+                  {% endif %}
+                </td>
+                <td class="px-3 py-2 text-center">
+                  {% if line.picked %}
+                    <span class="inline-flex rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-medium text-green-700">
+                      Recogido
+                    </span>
+                  {% else %}
+                    <span class="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">
+                      Pendiente
+                    </span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {% if picking.status != 'COMPLETED' and picking.status != 'CANCELED' %}
+        <div class="mt-6 flex flex-col gap-2 md:flex-row md:justify-end md:gap-3">
+          <button type="submit"
+                  class="rounded-xl bg-blue-600 px-4 py-3 text-sm font-medium text-white hover:bg-blue-700 md:py-2 md:order-2"
+                  onclick="return confirm('¿Completar picking y avanzar a packing?');">
+            Completar Picking
+          </button>
+          <a href="{% url 'sales:order_list' %}"
+             class="rounded-xl border px-4 py-3 text-sm hover:bg-gray-50 text-center md:py-2 md:order-1">
+            Cancelar
+          </a>
+        </div>
+      {% endif %}
+    </div>
+  </form>
+{% endblock %}

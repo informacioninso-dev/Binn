@@ -13,7 +13,7 @@ from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 from xhtml2pdf import pisa
 
 from core.mixins import ModulePermissionMixin
-from .models import RawMaterialReception, RawMaterialReceptionLine
+from .models import RawMaterialReception, RawMaterialReceptionLine, PurchaseOrder, PurchaseOrderLine
 
 
 # ---------------------------------------------------------------
@@ -216,7 +216,7 @@ class ReceptionDetailExcelView(LoginRequiredMixin, ModulePermissionMixin, View):
                 line.internal_lot or "",
                 float(line.expected_quantity) if line.expected_quantity else None,
                 float(line.received_quantity),
-                line.unit.symbol if line.unit else "",
+                line.unit.code if line.unit else "",
                 float(line.unit_cost) if line.unit_cost else None,
                 line.expiry_date.strftime("%d/%m/%Y") if line.expiry_date else "",
             ]
@@ -240,4 +240,179 @@ class ReceptionDetailExcelView(LoginRequiredMixin, ModulePermissionMixin, View):
             content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
         response["Content-Disposition"] = f'attachment; filename="recepcion_{reception.code}.xlsx"'
+        return response
+
+
+# ---------------------------------------------------------------
+# PDF — Listado de órdenes de compra
+# ---------------------------------------------------------------
+
+class PurchaseOrderListPDFView(LoginRequiredMixin, ModulePermissionMixin, View):
+    permission_required = "procurement.view_purchaseorder"
+
+    def get(self, request):
+        orders = (
+            PurchaseOrder.objects
+            .select_related("supplier")
+            .order_by("-order_date", "-id")
+        )
+        html_string = render_to_string(
+            "procurement/pdf_order_list.html",
+            {"orders": orders, "now": datetime.now()},
+        )
+        response = HttpResponse(content_type="application/pdf")
+        response["Content-Disposition"] = 'inline; filename="ordenes_compra.pdf"'
+        pisa.CreatePDF(io.StringIO(html_string), dest=response)
+        return response
+
+
+# ---------------------------------------------------------------
+# Excel — Listado de órdenes de compra
+# ---------------------------------------------------------------
+
+class PurchaseOrderListExcelView(LoginRequiredMixin, ModulePermissionMixin, View):
+    permission_required = "procurement.view_purchaseorder"
+
+    def get(self, request):
+        orders = (
+            PurchaseOrder.objects
+            .select_related("supplier")
+            .order_by("-order_date", "-id")
+        )
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Órdenes de Compra"
+
+        headers = ["Número", "Proveedor", "RUC", "Fecha", "Estado", "Moneda", "Total"]
+        hs = _header_style()
+        for col, h in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=h)
+            _apply_styles(cell, hs)
+
+        cs = _cell_style()
+        for row, oc in enumerate(orders, 2):
+            values = [
+                oc.number,
+                oc.supplier.trade_name or oc.supplier.legal_name,
+                oc.supplier.identification or "",
+                oc.order_date.strftime("%d/%m/%Y") if oc.order_date else "",
+                oc.get_status_display(),
+                oc.currency,
+                float(oc.total_amount),
+            ]
+            for col, v in enumerate(values, 1):
+                cell = ws.cell(row=row, column=col, value=v)
+                _apply_styles(cell, cs)
+
+        for col in range(1, len(headers) + 1):
+            ws.column_dimensions[ws.cell(row=1, column=col).column_letter].width = 18
+
+        buf = io.BytesIO()
+        wb.save(buf)
+        buf.seek(0)
+        response = HttpResponse(
+            buf.getvalue(),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        response["Content-Disposition"] = 'attachment; filename="ordenes_compra.xlsx"'
+        return response
+
+
+# ---------------------------------------------------------------
+# PDF — Detalle de una orden de compra
+# ---------------------------------------------------------------
+
+class PurchaseOrderDetailPDFView(LoginRequiredMixin, ModulePermissionMixin, View):
+    permission_required = "procurement.view_purchaseorder"
+
+    def get(self, request, pk):
+        order = get_object_or_404(
+            PurchaseOrder.objects.select_related("supplier", "created_by"), pk=pk
+        )
+        lines = order.lines.select_related("product", "unit").order_by("id")
+        html_string = render_to_string(
+            "procurement/pdf_order_detail.html",
+            {"oc": order, "lines": lines, "now": datetime.now()},
+        )
+        response = HttpResponse(content_type="application/pdf")
+        response["Content-Disposition"] = f'inline; filename="orden_{order.number}.pdf"'
+        pisa.CreatePDF(io.StringIO(html_string), dest=response)
+        return response
+
+
+# ---------------------------------------------------------------
+# Excel — Detalle de una orden de compra
+# ---------------------------------------------------------------
+
+class PurchaseOrderDetailExcelView(LoginRequiredMixin, ModulePermissionMixin, View):
+    permission_required = "procurement.view_purchaseorder"
+
+    def get(self, request, pk):
+        order = get_object_or_404(
+            PurchaseOrder.objects.select_related("supplier", "created_by"), pk=pk
+        )
+        lines = order.lines.select_related("product", "unit").order_by("id")
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Orden de Compra"
+
+        title_font = Font(bold=True, size=14)
+        ws.merge_cells("A1:F1")
+        ws["A1"].value = f"Orden de Compra {order.number}"
+        ws["A1"].font = title_font
+
+        label_font = Font(bold=True, size=10)
+        info = [
+            ("Proveedor:", order.supplier.trade_name or order.supplier.legal_name),
+            ("RUC:", order.supplier.identification or ""),
+            ("Fecha:", order.order_date.strftime("%d/%m/%Y") if order.order_date else ""),
+            ("Estado:", order.get_status_display()),
+            ("Moneda:", order.currency),
+            ("Total:", str(order.total_amount)),
+            ("Creado por:", str(order.created_by) if order.created_by else "—"),
+        ]
+        row = 3
+        for label, value in info:
+            ws.cell(row=row, column=1, value=label).font = label_font
+            ws.cell(row=row, column=2, value=value)
+            row += 1
+
+        row += 1
+        ws.cell(row=row, column=1, value="Detalle de líneas").font = Font(bold=True, size=12)
+        row += 1
+
+        line_headers = ["Producto", "Descripción", "Cantidad", "Unidad", "Precio Unit.", "Total Línea"]
+        hs = _header_style()
+        for col, h in enumerate(line_headers, 1):
+            cell = ws.cell(row=row, column=col, value=h)
+            _apply_styles(cell, hs)
+
+        cs = _cell_style()
+        for line in lines:
+            row += 1
+            values = [
+                f"{line.product.code} - {line.product.name}",
+                line.description or "",
+                float(line.quantity),
+                line.unit.code if line.unit else "",
+                float(line.unit_price),
+                float(line.line_total),
+            ]
+            for col, v in enumerate(values, 1):
+                cell = ws.cell(row=row, column=col, value=v)
+                _apply_styles(cell, cs)
+
+        for col in range(1, len(line_headers) + 1):
+            ws.column_dimensions[ws.cell(row=1, column=col).column_letter].width = 20
+
+        buf = io.BytesIO()
+        wb.save(buf)
+        buf.seek(0)
+        response = HttpResponse(
+            buf.getvalue(),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        response["Content-Disposition"] = f'attachment; filename="orden_{order.number}.xlsx"'
         return response

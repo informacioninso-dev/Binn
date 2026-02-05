@@ -5,7 +5,7 @@ from django.views.generic import TemplateView, ListView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from core.mixins import ModulePermissionMixin
 from .models import Warehouse, WarehouseType,TaxScheme,Location,Unit,UnitCategory
-from .forms import WarehouseForm,TaxSchemeForm,LocationForm,UnitForm
+from .forms import WarehouseForm, TaxSchemeForm, LocationForm, UnitForm, CompanyConfigForm
 from django.db import models
 from django.views.generic import View,TemplateView
 from django.shortcuts import render, redirect, get_object_or_404
@@ -13,20 +13,62 @@ from django.contrib import messages
 
 @login_required
 def dashboard(request):
-    data = {
-        'stock_total': 1250,
-        'sales_this_month': '$ 13.250',
-        'pending_invoices': 7,
-        'open_work_orders': 3,
-        'last_movements': [],
-    }
+    from django.utils import timezone
+    from django.db.models import Sum, Count, Q
+    from inventory.models import Product, Stock, InventoryMove
+    from sales.models import SaleOrder, SaleInvoice
+    from procurement.models import PurchaseOrder, RawMaterialReception
+    from production.models import ProductionOrder
+    from quality.models import QualityInspection
+
+    now = timezone.now()
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    # --- KPIs ---
+    products_active = Product.objects.filter(is_active=True).count()
+    pedidos_pendientes = 0  # TODO: implementar cuando exista módulo de pedidos
+
+    sales_month = SaleOrder.objects.filter(created_at__gte=month_start).count()
+    sales_month_total = (
+        SaleOrder.objects.filter(created_at__gte=month_start)
+        .exclude(status='CANCELED')
+        .aggregate(t=Sum('invoices__total_amount'))['t'] or 0
+    )
+
+    pending_invoices = SaleInvoice.objects.exclude(
+        status__in=['DISPATCHED', 'CANCELED']
+    ).count()
+
+    oc_pending = PurchaseOrder.objects.exclude(
+        status__in=['RECEIVED', 'CANCELLED']
+    ).count()
+
+    receptions_qa = RawMaterialReception.objects.filter(status='UNDER_QA').count()
+
+    op_open = ProductionOrder.objects.filter(
+        status__in=['DRAFT', 'RELEASED', 'IN_PROGRESS']
+    ).count()
+
+    qa_pending = QualityInspection.objects.filter(result='PENDING').count()
+
+    # --- Últimos movimientos de inventario ---
+    last_moves = (
+        InventoryMove.objects
+        .select_related('product', 'warehouse')
+        .order_by('-date')[:10]
+    )
 
     ctx = {
-        'kpi_stock_total': data['stock_total'],
-        'kpi_ventas_mes': data['sales_this_month'],
-        'kpi_facturas_pendientes': data['pending_invoices'],
-        'kpi_op_abiertas': data['open_work_orders'],
-        'movimientos': data['last_movements'],
+        'products_active': products_active,
+        'pedidos_pendientes': pedidos_pendientes,
+        'sales_month': sales_month,
+        'sales_month_total': sales_month_total,
+        'pending_invoices': pending_invoices,
+        'oc_pending': oc_pending,
+        'receptions_qa': receptions_qa,
+        'op_open': op_open,
+        'qa_pending': qa_pending,
+        'last_moves': last_moves,
     }
     return render(request, 'pages/dashboard.html', ctx)
 
@@ -190,3 +232,33 @@ class LocationListView(LoginRequiredMixin, ModulePermissionMixin, View):
                 models.Q(code__icontains=q) | models.Q(name__icontains=q)
             )
         return render(request, self.template_name, {'locations': qs})
+
+
+###############################################################
+# Vista para configurar datos de empresa (SRI)
+###############################################################
+from .models import CompanyConfig
+
+
+class CompanyConfigView(LoginRequiredMixin, ModulePermissionMixin, View):
+    permission_required = "core.view_warehouse"
+    template_name = "core/company_config.html"
+
+    def get(self, request):
+        config = CompanyConfig.objects.first()
+        form = CompanyConfigForm(instance=config)
+        return render(request, self.template_name, {"form": form, "config": config})
+
+    def post(self, request):
+        config = CompanyConfig.objects.first()
+        form = CompanyConfigForm(request.POST, request.FILES, instance=config)
+        if form.is_valid():
+            obj = form.save(commit=False)
+            if not obj.pk:
+                obj.created_by = request.user
+            obj.updated_by = request.user
+            obj.save()
+            messages.success(request, "Configuración de empresa guardada.")
+            return redirect("core:company_config")
+        messages.error(request, "Revise los campos marcados.")
+        return render(request, self.template_name, {"form": form, "config": config})

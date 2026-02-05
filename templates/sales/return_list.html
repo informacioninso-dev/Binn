@@ -1,0 +1,131 @@
+{% extends "layouts/app.html" %}
+{% block title %}Devoluciones · {{ block.super }}{% endblock %}
+
+{% block app_content %}
+  {% include "sales/_nav.html" %}
+
+  <div class="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold">Devoluciones</h1>
+      <p class="text-sm text-gray-500">Gestión de productos devueltos por clientes</p>
+    </div>
+    <a href="{% url 'sales:return_create' %}"
+       class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white text-center hover:bg-blue-700">
+      Nueva Devolución
+    </a>
+  </div>
+
+  <form method="get" class="mb-4 flex flex-wrap items-center gap-2 text-sm">
+    <input type="text" name="q" value="{{ request.GET.q|default_if_none:'' }}"
+           placeholder="Buscar por código, factura o cliente…"
+           class="w-full max-w-xs rounded-lg border px-3 py-2">
+    <select name="status" class="rounded-lg border px-3 py-2">
+      <option value="">Todos los estados</option>
+      {% for val, label in status_choices %}
+        <option value="{{ val }}" {% if request.GET.status == val %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="rounded-lg border px-3 py-2 hover:bg-gray-50">Filtrar</button>
+  </form>
+
+  {% if returns %}
+    {# Mobile cards #}
+    <div class="space-y-3 md:hidden">
+      {% for r in returns %}
+        <a href="{% url 'sales:return_detail' r.pk %}" class="block rounded-xl border bg-white p-4">
+          <div class="flex items-start justify-between mb-2">
+            <div>
+              <div class="font-semibold text-sm">{{ r.code }}</div>
+              <div class="text-xs text-gray-600">{{ r.client.trade_name }}</div>
+            </div>
+            <span class="rounded-full px-2 py-0.5 text-xs font-medium
+              {% if r.status == 'GENERATED' %}bg-yellow-100 text-yellow-700
+              {% elif r.status == 'RECEIVED' or r.status == 'PENDING_INSPECTION' %}bg-blue-100 text-blue-700
+              {% elif r.status == 'APPROVED' %}bg-green-100 text-green-700
+              {% elif r.status == 'REJECTED' %}bg-red-100 text-red-700
+              {% else %}bg-gray-100 text-gray-600{% endif %}">
+              {{ r.get_status_display }}
+            </span>
+          </div>
+          <div class="text-xs text-gray-500">
+            Factura: {{ r.invoice.full_number|default:"–" }} · ${{ r.total_amount|floatformat:2 }}
+          </div>
+          {% if r.reason %}
+            <div class="mt-1 text-xs text-gray-400">{{ r.reason.name }}</div>
+          {% endif %}
+        </a>
+      {% endfor %}
+    </div>
+
+    {# Desktop table #}
+    <div class="hidden md:block overflow-x-auto rounded-2xl border bg-white">
+      <table class="min-w-full text-sm">
+        <thead>
+          <tr class="border-b bg-gray-50 text-xs font-semibold text-gray-600">
+            <th class="px-3 py-2 text-left">Código</th>
+            <th class="px-3 py-2 text-left">Factura</th>
+            <th class="px-3 py-2 text-left">Cliente</th>
+            <th class="px-3 py-2 text-left">Motivo</th>
+            <th class="px-3 py-2 text-left">Fecha</th>
+            <th class="px-3 py-2 text-left">Estado</th>
+            <th class="px-3 py-2 text-right">Total</th>
+            <th class="px-3 py-2 text-right">Acciones</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          {% for r in returns %}
+            <tr class="hover:bg-gray-50">
+              <td class="px-3 py-2 text-xs font-semibold">{{ r.code }}</td>
+              <td class="px-3 py-2 text-xs">{{ r.invoice.full_number|default:"–" }}</td>
+              <td class="px-3 py-2 text-xs">{{ r.client.trade_name }}</td>
+              <td class="px-3 py-2 text-xs">
+                {% if r.reason %}
+                  <span class="rounded-full px-1.5 py-0.5 text-[10px]
+                    {% if r.reason.reason_type == 'COMMERCIAL' %}bg-blue-50 text-blue-600
+                    {% else %}bg-orange-50 text-orange-600{% endif %}">
+                    {{ r.reason.get_reason_type_display }}
+                  </span>
+                {% else %}–{% endif %}
+              </td>
+              <td class="px-3 py-2 text-xs text-gray-700">{{ r.return_date|date:"d/m/Y" }}</td>
+              <td class="px-3 py-2">
+                <span class="rounded-full px-2 py-0.5 text-xs font-medium
+                  {% if r.status == 'GENERATED' %}bg-yellow-100 text-yellow-700
+                  {% elif r.status == 'RECEIVED' or r.status == 'PENDING_INSPECTION' %}bg-blue-100 text-blue-700
+                  {% elif r.status == 'APPROVED' %}bg-green-100 text-green-700
+                  {% elif r.status == 'REJECTED' %}bg-red-100 text-red-700
+                  {% else %}bg-gray-100 text-gray-600{% endif %}">
+                  {{ r.get_status_display }}
+                </span>
+              </td>
+              <td class="px-3 py-2 text-xs text-right">${{ r.total_amount|floatformat:2 }}</td>
+              <td class="px-3 py-2 text-right">
+                <a href="{% url 'sales:return_detail' r.pk %}" class="text-xs text-blue-600 hover:underline">Ver</a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if is_paginated %}
+      <div class="mt-4 flex items-center justify-between text-xs text-gray-600">
+        <div>Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</div>
+        <div class="space-x-1">
+          {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}"
+               class="rounded-lg border px-2 py-1 hover:bg-gray-50">Anterior</a>
+          {% endif %}
+          {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}"
+               class="rounded-lg border px-2 py-1 hover:bg-gray-50">Siguiente</a>
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
+  {% else %}
+    <div class="rounded-2xl border border-dashed bg-white p-6 text-center text-sm text-gray-500">
+      No hay devoluciones registradas.
+    </div>
+  {% endif %}
+{% endblock %}

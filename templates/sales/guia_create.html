@@ -1,0 +1,116 @@
+{% extends "layouts/app.html" %}
+{% load static %}
+
+{% block title %}Nueva Guía de Remisión · {{ block.super }}{% endblock %}
+
+{% block app_content %}
+  {% include "sales/_nav.html" %}
+
+  <div class="mb-6">
+    <h1 class="text-2xl font-semibold">Nueva Guía de Remisión</h1>
+    <p class="text-sm text-gray-500">
+      Despacho {{ dispatch.code }} · Pedido {{ dispatch.order.code }} · {{ dispatch.order.client }}
+    </p>
+  </div>
+
+  <form method="post" class="space-y-6">
+    {% csrf_token %}
+
+    {# Transportista #}
+    <div class="rounded-2xl border bg-white p-4 md:p-6">
+      <h2 class="mb-4 text-lg font-semibold text-gray-900">Transportista</h2>
+      <div class="grid gap-4 md:grid-cols-2">
+        <div>
+          <label class="mb-1 block text-xs font-medium text-gray-700">Transportista</label>
+          <select name="carrier" required class="w-full rounded-lg border px-3 py-2 text-sm">
+            <option value="">Seleccionar transportista...</option>
+            {% for c in carriers %}
+              <option value="{{ c.pk }}">
+                {{ c.trade_name|default:c.legal_name }} — {{ c.identification }}
+                {% if c.vehicle_plate %}({{ c.vehicle_plate }}){% endif %}
+              </option>
+            {% endfor %}
+          </select>
+          {% if not carriers %}
+            <p class="mt-1 text-xs text-red-600">
+              No hay transportistas registrados. Cree un partner con "Transportista" marcado.
+            </p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    {# Datos de transporte #}
+    <div class="rounded-2xl border bg-white p-4 md:p-6">
+      <h2 class="mb-4 text-lg font-semibold text-gray-900">Datos del Transporte</h2>
+      <div class="grid gap-4 md:grid-cols-2">
+        <div>
+          <label class="mb-1 block text-xs font-medium text-gray-700">Fecha inicio transporte</label>
+          <input type="date" name="transport_start_date" required
+                 class="w-full rounded-lg border px-3 py-2 text-sm">
+        </div>
+        <div>
+          <label class="mb-1 block text-xs font-medium text-gray-700">Fecha fin transporte</label>
+          <input type="date" name="transport_end_date" required
+                 class="w-full rounded-lg border px-3 py-2 text-sm">
+        </div>
+        <div>
+          <label class="mb-1 block text-xs font-medium text-gray-700">Motivo del traslado</label>
+          <input type="text" name="transfer_reason" value="Venta"
+                 class="w-full rounded-lg border px-3 py-2 text-sm">
+        </div>
+        <div>
+          <label class="mb-1 block text-xs font-medium text-gray-700">Ruta (opcional)</label>
+          <input type="text" name="route" placeholder="Ej: Quito - Guayaquil"
+                 class="w-full rounded-lg border px-3 py-2 text-sm">
+        </div>
+      </div>
+    </div>
+
+    {# Documento de sustento #}
+    {% if related_invoice %}
+    <div class="rounded-2xl border bg-white p-4 md:p-6">
+      <h2 class="mb-4 text-lg font-semibold text-gray-900">Documento de Sustento</h2>
+      <p class="text-sm text-gray-700">
+        Factura <strong>{{ related_invoice.full_number }}</strong>
+        {% if related_invoice.authorization_number %}
+          — Autorización: {{ related_invoice.authorization_number }}
+        {% endif %}
+      </p>
+    </div>
+    {% endif %}
+
+    {# Productos a transportar #}
+    <div class="rounded-2xl border bg-white p-4 md:p-6">
+      <h2 class="mb-4 text-lg font-semibold text-gray-900">Productos a transportar</h2>
+      <table class="min-w-full text-sm">
+        <thead>
+          <tr class="border-b bg-gray-50 text-xs font-semibold text-gray-600">
+            <th class="px-3 py-2 text-left">Código</th>
+            <th class="px-3 py-2 text-left">Producto</th>
+            <th class="px-3 py-2 text-right">Cantidad</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          {% for line in dispatch.lines.all %}
+            <tr>
+              <td class="px-3 py-2 text-xs font-mono">{{ line.product.code }}</td>
+              <td class="px-3 py-2 text-xs">{{ line.product.name }}</td>
+              <td class="px-3 py-2 text-right text-xs">{{ line.quantity }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="flex justify-end gap-3">
+      <a href="{% url 'sales:dispatch_list' %}"
+         class="rounded-xl border px-4 py-2 text-sm hover:bg-gray-50">Cancelar</a>
+      <button type="submit"
+              class="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-blue-700"
+              {% if not carriers %}disabled{% endif %}>
+        Generar Guía de Remisión
+      </button>
+    </div>
+  </form>
+{% endblock %}

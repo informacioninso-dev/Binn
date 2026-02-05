@@ -14,6 +14,7 @@ from .models import (
     InspectionStage,
 )
 from inventory.models import Product, Lot, LotStatus
+from core.models import Location, Warehouse, WarehouseType
 from production.models import WorkCenter, ProductRouteStep, ProductionOperation
 
 
@@ -57,6 +58,14 @@ class QualityInspectionForm(forms.ModelForm):
     - Genera campos dinámicos `param_<id>` según los parámetros del plan.
     - Construye un JSON estructurado en `checklist` al hacer clean/save.
     """
+
+    destination_location = forms.ModelChoiceField(
+        queryset=Location.objects.none(),
+        label="Ubicación destino (bodega MP)",
+        required=False,
+        widget=forms.Select(attrs={"class": "w-full rounded-lg border px-3 py-2"}),
+        help_text="Opcional. Al aprobar, el lote se ubicará aquí dentro de la bodega de MP.",
+    )
 
     class Meta:
         model = QualityInspection
@@ -117,11 +126,25 @@ class QualityInspectionForm(forms.ModelForm):
         if not self.plan and self.instance and self.instance.pk:
             self.plan = self.instance.plan
 
-        # Defaults razonables
-        if not self.instance.pk and not self.initial.get("inspected_at"):
+        # ═══ CAMPOS AUTOMÁTICOS PARA TRAZABILIDAD ═══
+        # inspected_at e inspected_by NO deben ser editables por el usuario
+        # Se asignan automáticamente al crear la inspección
+
+        # Fecha/hora de inspección: siempre automática
+        if not self.instance.pk:
             self.initial["inspected_at"] = timezone.now()
 
-        # Etiquetas en español por si el verbose_name estuviera en inglés
+        # Hacer inspected_at de solo lectura (no editable)
+        if "inspected_at" in self.fields:
+            self.fields["inspected_at"].disabled = True
+            self.fields["inspected_at"].help_text = "Se registra automáticamente al crear la inspección"
+
+        # Hacer inspected_by de solo lectura (no editable)
+        if "inspected_by" in self.fields:
+            self.fields["inspected_by"].disabled = True
+            self.fields["inspected_by"].help_text = "Se asigna automáticamente al usuario actual"
+
+        # Etiquetas en español
         self.fields["lot"].label = "Lote"
         self.fields["stage"].label = "Etapa"
         self.fields["operation"].label = "Operación"
@@ -133,7 +156,8 @@ class QualityInspectionForm(forms.ModelForm):
         # Placeholders en español
         if hasattr(self.fields["operation"], "empty_label"):
             self.fields["operation"].empty_label = "Sin operación (no aplica)"
-        # Resultado: por defecto "Pendiente", opciones visibles: Aprobado, Rechazado, Cuarentena
+
+        # Resultado: opciones disponibles
         self.fields["result"].choices = [
             (LotStatus.PENDING.value, LotStatus.PENDING.label),
             (LotStatus.APPROVED.value, LotStatus.APPROVED.label),
@@ -143,9 +167,13 @@ class QualityInspectionForm(forms.ModelForm):
         if not self.instance.pk:
             self.initial["result"] = LotStatus.PENDING.value
 
-        # No permitimos que el usuario cambie inspected_by desde el form (lo setea la vista)
-        if "inspected_by" in self.fields:
-            self.fields["inspected_by"].disabled = True
+        # Poblar ubicaciones de bodegas de MP para ubicación destino
+        raw_wh = Warehouse.objects.filter(type=WarehouseType.RAW, is_active=True).first()
+        if raw_wh:
+            self.fields["destination_location"].queryset = (
+                Location.objects.filter(warehouse=raw_wh, is_active=True).order_by("code")
+            )
+            self.fields["destination_location"].label = f"Ubicación destino ({raw_wh.name})"
 
         # Ajustar querysets (si usas Lot / ProductionOperation)
         # Asegúrate de tener importados Lot y ProductionOperation arriba.

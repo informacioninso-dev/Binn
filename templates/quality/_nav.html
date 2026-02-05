@@ -46,12 +46,25 @@
     <li>
       <a href="{% url 'quality:audit_home' %}"
          class="pb-2 border-b-2 transition-colors
-         {% if 'home' in url_name  %}
+         {% if 'audit' in url_name %}
             border-blue-600 text-blue-600
          {% else %}
             border-transparent text-gray-600 hover:text-blue-600
          {% endif %}">
-        Auditoria de Lotes
+        Auditoría de Lotes
+      </a>
+    </li>
+
+    {# Retiro de mercado #}
+    <li>
+      <a href="{% url 'quality:recall_list' %}"
+         class="pb-2 border-b-2 transition-colors
+         {% if 'recall' in url_name %}
+            border-blue-600 text-blue-600
+         {% else %}
+            border-transparent text-gray-600 hover:text-blue-600
+         {% endif %}">
+        Retiros
       </a>
     </li>
 
