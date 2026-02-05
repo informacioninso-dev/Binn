@@ -31,9 +31,11 @@ from .services import (
 
 # ─── Index ──────────────────────────────────────────────────
 
-class SalesIndexView(LoginRequiredMixin, ModulePermissionMixin, TemplateView):
+class SalesIndexView(LoginRequiredMixin, ModulePermissionMixin, View):
     permission_required = "sales.view_saleorder"
-    template_name = "sales/index.html"
+
+    def get(self, request, *args, **kwargs):
+        return redirect("sales:order_list")
 
 
 # ─── Pedidos ────────────────────────────────────────────────
