@@ -1,0 +1,139 @@
+{% extends "layouts/app.html" %}
+{% block title %}Revisión QA - {{ reception.code }}{% endblock %}
+
+{% block app_content %}
+  {% include "quality/_nav.html" %}
+
+  <div class="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold">Revisión de Calidad</h1>
+      <p class="text-sm text-gray-500">Recepción {{ reception.code }}</p>
+    </div>
+    <a href="{% url 'quality:receptions_qa_list' %}" class="text-sm text-blue-600 hover:underline">
+      &larr; Volver al listado
+    </a>
+  </div>
+
+  <div class="grid gap-6 md:grid-cols-2">
+    {# Info de la recepción #}
+    <div class="rounded-2xl border bg-white p-5">
+      <h2 class="mb-4 text-lg font-semibold">Información de la Recepción</h2>
+      <dl class="grid grid-cols-2 gap-y-3 text-sm">
+        <dt class="text-gray-500">Código:</dt>
+        <dd class="font-medium">{{ reception.code }}</dd>
+
+        <dt class="text-gray-500">Fecha:</dt>
+        <dd>{{ reception.reception_date|date:"d/m/Y" }}</dd>
+
+        <dt class="text-gray-500">Proveedor:</dt>
+        <dd>{{ reception.supplier_name }}</dd>
+
+        <dt class="text-gray-500">RUC:</dt>
+        <dd>{{ reception.supplier_ruc|default:"—" }}</dd>
+
+        <dt class="text-gray-500">Documento:</dt>
+        <dd>{{ reception.document_type|default:"" }} {{ reception.document_number|default:"—" }}</dd>
+
+        <dt class="text-gray-500">Estado:</dt>
+        <dd>
+          <span class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+            {{ reception.get_status_display }}
+          </span>
+        </dd>
+
+        {% if reception.num_boxes %}
+        <dt class="text-gray-500">Cajas:</dt>
+        <dd>{{ reception.num_boxes }}</dd>
+        {% endif %}
+
+        {% if reception.gross_weight %}
+        <dt class="text-gray-500">Peso bruto:</dt>
+        <dd>{{ reception.gross_weight }} kg</dd>
+        {% endif %}
+
+        {% if reception.net_weight %}
+        <dt class="text-gray-500">Peso neto:</dt>
+        <dd>{{ reception.net_weight }} kg</dd>
+        {% endif %}
+
+        {% if reception.temperature_recorded %}
+        <dt class="text-gray-500">Temperatura:</dt>
+        <dd>{{ reception.temperature_recorded }} °C</dd>
+        {% endif %}
+      </dl>
+    </div>
+
+    {# Acciones de QA #}
+    <div class="rounded-2xl border bg-white p-5">
+      <h2 class="mb-4 text-lg font-semibold">Acciones de Calidad</h2>
+
+      {% if reception.status == 'UNDER_QA' %}
+        <p class="mb-4 text-sm text-gray-600">
+          Revisa la documentación y el estado de la mercadería antes de aprobar o rechazar.
+        </p>
+        <div class="flex flex-col gap-3 sm:flex-row">
+          <form method="post" action="{% url 'quality:receptions_qa_action' reception.pk %}?action=approve">
+            {% csrf_token %}
+            <button type="submit" class="w-full rounded-lg bg-green-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-green-700 sm:w-auto">
+              Aprobar
+            </button>
+          </form>
+          <form method="post" action="{% url 'quality:receptions_qa_action' reception.pk %}?action=reject">
+            {% csrf_token %}
+            <button type="submit" class="w-full rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-700 sm:w-auto">
+              Rechazar
+            </button>
+          </form>
+        </div>
+      {% else %}
+        <p class="text-sm text-gray-500">Esta recepción ya fue procesada.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  {# Líneas de la recepción #}
+  {% if reception.lines.exists %}
+  <div class="mt-6 rounded-2xl border bg-white">
+    <div class="border-b px-5 py-3">
+      <h2 class="font-semibold">Líneas de la Recepción</h2>
+    </div>
+    <div class="overflow-x-auto p-4">
+      <table class="min-w-full text-sm">
+        <thead>
+          <tr class="text-left text-xs font-semibold text-gray-600">
+            <th class="px-3 py-2">Producto</th>
+            <th class="px-3 py-2">Lote Proveedor</th>
+            <th class="px-3 py-2">Lote Interno</th>
+            <th class="px-3 py-2 text-right">Cant. Recibida</th>
+            <th class="px-3 py-2">Unidad</th>
+            <th class="px-3 py-2">Vencimiento</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          {% for line in reception.lines.all %}
+            <tr>
+              <td class="px-3 py-2">
+                <div class="font-medium">{{ line.product.name }}</div>
+                <div class="text-xs text-gray-500">{{ line.product.code }}</div>
+              </td>
+              <td class="px-3 py-2 text-xs">{{ line.supplier_lot|default:"—" }}</td>
+              <td class="px-3 py-2 text-xs font-medium">{{ line.internal_lot|default:"—" }}</td>
+              <td class="px-3 py-2 text-right">{{ line.received_quantity }}</td>
+              <td class="px-3 py-2 text-xs">{{ line.unit.code|default:"—" }}</td>
+              <td class="px-3 py-2 text-xs">{{ line.expiry_date|date:"d/m/Y"|default:"—" }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  {# Observaciones #}
+  {% if reception.observations %}
+  <div class="mt-6 rounded-2xl border bg-white p-5">
+    <h2 class="mb-2 font-semibold">Observaciones</h2>
+    <p class="text-sm text-gray-700">{{ reception.observations }}</p>
+  </div>
+  {% endif %}
+{% endblock %}
