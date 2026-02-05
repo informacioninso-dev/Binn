@@ -4,8 +4,8 @@ After=network.target
 
 [Service]
 Type=notify
-User=www-data
-Group=www-data
+User=kore
+Group=kore
 WorkingDirectory=/var/www/kore_erp
 Environment="PATH=/var/www/kore_erp/.venv/bin"
 ExecStart=/var/www/kore_erp/.venv/bin/gunicorn \
