@@ -22,3 +22,12 @@ tailwindcss.exe
 .idea/
 *.swp
 *.swo
+
+# Backup files
+*.json.backup
+data_backup*.json
+
+# SSL certificates
+*.pem
+*.key
+*.crt
