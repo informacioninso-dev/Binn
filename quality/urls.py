@@ -1,6 +1,7 @@
 # quality/urls.py
 from django.urls import path
 from . import views
+from . import exports
 
 app_name = "quality"
 
@@ -9,6 +10,8 @@ urlpatterns = [
 
     # Planes de QA
     path("qa-plans/", views.QAPlanListView.as_view(), name="qa_plan_list"),
+    path("qa-plans/export/pdf/", exports.QAPlanListPDFView.as_view(), name="qa_plan_list_pdf"),
+    path("qa-plans/export/excel/", exports.QAPlanListExcelView.as_view(), name="qa_plan_list_excel"),
     path("qa-plans/new/", views.QAPlanCreateView.as_view(), name="qa_plan_create"),
     path("qa-plans/<int:pk>/edit/", views.QAPlanUpdateView.as_view(), name="qa_plan_update"),
     path("qa-plans/<int:pk>/parameters/", views.QAPlanParametersView.as_view(), name="qa_plan_parameters"),
@@ -17,6 +20,8 @@ urlpatterns = [
     path("inspections/", views.QualityInspectionListView.as_view(), name="inspection_list"),
     path("inspections/new/", views.QualityInspectionCreateView.as_view(), name="inspection_create"),
     path("inspections/<int:pk>/", views.QualityInspectionDetailView.as_view(), name="inspection_detail"),
+    path("inspections/export/pdf/", exports.InspectionListPDFView.as_view(), name="inspection_list_pdf"),
+    path("inspections/export/excel/", exports.InspectionListExcelView.as_view(), name="inspection_list_excel"),
 
     # Pendientes (lotes y operaciones)
     path("pending/", views.PendingLotsQAView.as_view(), name="pending_lots"),
@@ -32,6 +37,8 @@ urlpatterns = [
 
     # Retiro de mercado
     path("recalls/", views.ProductRecallListView.as_view(), name="recall_list"),
+    path("recalls/export/pdf/", exports.RecallListPDFView.as_view(), name="recall_list_pdf"),
+    path("recalls/export/excel/", exports.RecallListExcelView.as_view(), name="recall_list_excel"),
     path("recall/create/", views.ProductRecallCreateView.as_view(), name="recall_create"),
     path("recall/<int:pk>/", views.ProductRecallDetailView.as_view(), name="recall_detail"),
     path("recall/<int:pk>/activate/", views.activate_recall_view, name="recall_activate"),

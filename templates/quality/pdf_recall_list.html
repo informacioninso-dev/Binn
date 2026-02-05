@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Retiros de Mercado</title>
+  <style>
+    @page { size: A4 landscape; margin: 1.5cm; }
+    body { font-family: Helvetica, Arial, sans-serif; font-size: 10px; color: #1f2937; }
+    h1 { font-size: 18px; color: #dc2626; margin: 0 0 4px; }
+    .date { font-size: 9px; color: #6b7280; margin-bottom: 12px; }
+    hr { border: none; border-top: 2px solid #dc2626; margin-bottom: 12px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+    th { background-color: #dc2626; color: #fff; padding: 6px 8px; text-align: left; font-size: 9px; }
+    td { padding: 5px 8px; border-bottom: 1px solid #e5e7eb; font-size: 9px; }
+    tr.even { background-color: #fef2f2; }
+    .footer { margin-top: 16px; text-align: center; font-size: 8px; color: #9ca3af; border-top: 1px solid #e5e7eb; padding-top: 6px; }
+    .right { text-align: right; }
+    .center { text-align: center; }
+    .bold { font-weight: bold; }
+    .critical { color: #dc2626; font-weight: bold; }
+    .high { color: #ea580c; font-weight: bold; }
+    .medium { color: #ca8a04; }
+    .low { color: #6b7280; }
+    .completed { color: #059669; }
+    .active { color: #2563eb; }
+    .draft { color: #6b7280; }
+  </style>
+</head>
+<body>
+  <h1>Retiros de Mercado</h1>
+  <div class="date">Generado: {{ now|date:"d/m/Y H:i" }}</div>
+  <hr>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Código</th>
+        <th>Producto</th>
+        <th>Origen</th>
+        <th class="center">Severidad</th>
+        <th class="center">Estado</th>
+        <th>Fecha</th>
+        <th class="center">Lotes</th>
+        <th class="center">Clientes</th>
+        <th>Motivo</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in recalls %}
+      <tr{% if forloop.counter|divisibleby:2 %} class="even"{% endif %}>
+        <td class="bold">{{ r.code }}</td>
+        <td>
+          {% if r.product %}
+            {{ r.product.name }}<br>
+            <small style="color:#6b7280;">{{ r.product.code }}</small>
+          {% else %}—{% endif %}
+        </td>
+        <td>{{ r.origin.name|default:"—" }}</td>
+        <td class="center {% if r.severity == 'CRITICAL' %}critical{% elif r.severity == 'HIGH' %}high{% elif r.severity == 'MEDIUM' %}medium{% else %}low{% endif %}">
+          {{ r.get_severity_display }}
+        </td>
+        <td class="center {% if r.status == 'COMPLETED' %}completed{% elif r.status == 'DRAFT' %}draft{% else %}active{% endif %}">
+          {{ r.get_status_display }}
+        </td>
+        <td>{{ r.recall_date|date:"d/m/Y"|default:"—" }}</td>
+        <td class="center">{{ r.lots.count }}</td>
+        <td class="center">{{ r.affected_clients.count }}</td>
+        <td style="max-width: 200px;">{{ r.reason|truncatechars:80 }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="9" class="center" style="padding: 20px;">No hay retiros de mercado registrados.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="footer">
+    Sistema ERP — Reporte generado el {{ now|date:"d/m/Y" }} a las {{ now|date:"H:i" }}
+  </div>
+</body>
+</html>

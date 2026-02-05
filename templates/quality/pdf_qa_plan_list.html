@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Planes de Calidad</title>
+  <style>
+    @page { size: A4 landscape; margin: 1.5cm; }
+    body { font-family: Helvetica, Arial, sans-serif; font-size: 10px; color: #1f2937; }
+    h1 { font-size: 18px; color: #2563eb; margin: 0 0 4px; }
+    .date { font-size: 9px; color: #6b7280; margin-bottom: 12px; }
+    hr { border: none; border-top: 2px solid #2563eb; margin-bottom: 12px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+    th { background-color: #2563eb; color: #fff; padding: 6px 8px; text-align: left; font-size: 9px; }
+    td { padding: 5px 8px; border-bottom: 1px solid #e5e7eb; font-size: 9px; }
+    tr.even { background-color: #f9fafb; }
+    .footer { margin-top: 16px; text-align: center; font-size: 8px; color: #9ca3af; border-top: 1px solid #e5e7eb; padding-top: 6px; }
+    .right { text-align: right; }
+    .center { text-align: center; }
+    .bold { font-weight: bold; }
+    .active { color: #059669; }
+    .inactive { color: #dc2626; }
+  </style>
+</head>
+<body>
+  <h1>Planes de Calidad (QA)</h1>
+  <div class="date">Generado: {{ now|date:"d/m/Y H:i" }}</div>
+  <hr>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Nombre</th>
+        <th>Etapa</th>
+        <th>Producto</th>
+        <th>Centro de Trabajo</th>
+        <th>Paso de Ruta</th>
+        <th class="center">Parámetros</th>
+        <th class="center">Estado</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for plan in plans %}
+      <tr{% if forloop.counter|divisibleby:2 %} class="even"{% endif %}>
+        <td class="bold">{{ plan.name }}</td>
+        <td>{{ plan.get_stage_display }}</td>
+        <td>
+          {% if plan.product %}
+            {{ plan.product.name }}<br>
+            <small style="color:#6b7280;">{{ plan.product.code }}</small>
+          {% else %}
+            <em style="color:#6b7280;">Genérico</em>
+          {% endif %}
+        </td>
+        <td>{{ plan.work_center.name|default:"—" }}</td>
+        <td>{{ plan.route_step.name|default:"—" }}</td>
+        <td class="center">{{ plan.parameters.count }}</td>
+        <td class="center {% if plan.is_active %}active{% else %}inactive{% endif %}">
+          {% if plan.is_active %}Activo{% else %}Inactivo{% endif %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7" class="center" style="padding: 20px;">No hay planes de QA registrados.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="footer">
+    Sistema ERP — Reporte generado el {{ now|date:"d/m/Y" }} a las {{ now|date:"H:i" }}
+  </div>
+</body>
+</html>
