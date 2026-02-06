@@ -80,6 +80,8 @@ class SettingsView(LoginRequiredMixin, ModulePermissionMixin, TemplateView):
     template_name = "core/settings.html"
 
     def get_context_data(self, **kwargs):
+        from production.models import BillOfMaterial, ProductRoute, WorkCenter
+
         ctx = super().get_context_data(**kwargs)
 
         ctx["warehouse_count"] = Warehouse.objects.count()
@@ -95,6 +97,14 @@ class SettingsView(LoginRequiredMixin, ModulePermissionMixin, TemplateView):
         )
         ctx["units"] = Unit.objects.all().order_by("code")[:5]
         ctx["taxschemes"] = TaxScheme.objects.all().order_by("code")[:5]
+
+        # Producción
+        ctx["bom_count"] = BillOfMaterial.objects.count()
+        ctx["boms"] = BillOfMaterial.objects.select_related("product_finished").order_by("-created_at")[:5]
+        ctx["route_count"] = ProductRoute.objects.count()
+        ctx["routes"] = ProductRoute.objects.select_related("product").order_by("-created_at")[:5]
+        ctx["workcenter_count"] = WorkCenter.objects.count()
+        ctx["workcenters"] = WorkCenter.objects.all().order_by("code")[:5]
         return ctx
 
 ###############################################################
