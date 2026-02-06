@@ -33,6 +33,7 @@
         <thead>
           <tr class="text-left text-gray-600">
             <th class="px-3 py-2">Código</th>
+            <th class="px-3 py-2">Orden de Compra</th>
             <th class="px-3 py-2">Fecha</th>
             <th class="px-3 py-2">Proveedor</th>
             <th class="px-3 py-2">Documento</th>
@@ -44,6 +45,16 @@
           {% for r in page %}
             <tr class="border-t">
               <td class="px-3 py-2">{{ r.code }}</td>
+              <td class="px-3 py-2">
+                {% if r.purchase_order %}
+                  <a href="{% url 'procurement:purchase_order_list' %}?q={{ r.purchase_order.number }}"
+                     class="text-blue-600 hover:underline text-xs font-medium">
+                    {{ r.purchase_order.number }}
+                  </a>
+                {% else %}
+                  <span class="text-xs text-gray-400">—</span>
+                {% endif %}
+              </td>
               <td class="px-3 py-2">{{ r.reception_date|date:"d/m/Y" }}</td>
               <td class="px-3 py-2">{{ r.supplier_name }}</td>
               <td class="px-3 py-2">
@@ -63,7 +74,7 @@
             </tr>
           {% empty %}
             <tr>
-              <td colspan="6" class="px-3 py-6 text-center text-gray-500">
+              <td colspan="7" class="px-3 py-6 text-center text-gray-500">
                 No hay recepciones registradas.
               </td>
             </tr>
