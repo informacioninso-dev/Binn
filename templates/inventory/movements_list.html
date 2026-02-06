@@ -47,6 +47,7 @@
           <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600 mt-1">
             <span><strong>Tipo:</strong> {{ m.get_movement_type_display }}</span>
             <span><strong>Cant:</strong> {{ m.quantity }} {{ m.product.base_unit.code }}</span>
+            {% if m.lot %}<span><strong>Lote:</strong> {{ m.lot.internal_lot }}</span>{% endif %}
             {% if m.area %}<span><strong>Área:</strong> {{ m.area }}</span>{% endif %}
             {% if m.reference %}<span><strong>Ref:</strong> {{ m.reference }}</span>{% endif %}
           </div>
@@ -63,6 +64,7 @@
           <tr class="text-left text-gray-600">
             <th class="px-3 py-2">Fecha</th>
             <th class="px-3 py-2">Producto</th>
+            <th class="px-3 py-2">Lote</th>
             <th class="px-3 py-2">Tipo</th>
             <th class="px-3 py-2">Cantidad Ingresada</th>
             <th class="px-3 py-2">Cantidad Base</th>
@@ -76,6 +78,13 @@
             <tr class="border-t">
               <td class="px-3 py-2">{{ m.date|date:"d/m/Y H:i" }}</td>
               <td class="px-3 py-2">{{ m.product.code }} - {{ m.product.name }}</td>
+              <td class="px-3 py-2 text-xs">
+                {% if m.lot %}
+                  {{ m.lot.internal_lot }}
+                {% else %}
+                  <span class="text-gray-400">—</span>
+                {% endif %}
+              </td>
               <td class="px-3 py-2">{{ m.get_movement_type_display }}</td>
               <td class="px-3 py-2">
                 {% if m.quantity_displayed and m.unit_displayed %}
@@ -103,7 +112,7 @@
             </tr>
           {% empty %}
             <tr>
-              <td colspan="8" class="px-3 py-6 text-center text-gray-500">Sin movimientos</td>
+              <td colspan="9" class="px-3 py-6 text-center text-gray-500">Sin movimientos</td>
             </tr>
           {% endfor %}
         </tbody>

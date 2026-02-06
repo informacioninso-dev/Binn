@@ -94,7 +94,7 @@ class InventoryMoveListView(LoginRequiredMixin, ModulePermissionMixin, ListView)
 
     def get_queryset(self):
         from django.db.models import Q
-        qs = InventoryMove.objects.select_related("product").order_by("-date")
+        qs = InventoryMove.objects.select_related("product", "lot", "unit_displayed").order_by("-date")
         q = self.request.GET.get("q", "").strip()
         product_id = self.request.GET.get("product")
         move_type = self.request.GET.get("type", "").strip()
