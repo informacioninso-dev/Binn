@@ -47,7 +47,7 @@
               <td class="px-3 py-2">{{ r.code }}</td>
               <td class="px-3 py-2">
                 {% if r.purchase_order %}
-                  <a href="{% url 'procurement:purchase_order_list' %}?q={{ r.purchase_order.number }}"
+                  <a href="{% url 'procurement:order_list' %}?q={{ r.purchase_order.number }}"
                      class="text-blue-600 hover:underline text-xs font-medium">
                     {{ r.purchase_order.number }}
                   </a>

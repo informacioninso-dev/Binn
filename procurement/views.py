@@ -451,4 +451,4 @@ class RawMaterialReceptionListView(LoginRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        return RawMaterialReception.objects.order_by("-reception_date", "-id")
+        return RawMaterialReception.objects.select_related("purchase_order").order_by("-reception_date", "-id")
