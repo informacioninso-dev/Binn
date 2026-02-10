@@ -43,6 +43,9 @@ from .services import (
     confirm_material_transfer,
     estimate_production_duration,
     schedule_production_order,
+    get_operation_phase,
+    populate_component_details_from_transfers,
+    calculate_theoretical_yield,
 )
 from django.contrib.auth import get_user_model
 
@@ -56,6 +59,7 @@ from .forms import (
     ProductRouteForm,
     ProductRouteStepFormSet,
     MaterialTransferConfirmForm,
+    OperationComponentDetailFormSet,
 )
 
 from django.http import JsonResponse
@@ -467,6 +471,35 @@ class ProductionOperationUpdateView(LoginRequiredMixin, ModulePermissionMixin, U
     form_class = ProductionOperationForm
     template_name = "production/operation_form.html"
 
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        op: ProductionOperation = self.object
+
+        # Pre-seleccionar operario actual si no tiene uno asignado
+        if not op.operator:
+            form.initial["operator"] = self.request.user.pk
+
+        # Pre-cargar fecha inicio: 1s después de la última transferencia confirmada
+        if not op.started_at:
+            from .models import MaterialTransfer, MaterialTransferStatus
+            last_transfer = (
+                MaterialTransfer.objects
+                .filter(order=op.order)
+                .exclude(status=MaterialTransferStatus.PENDING)
+                .order_by("-confirmed_at")
+                .first()
+            )
+            if last_transfer and last_transfer.confirmed_at:
+                from datetime import timedelta
+                start = last_transfer.confirmed_at + timedelta(seconds=1)
+                form.initial["started_at"] = start.strftime("%Y-%m-%dT%H:%M")
+
+        # Pre-cargar fecha fin: hora actual
+        if not op.finished_at:
+            form.initial["finished_at"] = timezone.now().strftime("%Y-%m-%dT%H:%M")
+
+        return form
+
     def form_valid(self, form):
         old_op = self.get_object()
         old_status = old_op.status
@@ -475,6 +508,22 @@ class ProductionOperationUpdateView(LoginRequiredMixin, ModulePermissionMixin, U
         op: ProductionOperation = form.save(commit=False)
         order = op.order
         new_status = op.status
+
+        # --- Bloqueo Paso 0: transferencias de MP deben estar confirmadas ---
+        if op.status in (ProductionOperationStatus.IN_PROGRESS, ProductionOperationStatus.DONE):
+            is_first_op = not order.operations.filter(sequence__lt=op.sequence).exists()
+            if is_first_op:
+                from .models import MaterialTransfer, MaterialTransferStatus
+                pending = MaterialTransfer.objects.filter(
+                    order=order, status=MaterialTransferStatus.PENDING
+                ).exists()
+                if pending:
+                    messages.error(
+                        self.request,
+                        "No se puede iniciar la producción: hay transferencias de materia prima pendientes. "
+                        "Confirma todas las transferencias antes de avanzar."
+                    )
+                    return redirect(self.get_success_url())
 
         # --- Bloqueo QA: si el paso anterior requiere QA y está en HOLD, no avanzar ---
         if op.status in (ProductionOperationStatus.IN_PROGRESS, ProductionOperationStatus.DONE):
@@ -510,6 +559,22 @@ class ProductionOperationUpdateView(LoginRequiredMixin, ModulePermissionMixin, U
             order.save(update_fields=["status", "updated_by", "updated_at"])
 
         op.updated_by = self.request.user
+
+        # --- Guardar detalles de componentes (pre/at conversión) ---
+        phase = get_operation_phase(op)
+        if phase in ("pre_conversion", "at_conversion"):
+            component_formset = OperationComponentDetailFormSet(
+                self.request.POST, instance=op, prefix="components"
+            )
+            if component_formset.is_valid():
+                component_formset.save()
+                # En pre-conversión: calcular quantity_output agregado
+                if phase == "pre_conversion":
+                    from django.db.models import Sum as DjSum
+                    agg = op.component_details.aggregate(total=DjSum("quantity_output"))["total"]
+                    if agg and agg > 0:
+                        op.quantity_output = agg
+
         op.save()
 
         # --- Log de auditoría ISO 13485 ---
@@ -608,6 +673,30 @@ class ProductionOperationUpdateView(LoginRequiredMixin, ModulePermissionMixin, U
         op: ProductionOperation = self.object
         ctx["operation"] = op
         ctx["order"] = op.order
+
+        # Fase de la operación (pre_conversion, at_conversion, post_conversion)
+        phase = get_operation_phase(op)
+        ctx["operation_phase"] = phase
+
+        if phase in ("pre_conversion", "at_conversion"):
+            # Auto-poblar detalles si no existen (primera vez)
+            if not op.component_details.exists():
+                populate_component_details_from_transfers(op, self.request.user)
+
+            # Formset de componentes
+            if self.request.method == "POST":
+                ctx["component_formset"] = OperationComponentDetailFormSet(
+                    self.request.POST, instance=op, prefix="components"
+                )
+            else:
+                ctx["component_formset"] = OperationComponentDetailFormSet(
+                    instance=op, prefix="components"
+                )
+
+            # Rendimiento teórico en punto de conversión
+            if phase == "at_conversion":
+                ctx["theoretical_yield"] = calculate_theoretical_yield(op)
+
         return ctx
 
 
@@ -713,12 +802,23 @@ class ProductionOrderExecutionView(LoginRequiredMixin, ModulePermissionMixin, De
         ctx = super().get_context_data(**kwargs)
         order: ProductionOrder = self.object
 
+        from django.db.models import Prefetch
+        from .models import OperationComponentDetail
+
         ops = (
             order.operations
             .select_related(
                 "step", "step__work_center",
                 "input_lot", "output_lot",
                 "operator",
+            )
+            .prefetch_related(
+                Prefetch(
+                    "component_details",
+                    queryset=OperationComponentDetail.objects.select_related(
+                        "component", "component__base_unit", "bom_line"
+                    ),
+                )
             )
             .order_by("sequence", "id")
         )
@@ -730,6 +830,10 @@ class ProductionOrderExecutionView(LoginRequiredMixin, ModulePermissionMixin, De
                 current_op = o
                 break
 
+        # Anotar fase en cada operación para el template
+        for o in ops:
+            o.phase = get_operation_phase(o)
+
         # Audit log: todos los cambios de estado de esta OP
         from .models import OperationStatusLog
         status_logs = (
@@ -739,18 +843,27 @@ class ProductionOrderExecutionView(LoginRequiredMixin, ModulePermissionMixin, De
             .order_by("-changed_at")[:50]
         )
 
-        # Transferencias de MP pendientes
+        # Transferencias de MP
         from .models import MaterialTransfer, MaterialTransferStatus
-        pending_transfers_count = (
+        transfers = (
             MaterialTransfer.objects
-            .filter(order=order, status=MaterialTransferStatus.PENDING)
-            .count()
+            .filter(order=order)
+            .select_related("component", "component__base_unit", "lot", "from_warehouse", "to_warehouse")
+            .order_by("component__code")
         )
+        total_transfers = transfers.count()
+        pending_transfers_count = sum(
+            1 for t in transfers if t.status == MaterialTransferStatus.PENDING
+        )
+        all_transfers_confirmed = total_transfers > 0 and pending_transfers_count == 0
 
         ctx["operations"] = ops
         ctx["current_operation"] = current_op
         ctx["status_logs"] = status_logs
+        ctx["transfers"] = transfers
+        ctx["total_transfers"] = total_transfers
         ctx["pending_transfers_count"] = pending_transfers_count
+        ctx["all_transfers_confirmed"] = all_transfers_confirmed
         return ctx
 
 
@@ -1188,6 +1301,10 @@ class MaterialTransferConfirmView(LoginRequiredMixin, ModulePermissionMixin, Vie
         except ValidationError as e:
             messages.error(request, str(e))
 
+        # Si viene de la vista de ejecución, redirigir allá
+        next_url = request.POST.get("next") or request.GET.get("next")
+        if next_url:
+            return redirect(next_url)
         return redirect("production:order_transfers", pk=transfer.order.pk)
 
 

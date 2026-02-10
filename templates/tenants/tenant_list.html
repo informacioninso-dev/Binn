@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+
+{% block title %}Empresas{% endblock %}
+
+{% block content %}
+  <div class="mb-4 flex items-center justify-between">
+    <h1 class="text-2xl font-bold">Empresas</h1>
+    <a href="{% url 'tenants:create' %}"
+       class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+      + Nueva empresa
+    </a>
+  </div>
+
+  <div class="mb-3 text-sm text-gray-600">
+    Panel de configuracion multiempresa. Solo super admin.
+  </div>
+
+  <div class="overflow-x-auto rounded-xl border bg-white">
+    <table class="min-w-full text-sm">
+      <thead class="bg-gray-50 text-left text-gray-600">
+        <tr>
+          <th class="px-4 py-2">Nombre</th>
+          <th class="px-4 py-2">Schema</th>
+          <th class="px-4 py-2">Plan</th>
+          <th class="px-4 py-2">Estado</th>
+          <th class="px-4 py-2">Dominios</th>
+          <th class="px-4 py-2">Miembros</th>
+          <th class="px-4 py-2">Creado</th>
+          <th class="px-4 py-2 text-right">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in tenants %}
+          <tr class="border-t hover:bg-gray-50">
+            <td class="px-4 py-2 font-medium">
+              <a href="{% url 'tenants:detail' t.pk %}" class="text-blue-600 hover:underline">
+                {{ t.name }}
+              </a>
+            </td>
+            <td class="px-4 py-2 font-mono text-xs text-gray-500">{{ t.schema_name }}</td>
+            <td class="px-4 py-2">
+              {% if t.plan == 'enterprise' %}
+                <span class="inline-flex items-center rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">Enterprise</span>
+              {% else %}
+                <span class="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">Shared</span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-2">
+              {% if t.is_active %}
+                <span class="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">Activo</span>
+              {% else %}
+                <span class="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">Inactivo</span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-2 text-xs">
+              {% for d in t.domains.all %}
+                <div>{{ d.domain }}</div>
+              {% empty %}
+                <span class="text-gray-400">Sin dominio</span>
+              {% endfor %}
+            </td>
+            <td class="px-4 py-2 text-center">{{ t.memberships.count }}</td>
+            <td class="px-4 py-2 text-xs text-gray-500">{{ t.created_on }}</td>
+            <td class="px-4 py-2 text-right">
+              <div class="flex items-center justify-end gap-2">
+                <a href="{% url 'tenants:detail' t.pk %}"
+                   class="rounded border px-2 py-1 text-xs text-gray-600 hover:bg-gray-100"
+                   title="Detalle">
+                  Ver
+                </a>
+                <a href="{% url 'tenants:edit' t.pk %}"
+                   class="rounded border px-2 py-1 text-xs text-gray-600 hover:bg-gray-100"
+                   title="Editar">
+                  Editar
+                </a>
+                <a href="{% url 'tenants:switch' t.pk %}"
+                   class="rounded bg-blue-50 px-2 py-1 text-xs text-blue-600 hover:bg-blue-100"
+                   title="Entrar al tenant">
+                  Entrar
+                </a>
+              </div>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="8" class="px-4 py-6 text-center text-gray-500">
+              No hay empresas registradas.
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}

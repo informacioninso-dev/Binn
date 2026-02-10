@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+
+{% block title %}Editar {{ object.name }}{% endblock %}
+
+{% block content %}
+  <div class="mb-4">
+    <h1 class="text-2xl font-bold">Editar empresa</h1>
+    <p class="text-sm text-gray-600">Schema: <span class="font-mono">{{ object.schema_name }}</span></p>
+  </div>
+
+  <form method="post" class="max-w-xl space-y-4">
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+      <div class="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+        {{ form.non_field_errors }}
+      </div>
+    {% endif %}
+
+    <div>
+      <label class="mb-1 block text-sm font-medium">Nombre</label>
+      {{ form.name }}
+      {{ form.name.errors }}
+    </div>
+
+    <div>
+      <label class="mb-1 block text-sm font-medium">Plan</label>
+      {{ form.plan }}
+      {{ form.plan.errors }}
+    </div>
+
+    <div class="flex items-center gap-2">
+      {{ form.is_active }}
+      <label class="text-sm font-medium">Empresa activa</label>
+      {{ form.is_active.errors }}
+    </div>
+
+    <div class="rounded-lg border bg-gray-50 p-3">
+      <h3 class="mb-2 text-sm font-semibold text-gray-700">Dominios</h3>
+      {% for d in domains %}
+        <div class="text-sm">
+          {{ d.domain }}
+          {% if d.is_primary %}<span class="text-xs text-blue-500">(primario)</span>{% endif %}
+        </div>
+      {% empty %}
+        <p class="text-sm text-gray-400">Sin dominios configurados.</p>
+      {% endfor %}
+    </div>
+
+    <div class="flex gap-2">
+      <button type="submit"
+              class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+        Guardar cambios
+      </button>
+      <a href="{% url 'tenants:detail' object.pk %}" class="rounded-lg border px-4 py-2 text-sm">
+        Cancelar
+      </a>
+    </div>
+  </form>
+{% endblock %}

@@ -389,8 +389,11 @@ class ProductRouteStep(AuditModel):
         help_text="Si está marcado, la orden puede exigir una inspección QA en este paso."
     )
 
-    # Nota: los planes de QA (QAPlan) los definimos en inventory,
-    # y allí se puede asociar un QAPlan a un ProductRouteStep por FK.
+    # ¿Es el punto de conversión de unidades (MP → PT)?
+    is_conversion_point = models.BooleanField(
+        default=False,
+        help_text="Marca el paso donde la unidad cambia de MP a PT (ej: de metros a unidades)."
+    )
 
     is_active = models.BooleanField(default=True)
 
@@ -487,6 +490,47 @@ class ProductionOperation(AuditModel):
 
     def __str__(self):
         return f"OP {self.order.code} – Paso {self.sequence} ({self.step.name})"
+
+
+class OperationComponentDetail(models.Model):
+    """
+    Detalle por componente (línea de BOM) en una operación de producción.
+    Permite rastrear cantidades de entrada/salida por cada materia prima
+    en pasos anteriores al punto de conversión.
+    """
+    operation = models.ForeignKey(
+        ProductionOperation,
+        on_delete=models.CASCADE,
+        related_name="component_details",
+    )
+    bom_line = models.ForeignKey(
+        BillOfMaterialLine,
+        on_delete=models.CASCADE,
+        related_name="operation_details",
+    )
+    component = models.ForeignKey(
+        Product,
+        on_delete=models.CASCADE,
+        related_name="operation_component_details",
+        help_text="Componente (redundante con bom_line, facilita queries).",
+    )
+    quantity_input = models.DecimalField(
+        max_digits=14, decimal_places=4, null=True, blank=True,
+        help_text="Cantidad de entrada (auto-llenada desde paso anterior o transferencia).",
+    )
+    quantity_output = models.DecimalField(
+        max_digits=14, decimal_places=4, null=True, blank=True,
+        help_text="Cantidad de salida registrada por el operario.",
+    )
+
+    class Meta:
+        verbose_name = "Detalle de componente en operación"
+        verbose_name_plural = "Detalles de componente en operación"
+        unique_together = ("operation", "bom_line")
+        ordering = ["bom_line__sequence"]
+
+    def __str__(self):
+        return f"{self.operation} – {self.component.code} ({self.quantity_input} → {self.quantity_output})"
 
 
 class OperationStatusLog(models.Model):

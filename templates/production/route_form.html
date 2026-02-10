@@ -130,6 +130,7 @@
             <th class="px-2 py-2 w-24">Dur. x unid (min)</th>
             <th class="px-2 py-2 w-24">Setup (min)</th>
             <th class="px-2 py-2 w-16">QA</th>
+            <th class="px-2 py-2 w-16" title="Punto de conversión MP → PT">Conv.</th>
             <th class="px-2 py-2 w-16">Eliminar</th>
           </tr>
         </thead>
@@ -143,10 +144,11 @@
               <td class="px-2 py-2">{{ f.expected_duration_min }}</td>
               <td class="px-2 py-2">{{ f.setup_time_min }}</td>
               <td class="px-2 py-2 text-center">{{ f.requires_qa }}</td>
+              <td class="px-2 py-2 text-center">{{ f.is_conversion_point }}</td>
               <td class="px-2 py-2 text-center">{{ f.DELETE }}</td>
             </tr>
             {% for error in f.errors.values %}
-              <tr><td colspan="8" class="px-2 py-1 text-xs text-red-600">{{ error }}</td></tr>
+              <tr><td colspan="9" class="px-2 py-1 text-xs text-red-600">{{ error }}</td></tr>
             {% endfor %}
           {% endfor %}
         </tbody>
@@ -164,6 +166,7 @@
           <td>{{ formset.empty_form.expected_duration_min }}</td>
           <td>{{ formset.empty_form.setup_time_min }}</td>
           <td>{{ formset.empty_form.requires_qa }}</td>
+          <td>{{ formset.empty_form.is_conversion_point }}</td>
           <td>{{ formset.empty_form.DELETE }}</td>
         </tr>
       </tbody>

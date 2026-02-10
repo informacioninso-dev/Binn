@@ -64,27 +64,130 @@
     </div>
   </div>
 
-  {# Enlace a transferencias de MP #}
-  {% if order.plan %}
-    <div class="mb-4">
-      <a href="{% url 'production:order_transfers' order.pk %}"
-         class="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100">
-        Transferencias de materia prima
-        {% if pending_transfers_count %}
-          <span class="inline-flex rounded-full bg-yellow-400 px-2 py-0.5 text-[10px] font-bold text-white">
-            {{ pending_transfers_count }} pendiente{{ pending_transfers_count|pluralize:"s" }}
-          </span>
-        {% endif %}
-      </a>
-    </div>
-  {% endif %}
-
   {# Lista de operaciones / pasos de la ruta #}
   <div class="rounded-2xl border bg-white">
     <div class="border-b px-4 py-3 flex items-center justify-between">
       <span class="text-xs font-semibold text-gray-600">Ruta de producción – pasos</span>
       <span class="text-[11px] text-gray-400">Los lotes WIP se generan al completar cada paso</span>
     </div>
+
+    {# ── PASO 0: Transferencia de materia prima ── #}
+    {% if total_transfers > 0 %}
+      {% if all_transfers_confirmed %}
+        {# Todas confirmadas: verde #}
+        <div class="flex flex-col gap-2 px-4 py-3 md:flex-row md:items-center md:justify-between border-b-2 border-green-200 bg-green-50">
+          <div class="flex-1">
+            <div class="flex items-center gap-2">
+              <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-600 text-white text-[10px] font-bold">0</span>
+              <span class="text-xs font-semibold uppercase tracking-wide text-green-800">
+                Transferencia de materia prima
+              </span>
+              <span class="inline-flex rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-medium text-green-700">
+                Completado
+              </span>
+            </div>
+            <p class="mt-1 text-xs text-green-700">
+              Todas las materias primas han sido transferidas a la estación de producción.
+              {{ total_transfers }} transferencia{{ total_transfers|pluralize:"s" }} confirmada{{ total_transfers|pluralize:"s" }}.
+            </p>
+          </div>
+          <div class="mt-2 md:mt-0">
+            <a href="{% url 'production:order_transfers' order.pk %}"
+               class="inline-flex items-center rounded-xl border border-green-300 bg-white px-3 py-1.5 text-[11px] font-medium text-green-700 hover:bg-green-50">
+              Ver transferencias
+            </a>
+          </div>
+        </div>
+      {% else %}
+        {# Pendientes: rojo, bloqueante – con formularios inline #}
+        <div class="border-b-2 border-red-300 bg-red-50 px-4 py-3">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-red-600 text-white text-[10px] font-bold">0</span>
+            <span class="text-xs font-semibold uppercase tracking-wide text-red-800">
+              Transferencia de materia prima
+            </span>
+            <span class="inline-flex rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-medium text-red-700">
+              {{ pending_transfers_count }} pendiente{{ pending_transfers_count|pluralize:"s" }}
+            </span>
+          </div>
+          <p class="text-xs text-red-700 font-medium mb-3">
+            No se puede iniciar la producción hasta confirmar todas las transferencias de materia prima.
+          </p>
+
+          <div class="space-y-2">
+            {% for t in transfers %}
+              {% if t.status == "PENDING" %}
+                <div class="flex flex-col gap-2 rounded-xl border border-red-200 bg-white p-3 md:flex-row md:items-center md:justify-between">
+                  <div class="flex items-center gap-2 flex-1">
+                    <span class="inline-block w-2.5 h-2.5 rounded-full bg-red-500 shrink-0"></span>
+                    <div>
+                      <p class="text-[11px] font-medium text-gray-900">{{ t.component.code }} – {{ t.component.name }}</p>
+                      <p class="text-[10px] text-gray-500">
+                        Lote: {{ t.lot.internal_lot }}
+                        · {{ t.from_warehouse.code }} → {{ t.to_warehouse.code }}
+                        · Solicitado: <span class="font-semibold">{{ t.quantity_requested }} {{ t.component.base_unit.code|default:"" }}</span>
+                      </p>
+                    </div>
+                  </div>
+                  <form method="post"
+                        action="{% url 'production:transfer_confirm' t.pk %}"
+                        class="flex items-center gap-2"
+                        onsubmit="return confirm('¿Confirmar transferencia de {{ t.component.code }}?');">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{% url 'production:orders_execute' order.pk %}" />
+                    <input type="hidden" name="notes" value="" />
+                    <input type="number"
+                           name="quantity_confirmed"
+                           value="{{ t.quantity_requested }}"
+                           step="0.0001"
+                           min="0.0001"
+                           placeholder="Cant. {{ t.component.base_unit.code|default:'' }}"
+                           class="w-28 rounded-lg border border-gray-300 px-2 py-1.5 text-right text-[11px] focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                           required />
+                    <span class="text-[10px] text-gray-500 whitespace-nowrap">{{ t.component.base_unit.code|default:"" }}</span>
+                    <button type="submit"
+                            class="rounded-xl bg-blue-600 px-4 py-1.5 text-[11px] font-semibold text-white hover:bg-blue-700 whitespace-nowrap">
+                      Confirmar
+                    </button>
+                  </form>
+                </div>
+              {% else %}
+                <div class="flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 p-3">
+                  <span class="inline-block w-2.5 h-2.5 rounded-full bg-green-500 shrink-0"></span>
+                  <div class="flex-1">
+                    <p class="text-[11px] font-medium text-green-800">{{ t.component.code }} – {{ t.component.name }}</p>
+                    <p class="text-[10px] text-green-600">
+                      Lote: {{ t.lot.internal_lot }} · Confirmado: {{ t.quantity_confirmed }} {{ t.component.base_unit.code|default:"" }}
+                    </p>
+                  </div>
+                  <span class="inline-flex rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-medium text-green-700">
+                    Confirmada
+                  </span>
+                </div>
+              {% endif %}
+            {% endfor %}
+          </div>
+        </div>
+      {% endif %}
+    {% elif order.plan %}
+      {# Tiene plan pero sin transferencias generadas #}
+      <div class="flex flex-col gap-2 px-4 py-3 md:flex-row md:items-center md:justify-between border-b-2 border-yellow-300 bg-yellow-50">
+        <div class="flex-1">
+          <div class="flex items-center gap-2">
+            <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-yellow-500 text-white text-[10px] font-bold">0</span>
+            <span class="text-xs font-semibold uppercase tracking-wide text-yellow-800">
+              Transferencia de materia prima
+            </span>
+            <span class="inline-flex rounded-full bg-yellow-100 px-2 py-0.5 text-[11px] font-medium text-yellow-700">
+              Sin generar
+            </span>
+          </div>
+          <p class="mt-1 text-xs text-yellow-700">
+            No se han generado transferencias de materia prima para esta orden.
+          </p>
+        </div>
+      </div>
+    {% endif %}
 
     {% if operations %}
       <div class="divide-y divide-gray-100">
@@ -101,6 +204,11 @@
                     <span class="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-medium text-blue-700">
                       En ejecución actual
                     </span>
+                    {% if op.step.is_conversion_point %}
+                      <span class="inline-flex rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-medium text-orange-700">
+                        Punto de conversión
+                      </span>
+                    {% endif %}
                   </div>
                   <p class="text-xs text-gray-600">
                     Centro de trabajo: {{ op.step.work_center.code }} – {{ op.step.work_center.name }}
@@ -125,6 +233,11 @@
                       · Fin: {{ op.finished_at|date:"d/m/Y H:i" }}
                     {% endif %}
                   </p>
+                  {% if op.step.is_conversion_point %}
+                    <p class="mt-1 text-[11px] font-medium text-orange-700">
+                      En este paso la cantidad de salida se registra en unidad de producto terminado ({{ order.product.base_unit.code }}).
+                    </p>
+                  {% endif %}
                   {% if op.step.requires_qa %}
                     <p class="mt-1 text-[11px] font-medium text-purple-700">
                       Este paso requiere aprobación QA antes de avanzar al siguiente.
@@ -133,22 +246,37 @@
                 </div>
 
                 <div class="mt-2 flex flex-col items-start gap-1 text-xs md:mt-0 md:items-end">
-                  <p class="text-gray-600">
-                    Cant. entrada:
-                    <span class="font-semibold">
-                      {{ op.quantity_input|default:"–" }}
+                  {% if op.phase == "pre_conversion" or op.phase == "at_conversion" %}
+                    {% for cd in op.component_details.all %}
+                      <p class="text-gray-600 text-[10px]">
+                        {{ cd.component.code }}:
+                        <span class="font-semibold">{{ cd.quantity_input|default:"–" }}</span>
+                        →
+                        <span class="font-semibold">{{ cd.quantity_output|default:"–" }}</span>
+                        {{ cd.component.base_unit.code|default:"" }}
+                      </p>
+                    {% endfor %}
+                  {% else %}
+                    <p class="text-gray-600">
+                      Cant. entrada:
+                      <span class="font-semibold">{{ op.quantity_input|default:"–" }}</span>
+                    </p>
+                    <p class="text-gray-600">
+                      Cant. salida:
+                      <span class="font-semibold">{{ op.quantity_output|default:"–" }}</span>
+                    </p>
+                  {% endif %}
+                  {% if not all_transfers_confirmed and op.sequence == 1 and total_transfers > 0 %}
+                    <span class="mt-1 inline-flex items-center rounded-xl bg-gray-300 px-3 py-1.5 text-[11px] font-medium text-gray-500 cursor-not-allowed"
+                          title="Confirma todas las transferencias de MP antes de iniciar">
+                      Bloqueado – MP pendiente
                     </span>
-                  </p>
-                  <p class="text-gray-600">
-                    Cant. salida:
-                    <span class="font-semibold">
-                      {{ op.quantity_output|default:"–" }}
-                    </span>
-                  </p>
-                  <a href="{% url 'production:operation_edit' op.pk %}"
-                     class="mt-1 inline-flex items-center rounded-xl bg-blue-600 px-3 py-1.5 text-[11px] font-medium text-white hover:bg-blue-700">
-                    Registrar avance
-                  </a>
+                  {% else %}
+                    <a href="{% url 'production:operation_edit' op.pk %}"
+                       class="mt-1 inline-flex items-center rounded-xl bg-blue-600 px-3 py-1.5 text-[11px] font-medium text-white hover:bg-blue-700">
+                      Registrar avance
+                    </a>
+                  {% endif %}
                 </div>
               </div>
             {% endwith %}
@@ -193,6 +321,11 @@
                       QA
                     </span>
                   {% endif %}
+                  {% if op.step.is_conversion_point %}
+                    <span class="inline-flex rounded-full bg-orange-50 px-2 py-0.5 text-[11px] font-medium text-orange-700">
+                      Conversión MP → PT
+                    </span>
+                  {% endif %}
                 </div>
 
                 <p class="text-xs text-gray-600">
@@ -218,18 +351,26 @@
               </div>
 
               <div class="mt-2 flex flex-col items-start gap-1 text-xs md:mt-0 md:items-end">
-                <p class="text-gray-600">
-                  Cant. entrada:
-                  <span class="font-semibold">
-                    {{ op.quantity_input|default:"–" }}
-                  </span>
-                </p>
-                <p class="text-gray-600">
-                  Cant. salida:
-                  <span class="font-semibold">
-                    {{ op.quantity_output|default:"–" }}
-                  </span>
-                </p>
+                {% if op.phase == "pre_conversion" or op.phase == "at_conversion" %}
+                  {% for cd in op.component_details.all %}
+                    <p class="text-gray-600 text-[10px]">
+                      {{ cd.component.code }}:
+                      <span class="font-semibold">{{ cd.quantity_input|default:"–" }}</span>
+                      →
+                      <span class="font-semibold">{{ cd.quantity_output|default:"–" }}</span>
+                      {{ cd.component.base_unit.code|default:"" }}
+                    </p>
+                  {% endfor %}
+                {% else %}
+                  <p class="text-gray-600">
+                    Cant. entrada:
+                    <span class="font-semibold">{{ op.quantity_input|default:"–" }}</span>
+                  </p>
+                  <p class="text-gray-600">
+                    Cant. salida:
+                    <span class="font-semibold">{{ op.quantity_output|default:"–" }}</span>
+                  </p>
+                {% endif %}
                 {% if op.input_lot %}
                   <p class="text-[10px] text-gray-400">
                     Lote entrada: {{ op.input_lot.internal_lot }}

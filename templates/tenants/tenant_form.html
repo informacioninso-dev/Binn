@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+
+{% block title %}Nueva empresa{% endblock %}
+
+{% block content %}
+  <div class="mb-4">
+    <h1 class="text-2xl font-bold">Nueva empresa</h1>
+    <p class="text-sm text-gray-600">Crea un tenant en su propio schema y aplica seed basico.</p>
+  </div>
+
+  <form method="post" class="space-y-4 max-w-xl">
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+      <div class="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+        {{ form.non_field_errors }}
+      </div>
+    {% endif %}
+
+    <div>
+      <label class="mb-1 block text-sm font-medium">Nombre</label>
+      {{ form.name }}
+      {{ form.name.errors }}
+    </div>
+
+    <div>
+      <label class="mb-1 block text-sm font-medium">Schema</label>
+      {{ form.schema_name }}
+      <p class="text-xs text-gray-500">Solo letras, numeros y guion bajo. Ej: acme</p>
+      {{ form.schema_name.errors }}
+    </div>
+
+    <div>
+      <label class="mb-1 block text-sm font-medium">Dominio</label>
+      {{ form.domain }}
+      <p class="text-xs text-gray-500">Ej: acme.localhost</p>
+      {{ form.domain.errors }}
+    </div>
+
+    <div>
+      <label class="mb-1 block text-sm font-medium">Plan</label>
+      {{ form.plan }}
+      {{ form.plan.errors }}
+    </div>
+
+    <div class="border-t pt-4">
+      <h2 class="text-sm font-semibold mb-2">Admin inicial (opcional)</h2>
+      <div class="grid grid-cols-1 gap-3">
+        <div>
+          <label class="mb-1 block text-sm font-medium">Usuario</label>
+          {{ form.admin_username }}
+          {{ form.admin_username.errors }}
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium">Email</label>
+          {{ form.admin_email }}
+          {{ form.admin_email.errors }}
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium">Password</label>
+          {{ form.admin_password }}
+          {{ form.admin_password.errors }}
+        </div>
+      </div>
+    </div>
+
+    <div class="flex gap-2">
+      <button class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+        Crear empresa
+      </button>
+      <a href="{% url 'tenants:list' %}" class="rounded-lg border px-4 py-2 text-sm">
+        Cancelar
+      </a>
+    </div>
+  </form>
+{% endblock %}

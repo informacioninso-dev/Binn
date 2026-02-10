@@ -10,6 +10,8 @@ from .models import (
     ProductRouteStep,
     ProductionPlan,
     OperationStatusLog,
+    OperationComponentDetail,
+    BillOfMaterialLine,
 )
 from production.models import ProductionPlanRawLot
 from django.utils import timezone
@@ -84,17 +86,27 @@ def close_production_order(*, order: ProductionOrder, user) -> ProductionOrder:
 
     # Actualizar cantidades del lote (por ahora PENDING, ya QA FG lo cambiará)
     lot_fg.quantity_initial = qty_output
-    lot_fg.quantity_current = qty_output
     lot_fg.updated_by = user
     lot_fg.save(
         update_fields=[
             "quantity_initial",
-            "quantity_current",
             "warehouse",
             "updated_by",
             "updated_at",
         ]
     )
+
+    # Actualizar LotBalance para reflejar la cantidad producida
+    fg_loc = _get_or_create_default_location(lot_fg.warehouse, user)
+    balance, _ = LotBalance.objects.get_or_create(
+        lot=lot_fg,
+        warehouse=lot_fg.warehouse,
+        location=fg_loc,
+        defaults={"qty": Decimal("0"), "created_by": user, "updated_by": user},
+    )
+    balance.qty = qty_output
+    balance.updated_by = user
+    balance.save(update_fields=["qty", "updated_by", "updated_at"])
 
     # Movimiento de entrada a stock de FG
     register_inventory_move(
@@ -340,6 +352,16 @@ def link_wip_lots_on_done(
     """
     order = operation.order
 
+    # En pre-conversión: agregar quantity_output desde component_details si no está seteado
+    phase = get_operation_phase(operation)
+    if phase == "pre_conversion" and (not operation.quantity_output or operation.quantity_output <= 0):
+        agg = operation.component_details.aggregate(
+            total=db_models.Sum("quantity_output")
+        )["total"]
+        if agg and agg > 0:
+            operation.quantity_output = agg
+            operation.save(update_fields=["quantity_output"])
+
     # Solo crear WIP si hay quantity_output
     if not operation.quantity_output or operation.quantity_output <= 0:
         return
@@ -376,6 +398,133 @@ def link_wip_lots_on_done(
         next_op.input_lot = wip_lot
         next_op.quantity_input = operation.quantity_output
         next_op.save(update_fields=["input_lot", "quantity_input"])
+
+    # Propagar detalles de componentes al siguiente paso (pre-conversión)
+    phase = get_operation_phase(operation)
+    if next_op and phase == "pre_conversion":
+        next_phase = get_operation_phase(next_op)
+        if next_phase in ("pre_conversion", "at_conversion"):
+            current_details = operation.component_details.select_related("bom_line", "component").all()
+            for detail in current_details:
+                OperationComponentDetail.objects.update_or_create(
+                    operation=next_op,
+                    bom_line=detail.bom_line,
+                    defaults={
+                        "component": detail.component,
+                        "quantity_input": detail.quantity_output,
+                    },
+                )
+
+
+def get_operation_phase(operation: ProductionOperation) -> str:
+    """
+    Determina la fase de una operación según su posición respecto al punto de conversión.
+
+    Retorna:
+      - "pre_conversion": antes del paso con is_conversion_point=True
+      - "at_conversion": el paso ES el punto de conversión
+      - "post_conversion": después del punto de conversión, o si no hay punto de conversión
+    """
+    route = operation.order.route
+    if not route:
+        return "post_conversion"
+
+    conversion_step = (
+        ProductRouteStep.objects
+        .filter(route=route, is_conversion_point=True, is_active=True)
+        .first()
+    )
+    if not conversion_step:
+        return "post_conversion"
+
+    if operation.step_id == conversion_step.pk:
+        return "at_conversion"
+
+    if operation.sequence < conversion_step.sequence:
+        return "pre_conversion"
+
+    return "post_conversion"
+
+
+@transaction.atomic
+def populate_component_details_from_transfers(operation: ProductionOperation, user) -> list:
+    """
+    Crea OperationComponentDetail para la primera operación de la ruta,
+    tomando las cantidades confirmadas de las transferencias de MP.
+
+    Para operaciones posteriores, los detalles se propagan desde el paso anterior
+    vía link_wip_lots_on_done.
+    """
+    from .models import MaterialTransfer, MaterialTransferStatus
+
+    order = operation.order
+
+    # Si ya tiene detalles, no recrear
+    if operation.component_details.exists():
+        return list(operation.component_details.all())
+
+    # Solo poblar automáticamente la primera operación
+    first_op = order.operations.order_by("sequence", "id").first()
+    if not first_op or operation.pk != first_op.pk:
+        return []
+
+    if not order.bom:
+        return []
+
+    # Agrupar transferencias confirmadas por componente
+    transfers = MaterialTransfer.objects.filter(
+        order=order,
+        status__in=[MaterialTransferStatus.CONFIRMED, MaterialTransferStatus.ADJUSTED],
+    ).select_related("component")
+
+    transfer_by_component = {}
+    for tf in transfers:
+        comp_id = tf.component_id
+        transfer_by_component[comp_id] = (
+            transfer_by_component.get(comp_id, Decimal("0"))
+            + (tf.quantity_confirmed or Decimal("0"))
+        )
+
+    details = []
+    for bom_line in order.bom.lines.select_related("component"):
+        qty_in = transfer_by_component.get(bom_line.component_id, Decimal("0"))
+        detail = OperationComponentDetail.objects.create(
+            operation=operation,
+            bom_line=bom_line,
+            component=bom_line.component,
+            quantity_input=qty_in if qty_in > 0 else None,
+        )
+        details.append(detail)
+
+    return details
+
+
+def calculate_theoretical_yield(operation: ProductionOperation) -> Decimal | None:
+    """
+    En el punto de conversión, calcula cuántas unidades de PT se deberían producir
+    teóricamente según las cantidades de MP disponibles y la BOM.
+
+    Para cada componente: max_units = quantity_input / bom_line.quantity
+    Retorna el MÍNIMO (componente cuello de botella).
+    """
+    order = operation.order
+    if not order.bom:
+        return None
+
+    details = operation.component_details.select_related("bom_line").all()
+    if not details:
+        return None
+
+    min_yield = None
+    for detail in details:
+        if detail.quantity_input and detail.bom_line.quantity and detail.bom_line.quantity > 0:
+            possible = detail.quantity_input / detail.bom_line.quantity
+            if min_yield is None or possible < min_yield:
+                min_yield = possible
+
+    if min_yield is not None:
+        return min_yield.quantize(Decimal("0.0001"))
+    return None
 
 
 def get_default_fg_warehouse() -> Warehouse | None:
@@ -420,7 +569,6 @@ def ensure_finished_lot_for_order(*, order: ProductionOrder, user) -> Lot:
         manufacturing_date=order.plan.manufacturing_date or timezone.localdate(),
         status=LotStatus.PENDING,  # pendiente de QA FG
         quantity_initial=Decimal("0"),
-        quantity_current=Decimal("0"),
         created_by=user,
         updated_by=user,
     )
@@ -904,7 +1052,16 @@ def confirm_material_transfer(*, transfer, quantity_confirmed: Decimal, user, no
     from_wh = transfer.from_warehouse
     to_wh = transfer.to_warehouse
 
+    # Buscar ubicación real del lote en el almacén de origen (desde LotBalance)
     from_loc = lot.location
+    if not from_loc and from_wh:
+        from_balance = LotBalance.objects.filter(
+            lot=lot, warehouse=from_wh, qty__gt=0
+        ).first()
+        if from_balance:
+            from_loc = from_balance.location
+    if not from_loc and from_wh:
+        from_loc = _get_or_create_default_location(from_wh, user)
     to_loc = _get_or_create_default_location(to_wh, user)
 
     # Verificar stock disponible
@@ -933,13 +1090,9 @@ def confirm_material_transfer(*, transfer, quantity_confirmed: Decimal, user, no
         updated_by=user,
     )
 
-    # Mover LotBalance: restar del origen
-    if from_wh and from_loc:
-        from inventory.services import _update_lot_balance
-        _update_lot_balance(lot=lot, warehouse=from_wh, location=from_loc, qty_delta=-quantity_confirmed, user=user)
-
-    # Mover LotBalance: sumar al destino
+    # Mover LotBalance: restar del origen, sumar al destino
     from inventory.services import _update_lot_balance
+    _update_lot_balance(lot=lot, warehouse=from_wh, location=from_loc, qty_delta=-quantity_confirmed, user=user)
     _update_lot_balance(lot=lot, warehouse=to_wh, location=to_loc, qty_delta=quantity_confirmed, user=user)
 
     # Determinar estado

@@ -15,6 +15,7 @@ from .models import (
     ProductionOperationStatus,
     ProductionPlanRawLot,
     ProductionPlan,
+    OperationComponentDetail,
 )
 from inventory.models import Product, ProductType
 from .models import ProductionOperation, ProductionOperationStatus
@@ -425,7 +426,7 @@ class ProductRouteForm(forms.ModelForm):
 class ProductRouteStepForm(forms.ModelForm):
     class Meta:
         model = ProductRouteStep
-        fields = ["sequence", "work_center", "name", "description", "expected_duration_min", "setup_time_min", "requires_qa"]
+        fields = ["sequence", "work_center", "name", "description", "expected_duration_min", "setup_time_min", "requires_qa", "is_conversion_point"]
         labels = {
             "sequence": "Secuencia",
             "work_center": "Estación de trabajo",
@@ -434,6 +435,7 @@ class ProductRouteStepForm(forms.ModelForm):
             "expected_duration_min": "Dur. x unid (min)",
             "setup_time_min": "Setup (min)",
             "requires_qa": "Requiere QA",
+            "is_conversion_point": "Punto de conversión",
         }
         _input = "w-full rounded-lg border px-3 py-2"
         widgets = {
@@ -444,6 +446,7 @@ class ProductRouteStepForm(forms.ModelForm):
             "expected_duration_min": forms.NumberInput(attrs={"class": _input}),
             "setup_time_min": forms.NumberInput(attrs={"class": _input, "min": "0"}),
             "requires_qa": forms.CheckboxInput(attrs={"class": "rounded"}),
+            "is_conversion_point": forms.CheckboxInput(attrs={"class": "rounded"}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -470,4 +473,42 @@ ProductRouteStepFormSet = inlineformset_factory(
     form=ProductRouteStepForm,
     extra=1,
     can_delete=True,
+)
+
+
+# ─── Detalle de componentes por operación ─────────────────────
+
+class OperationComponentDetailForm(forms.ModelForm):
+    class Meta:
+        model = OperationComponentDetail
+        fields = ["quantity_input", "quantity_output"]
+        widgets = {
+            "quantity_input": forms.NumberInput(
+                attrs={
+                    "class": "w-full rounded-lg border px-3 py-2 bg-gray-50",
+                    "step": "0.0001",
+                    "readonly": "readonly",
+                    "tabindex": "-1",
+                }
+            ),
+            "quantity_output": forms.NumberInput(
+                attrs={
+                    "class": "w-full rounded-lg border px-3 py-2",
+                    "step": "0.0001",
+                    "placeholder": "Cant. salida",
+                }
+            ),
+        }
+        labels = {
+            "quantity_input": "Entrada",
+            "quantity_output": "Salida",
+        }
+
+
+OperationComponentDetailFormSet = inlineformset_factory(
+    ProductionOperation,
+    OperationComponentDetail,
+    form=OperationComponentDetailForm,
+    extra=0,
+    can_delete=False,
 )

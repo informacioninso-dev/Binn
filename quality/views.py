@@ -443,6 +443,7 @@ class PendingLotsQAView(LoginRequiredMixin, ModulePermissionMixin, TemplateView)
     def get_context_data(self, **kwargs):
         from inventory.models import Lot as LotModel
         from inventory.models import ProductType as ProdTypeModel
+        from django.db.models import Sum, Q
 
         ctx = super().get_context_data(**kwargs)
 
@@ -454,6 +455,7 @@ class PendingLotsQAView(LoginRequiredMixin, ModulePermissionMixin, TemplateView)
         ]
 
         # 1) Lotes de materia prima (RAW) con QA pendiente
+        #    Solo lotes con stock real (balance > 0)
         raw_lots_pending = (
             LotModel.objects
             .filter(product__product_type=ProdTypeModel.RAW)
@@ -461,12 +463,15 @@ class PendingLotsQAView(LoginRequiredMixin, ModulePermissionMixin, TemplateView)
                 inspections__stage=InspectionStage.RAW,
                 inspections__result__in=final_results,
             )
+            .annotate(total_qty=Sum("balances__qty"))
+            .filter(Q(total_qty__gt=0))
             .distinct()
             .select_related("product")
             .order_by("product__name", "internal_lot")
         )
 
         # 2) Lotes de producto terminado (FG) con QA pendiente
+        #    Solo lotes con stock real (balance > 0)
         fg_lots_pending = (
             LotModel.objects
             .filter(product__product_type=ProdTypeModel.FG)
@@ -474,6 +479,8 @@ class PendingLotsQAView(LoginRequiredMixin, ModulePermissionMixin, TemplateView)
                 inspections__stage=InspectionStage.FG,
                 inspections__result__in=final_results,
             )
+            .annotate(total_qty=Sum("balances__qty"))
+            .filter(Q(total_qty__gt=0))
             .distinct()
             .select_related("product")
             .order_by("product__name", "internal_lot")

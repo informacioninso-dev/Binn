@@ -1,0 +1,172 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ tenant.name }}{% endblock %}
+
+{% block content %}
+  <!-- Header -->
+  <div class="mb-6 flex items-start justify-between">
+    <div>
+      <div class="flex items-center gap-3">
+        <h1 class="text-2xl font-bold">{{ tenant.name }}</h1>
+        {% if tenant.is_active %}
+          <span class="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">Activo</span>
+        {% else %}
+          <span class="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">Inactivo</span>
+        {% endif %}
+        {% if tenant.plan == 'enterprise' %}
+          <span class="inline-flex items-center rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">Enterprise</span>
+        {% else %}
+          <span class="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">Shared</span>
+        {% endif %}
+      </div>
+      <p class="mt-1 text-sm text-gray-500">Schema: <span class="font-mono">{{ tenant.schema_name }}</span> &middot; Creado: {{ tenant.created_on }}</p>
+    </div>
+    <div class="flex items-center gap-2">
+      <a href="{% url 'tenants:edit' tenant.pk %}"
+         class="rounded-lg border px-3 py-2 text-sm hover:bg-gray-50">
+        Editar
+      </a>
+      <a href="{% url 'tenants:switch' tenant.pk %}"
+         class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700">
+        Entrar
+      </a>
+      <form method="post" action="{% url 'tenants:toggle_active' tenant.pk %}" class="inline">
+        {% csrf_token %}
+        {% if tenant.is_active %}
+          <button type="submit"
+                  class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600 hover:bg-red-100"
+                  onclick="return confirm('Desactivar empresa {{ tenant.name }}?')">
+            Desactivar
+          </button>
+        {% else %}
+          <button type="submit"
+                  class="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-600 hover:bg-green-100">
+            Activar
+          </button>
+        {% endif %}
+      </form>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+    <!-- Info -->
+    <div class="rounded-xl border bg-white p-4">
+      <h2 class="mb-3 text-sm font-semibold text-gray-700">Informacion</h2>
+      <dl class="space-y-2 text-sm">
+        <div>
+          <dt class="text-gray-500">Nombre</dt>
+          <dd class="font-medium">{{ tenant.name }}</dd>
+        </div>
+        <div>
+          <dt class="text-gray-500">Schema</dt>
+          <dd class="font-mono text-xs">{{ tenant.schema_name }}</dd>
+        </div>
+        <div>
+          <dt class="text-gray-500">Plan</dt>
+          <dd>{{ tenant.get_plan_display }}</dd>
+        </div>
+        <div>
+          <dt class="text-gray-500">Dominios</dt>
+          <dd>
+            {% for d in tenant.domains.all %}
+              <div>{{ d.domain }}{% if d.is_primary %} <span class="text-xs text-blue-500">(primario)</span>{% endif %}</div>
+            {% empty %}
+              <span class="text-gray-400">Sin dominio</span>
+            {% endfor %}
+          </dd>
+        </div>
+      </dl>
+    </div>
+
+    <!-- Miembros -->
+    <div class="lg:col-span-2 rounded-xl border bg-white p-4">
+      <div class="mb-3 flex items-center justify-between">
+        <h2 class="text-sm font-semibold text-gray-700">Miembros ({{ tenant.memberships.count }})</h2>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="bg-gray-50 text-left text-gray-600">
+            <tr>
+              <th class="px-3 py-2">Usuario</th>
+              <th class="px-3 py-2">Email</th>
+              <th class="px-3 py-2">Rol</th>
+              <th class="px-3 py-2">Estado</th>
+              <th class="px-3 py-2 text-right">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for m in tenant.memberships.all %}
+              <tr class="border-t">
+                <td class="px-3 py-2 font-medium">{{ m.user.username }}</td>
+                <td class="px-3 py-2 text-gray-500">{{ m.user.email|default:"-" }}</td>
+                <td class="px-3 py-2">
+                  {% if m.is_admin %}
+                    <span class="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">Admin</span>
+                  {% else %}
+                    <span class="text-xs text-gray-500">Usuario</span>
+                  {% endif %}
+                </td>
+                <td class="px-3 py-2">
+                  {% if m.is_active %}
+                    <span class="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">Activo</span>
+                  {% else %}
+                    <span class="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">Inactivo</span>
+                  {% endif %}
+                </td>
+                <td class="px-3 py-2 text-right">
+                  <div class="flex items-center justify-end gap-1">
+                    <form method="post" action="{% url 'tenants:membership_toggle' m.pk %}" class="inline">
+                      {% csrf_token %}
+                      {% if m.is_active %}
+                        <button type="submit" class="rounded border px-2 py-1 text-xs text-gray-600 hover:bg-gray-100">Desactivar</button>
+                      {% else %}
+                        <button type="submit" class="rounded border px-2 py-1 text-xs text-green-600 hover:bg-green-50">Activar</button>
+                      {% endif %}
+                    </form>
+                    <form method="post" action="{% url 'tenants:membership_delete' m.pk %}" class="inline">
+                      {% csrf_token %}
+                      <button type="submit"
+                              class="rounded border border-red-200 px-2 py-1 text-xs text-red-600 hover:bg-red-50"
+                              onclick="return confirm('Remover {{ m.user.username }} de esta empresa?')">
+                        Remover
+                      </button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="5" class="px-3 py-4 text-center text-gray-500">Sin miembros</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Agregar miembro -->
+      <div class="mt-4 border-t pt-4">
+        <h3 class="mb-2 text-sm font-semibold text-gray-700">Agregar miembro</h3>
+        <form method="post" class="flex items-end gap-3">
+          {% csrf_token %}
+          <div>
+            <label class="mb-1 block text-xs text-gray-500">Usuario</label>
+            {{ form.username }}
+          </div>
+          <div class="flex items-center gap-2 pb-1">
+            {{ form.is_admin }}
+            <label class="text-sm text-gray-600">Admin</label>
+          </div>
+          <button type="submit"
+                  class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+            Agregar
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-4">
+    <a href="{% url 'tenants:list' %}" class="text-sm text-gray-500 hover:underline">&larr; Volver a empresas</a>
+  </div>
+{% endblock %}
