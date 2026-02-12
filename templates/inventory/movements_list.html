@@ -47,7 +47,7 @@
           <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600 mt-1">
             <span><strong>Tipo:</strong> {{ m.get_movement_type_display }}</span>
             <span><strong>Cant:</strong> {{ m.quantity }} {{ m.product.base_unit.code }}</span>
-            {% if m.lot %}<span><strong>Lote:</strong> {{ m.lot.internal_lot }}</span>{% endif %}
+            {% if m.lot %}<span><strong>Lote:</strong> {{ m.lot.lot_number }}</span>{% endif %}
             {% if m.area %}<span><strong>Área:</strong> {{ m.area }}</span>{% endif %}
             {% if m.reference %}<span><strong>Ref:</strong> {{ m.reference }}</span>{% endif %}
           </div>
@@ -80,7 +80,7 @@
               <td class="px-3 py-2">{{ m.product.code }} - {{ m.product.name }}</td>
               <td class="px-3 py-2 text-xs">
                 {% if m.lot %}
-                  {{ m.lot.internal_lot }}
+                  {{ m.lot.lot_number }}
                 {% else %}
                   <span class="text-gray-400">—</span>
                 {% endif %}

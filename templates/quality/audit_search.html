@@ -9,7 +9,7 @@
   <div class="mb-6">
     <h1 class="text-2xl font-semibold">Panel de auditoría de lote</h1>
     <p class="text-sm text-gray-500">
-      Ingresa el código de lote de producto terminado para revisar su trazabilidad completa.
+      Ingresa el código de lote (materia prima, producto terminado, etc.) para revisar su trazabilidad completa.
     </p>
   </div>
 
@@ -34,14 +34,14 @@
     {% csrf_token %}
     <div>
       <label class="mb-1 block text-sm font-medium">
-        Código interno de lote
+        Código de lote
       </label>
       <input type="text"
-             name="internal_lot"
+             name="lot_number"
              class="w-full rounded-lg border px-3 py-2 text-sm"
              placeholder="Ej: BINNSO-0001-0126">
       <p class="mt-1 text-xs text-gray-500">
-        Usa el código interno que generas al cerrar la orden de producción.
+        Ingresa el código de lote del producto (materia prima o producto terminado).
       </p>
     </div>
 

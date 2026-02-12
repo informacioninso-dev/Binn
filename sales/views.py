@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views import View
 from django.views.generic import ListView, DetailView, TemplateView
+from django.views.decorators.http import require_http_methods
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -17,6 +18,7 @@ from .models import (
     SaleInvoice, SaleInvoiceLine, InvoiceStatus,
     ReturnReason, SaleReturn, SaleReturnStatus,
     CreditNote, CreditNoteStatus,
+    PriceList, PriceListItem,
 )
 from partners.models import Partner
 from .forms import SaleOrderForm, SaleOrderLineForm
@@ -103,6 +105,19 @@ class SaleOrderCreateView(LoginRequiredMixin, ModulePermissionMixin, View):
             }
         return json.dumps(data)
 
+    def _partners_json(self):
+        import json
+        partners = Partner.objects.filter(is_active=True, is_customer=True)
+        data = {}
+        for p in partners:
+            data[str(p.pk)] = {
+                "address": p.address or "",
+                "city": p.city or "",
+                "phone": p.contact_phone or "",
+                "email": p.contact_email or "",
+            }
+        return json.dumps(data)
+
     def get(self, request):
         form = SaleOrderForm()
         LineFormSet = modelformset_factory(
@@ -113,6 +128,7 @@ class SaleOrderCreateView(LoginRequiredMixin, ModulePermissionMixin, View):
             "form": form,
             "line_formset": line_formset,
             "products_json": self._products_json(),
+            "partners_json": self._partners_json(),
         })
 
     def post(self, request):
@@ -140,6 +156,7 @@ class SaleOrderCreateView(LoginRequiredMixin, ModulePermissionMixin, View):
             "form": form,
             "line_formset": line_formset,
             "products_json": self._products_json(),
+            "partners_json": self._partners_json(),
         })
 
 
@@ -862,5 +879,185 @@ class CreditNoteListView(LoginRequiredMixin, ModulePermissionMixin, ListView):
             .select_related("invoice__order__client")
             .order_by("-issue_date")
         )
+
+
+# ─── Listas de Precios ────────────────────────────────────
+
+class PriceListListView(LoginRequiredMixin, ModulePermissionMixin, ListView):
+    permission_required = "sales.view_pricelist"
+    template_name = "sales/pricelist_list.html"
+    context_object_name = "pricelists"
+    paginate_by = 20
+
+    def get_queryset(self):
+        return PriceList.objects.all().order_by("-created_at")
+
+
+class PriceListDetailView(LoginRequiredMixin, ModulePermissionMixin, DetailView):
+    permission_required = "sales.view_pricelist"
+    template_name = "sales/pricelist_detail.html"
+    context_object_name = "pricelist"
+
+    def get_queryset(self):
+        return PriceList.objects.all()
+
+    def get_context_data(self, **kwargs):
+        from decimal import Decimal
+        context = super().get_context_data(**kwargs)
+        items = PriceListItem.objects.filter(
+            price_list=self.object
+        ).select_related("product").order_by("product__code")
+
+        # Calcular porcentaje de diferencia para cada item
+        items_with_diff = []
+        for item in items:
+            base_price = item.product.unit_price or Decimal("0")
+            list_price = item.unit_price
+
+            if base_price > 0:
+                # Calcular diferencia porcentual: (lista - base) / base * 100
+                diff_percent = ((list_price - base_price) / base_price * 100)
+            else:
+                diff_percent = Decimal("0")
+
+            # Agregar el porcentaje calculado al objeto
+            item.diff_percent = diff_percent
+            items_with_diff.append(item)
+
+        context["items"] = items_with_diff
+        return context
+
+
+@login_required
+def pricelist_create(request):
+    from .models import PriceList, PriceListItem
+    from inventory.models import Product, ProductType
+
+    if request.method == "POST":
+        # Crear la lista de precios
+        code = request.POST.get("code")
+        name = request.POST.get("name")
+        currency = request.POST.get("currency", "USD")
+        description = request.POST.get("description", "")
+        is_active = request.POST.get("is_active") == "on"
+
+        pricelist = PriceList.objects.create(
+            code=code,
+            name=name,
+            currency=currency,
+            description=description,
+            is_active=is_active,
+            created_by=request.user,
+            updated_by=request.user,
+        )
+
+        messages.success(request, f"Lista de precios '{pricelist.name}' creada correctamente.")
+        return redirect("sales:pricelist_detail", pk=pricelist.pk)
+
+    # GET: mostrar formulario
+    from inventory.models import Product, ProductType
+    products = Product.objects.filter(
+        is_active=True,
+        product_type=ProductType.FG
+    ).order_by("code")
+
+    return render(request, "sales/pricelist_form.html", {
+        "products": products,
+    })
+
+
+@login_required
+def pricelist_update(request, pk):
+    from .models import PriceList
+    pricelist = get_object_or_404(PriceList, pk=pk)
+
+    if request.method == "POST":
+        pricelist.code = request.POST.get("code")
+        pricelist.name = request.POST.get("name")
+        pricelist.currency = request.POST.get("currency", "USD")
+        pricelist.description = request.POST.get("description", "")
+        pricelist.is_active = request.POST.get("is_active") == "on"
+        pricelist.updated_by = request.user
+        pricelist.save()
+
+        messages.success(request, f"Lista de precios '{pricelist.name}' actualizada.")
+        return redirect("sales:pricelist_detail", pk=pricelist.pk)
+
+    return render(request, "sales/pricelist_form.html", {
+        "pricelist": pricelist,
+    })
+
+
+@login_required
+def pricelist_item_add(request, pk):
+    from .models import PriceList, PriceListItem
+    from inventory.models import Product
+
+    pricelist = get_object_or_404(PriceList, pk=pk)
+
+    if request.method == "POST":
+        product_id = request.POST.get("product_id")
+        unit_price = request.POST.get("unit_price")
+
+        product = get_object_or_404(Product, pk=product_id)
+
+        # Verificar si ya existe
+        existing = PriceListItem.objects.filter(
+            price_list=pricelist,
+            product=product
+        ).first()
+
+        if existing:
+            existing.unit_price = unit_price
+            existing.updated_by = request.user
+            existing.save()
+            messages.success(request, f"Precio actualizado para '{product.name}'")
+        else:
+            PriceListItem.objects.create(
+                price_list=pricelist,
+                product=product,
+                unit_price=unit_price,
+                created_by=request.user,
+                updated_by=request.user,
+            )
+            messages.success(request, f"Producto '{product.name}' agregado a la lista")
+
+        return redirect("sales:pricelist_detail", pk=pricelist.pk)
+
+    # GET: redirigir al detalle
+    return redirect("sales:pricelist_detail", pk=pricelist.pk)
+
+
+@login_required
+def pricelist_item_delete(request, pk, item_pk):
+    from .models import PriceList, PriceListItem
+
+    pricelist = get_object_or_404(PriceList, pk=pk)
+    item = get_object_or_404(PriceListItem, pk=item_pk, price_list=pricelist)
+
+    product_name = item.product.name
+    item.delete()
+
+    messages.success(request, f"Producto '{product_name}' eliminado de la lista")
+    return redirect("sales:pricelist_detail", pk=pricelist.pk)
+
+
+# ─── AJAX Endpoints ───────────────────────────────────────
+
+@login_required
+@require_http_methods(["GET"])
+def get_client_prices(request, client_id):
+    """
+    Endpoint AJAX para obtener precios de productos para un cliente.
+    Retorna un diccionario con los precios personalizados o base.
+    """
+    from django.http import JsonResponse
+    from .pricing_service import get_pricelist_for_products
+
+    try:
+        prices = get_pricelist_for_products(client_id)
+        return JsonResponse(prices)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=400)
 
 

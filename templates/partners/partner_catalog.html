@@ -1,0 +1,235 @@
+{% extends "layouts/app.html" %}
+{% load static %}
+
+{% block title %}Catálogo {{ partner.trade_name }} · {{ block.super }}{% endblock %}
+
+{% block app_content %}
+  {% include "partners/_nav.html" %}
+
+  <div class="mb-6 flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold">Catálogo de {{ partner.trade_name }}</h1>
+      <p class="text-sm text-gray-500">{{ partner.code }} · Productos que vende este proveedor</p>
+    </div>
+    <div class="flex gap-2">
+      <a href="{% url 'partners:index' %}"
+         class="rounded-xl border px-4 py-2 text-sm hover:bg-gray-50">Volver</a>
+      <a href="{% url 'partners:update' partner.pk %}"
+         class="rounded-xl border border-blue-200 px-4 py-2 text-sm text-blue-600 hover:bg-blue-50">
+        Editar Proveedor
+      </a>
+    </div>
+  </div>
+
+  {# Información del proveedor #}
+  <div class="mb-6 rounded-2xl border bg-white p-6">
+    <div class="flex items-center gap-3 mb-4">
+      <span class="inline-flex rounded-full px-3 py-1 text-sm font-medium
+        {% if partner.is_supplier %}bg-blue-100 text-blue-700{% else %}bg-gray-100 text-gray-600{% endif %}">
+        {% if partner.is_supplier %}Proveedor{% else %}No es proveedor{% endif %}
+      </span>
+      {% if partner.is_qualified_supplier %}
+        <span class="inline-flex rounded-full px-3 py-1 text-sm font-medium bg-green-100 text-green-700">
+          Calificado ISO 13485
+        </span>
+      {% endif %}
+      <span class="text-sm text-gray-500">{{ catalog_items.count }} productos en catálogo</span>
+    </div>
+
+    <div class="grid gap-4 md:grid-cols-3 text-sm">
+      <div>
+        <span class="text-gray-500">Contacto:</span>
+        <span class="font-medium">{{ partner.contact_name|default:"—" }}</span>
+      </div>
+      <div>
+        <span class="text-gray-500">Email:</span>
+        <span class="font-medium">{{ partner.contact_email|default:"—" }}</span>
+      </div>
+      <div>
+        <span class="text-gray-500">Teléfono:</span>
+        <span class="font-medium">{{ partner.contact_phone|default:"—" }}</span>
+      </div>
+    </div>
+  </div>
+
+  {# Agregar productos al catálogo #}
+  <div class="mb-6 rounded-2xl border bg-white p-6">
+    <h2 class="mb-4 text-lg font-semibold">Agregar Producto al Catálogo</h2>
+
+    <form method="post" action="{% url 'partners:catalog_add_product' partner.pk %}" class="space-y-4">
+      {% csrf_token %}
+
+      <div class="grid gap-4 md:grid-cols-2">
+        <div class="md:col-span-2">
+          <label class="mb-1 block text-sm font-medium">Producto</label>
+          <select name="product_id" id="product_select" required
+                  class="w-full rounded-lg border px-3 py-2 text-sm">
+            <option value="">Seleccionar producto...</option>
+            {% if catalog_items %}
+              <optgroup label="Ya en catálogo (actualizar)">
+                {% for item in catalog_items %}
+                  <option value="{{ item.product.pk }}"
+                          data-current-price="{{ item.supplier_unit_price }}"
+                          data-current-moq="{{ item.minimum_order_quantity }}"
+                          data-current-lead="{{ item.lead_time_days }}"
+                          data-current-code="{{ item.supplier_product_code }}">
+                    {{ item.product.code }} - {{ item.product.name }} (Actual: ${{ item.supplier_unit_price }})
+                  </option>
+                {% endfor %}
+              </optgroup>
+            {% endif %}
+            <optgroup label="Productos disponibles">
+              {% load inventory_tags %}
+              {% get_all_products as products %}
+              {% for product in products %}
+                <option value="{{ product.pk }}">
+                  {{ product.code }} - {{ product.name }} ({{ product.get_product_type_display }})
+                </option>
+              {% endfor %}
+            </optgroup>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid gap-4 md:grid-cols-4">
+        <div>
+          <label class="mb-1 block text-sm font-medium">Precio proveedor</label>
+          <input type="number"
+                 name="supplier_unit_price"
+                 id="price_input"
+                 step="0.01"
+                 min="0"
+                 required
+                 placeholder="0.00"
+                 class="w-full rounded-lg border px-3 py-2 text-sm">
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium">Cantidad mínima</label>
+          <input type="number"
+                 name="minimum_order_quantity"
+                 id="moq_input"
+                 step="0.01"
+                 min="0"
+                 value="1"
+                 placeholder="1"
+                 class="w-full rounded-lg border px-3 py-2 text-sm">
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium">Tiempo entrega (días)</label>
+          <input type="number"
+                 name="lead_time_days"
+                 id="lead_input"
+                 min="0"
+                 value="0"
+                 placeholder="0"
+                 class="w-full rounded-lg border px-3 py-2 text-sm">
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium">Código proveedor</label>
+          <input type="text"
+                 name="supplier_product_code"
+                 id="code_input"
+                 placeholder="REF-XXX"
+                 class="w-full rounded-lg border px-3 py-2 text-sm">
+        </div>
+      </div>
+
+      <button type="submit"
+              class="rounded-xl bg-blue-600 px-6 py-2 text-sm font-medium text-white hover:bg-blue-700">
+        + Agregar al Catálogo
+      </button>
+    </form>
+
+    <p class="mt-2 text-xs text-gray-500">
+      Agrega productos que este proveedor vende. Si el producto ya existe, se actualizarán sus datos.
+    </p>
+  </div>
+
+  {# Lista de productos en catálogo #}
+  <div class="rounded-2xl border bg-white p-6">
+    <h2 class="mb-4 text-lg font-semibold">Productos en Catálogo</h2>
+
+    {% if catalog_items %}
+      <div class="overflow-x-auto">
+        <table class="min-w-full">
+          <thead>
+            <tr class="border-b bg-gray-50 text-left text-xs font-semibold text-gray-600">
+              <th class="px-4 py-3">Código</th>
+              <th class="px-4 py-3">Producto</th>
+              <th class="px-4 py-3">Tipo</th>
+              <th class="px-4 py-3 text-right">Precio</th>
+              <th class="px-4 py-3 text-right">Cant. Mín</th>
+              <th class="px-4 py-3 text-right">Tiempo</th>
+              <th class="px-4 py-3">Ref. Proveedor</th>
+              <th class="px-4 py-3"></th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            {% for item in catalog_items %}
+              <tr class="hover:bg-gray-50">
+                <td class="px-4 py-3 text-sm text-gray-600">{{ item.product.code }}</td>
+                <td class="px-4 py-3 text-sm font-medium">{{ item.product.name }}</td>
+                <td class="px-4 py-3 text-sm text-gray-500">{{ item.product.get_product_type_display }}</td>
+                <td class="px-4 py-3 text-right text-sm font-semibold text-blue-600">${{ item.supplier_unit_price|floatformat:2 }}</td>
+                <td class="px-4 py-3 text-right text-sm">{{ item.minimum_order_quantity|floatformat:2 }}</td>
+                <td class="px-4 py-3 text-right text-sm">{{ item.lead_time_days }} días</td>
+                <td class="px-4 py-3 text-sm text-gray-500">{{ item.supplier_product_code|default:"—" }}</td>
+                <td class="px-4 py-3 text-right">
+                  <form method="post" action="{% url 'partners:catalog_delete_product' partner.pk item.pk %}"
+                        onsubmit="return confirm('¿Eliminar {{ item.product.name }} del catálogo?');"
+                        class="inline">
+                    {% csrf_token %}
+                    <button type="submit"
+                            class="text-red-600 hover:text-red-700 text-sm">
+                      Eliminar
+                    </button>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="py-12 text-center">
+        <svg class="mx-auto h-12 w-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
+        </svg>
+        <p class="mt-4 text-sm text-gray-500">
+          No hay productos en el catálogo. Agrega productos que este proveedor vende.
+        </p>
+      </div>
+    {% endif %}
+  </div>
+
+  <script>
+    // Auto-rellenar datos cuando se selecciona un producto ya en catálogo
+    document.getElementById('product_select').addEventListener('change', function() {
+      const selectedOption = this.options[this.selectedIndex];
+      const priceInput = document.getElementById('price_input');
+      const moqInput = document.getElementById('moq_input');
+      const leadInput = document.getElementById('lead_input');
+      const codeInput = document.getElementById('code_input');
+
+      // Si tiene datos actuales (ya está en catálogo)
+      const currentPrice = selectedOption.dataset.currentPrice;
+      const currentMoq = selectedOption.dataset.currentMoq;
+      const currentLead = selectedOption.dataset.currentLead;
+      const currentCode = selectedOption.dataset.currentCode;
+
+      if (currentPrice) {
+        priceInput.value = currentPrice;
+        moqInput.value = currentMoq || '1';
+        leadInput.value = currentLead || '0';
+        codeInput.value = currentCode || '';
+      } else {
+        // Limpiar campos para nuevo producto
+        priceInput.value = '';
+        moqInput.value = '1';
+        leadInput.value = '0';
+        codeInput.value = '';
+      }
+    });
+  </script>
+{% endblock %}

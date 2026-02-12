@@ -19,11 +19,11 @@
   </div>
 
   {# ═══ RESUMEN PRINCIPAL ═══ #}
-  <div class="mb-4 grid gap-4 md:grid-cols-4">
+  <div class="mb-4 grid gap-4 {% if is_raw_material %}md:grid-cols-3{% else %}md:grid-cols-4{% endif %}">
     {# Lote #}
     <div class="rounded-2xl border bg-white p-4 text-sm">
       <h2 class="mb-2 text-xs font-semibold text-gray-500 uppercase">Lote</h2>
-      <p class="text-lg font-bold text-gray-900">{{ lot.internal_lot|default:"—" }}</p>
+      <p class="text-lg font-bold text-gray-900">{{ lot.lot_number|default:"—" }}</p>
       <p class="text-xs text-gray-600">{{ lot.product.code }} – {{ lot.product.name }}</p>
       <div class="mt-2 flex items-center gap-2">
         <span class="rounded-full px-2 py-0.5 text-xs
@@ -39,7 +39,8 @@
       {% endif %}
     </div>
 
-    {# Orden de producción #}
+    {# Orden de producción - Solo para productos terminados #}
+    {% if not is_raw_material %}
     <div class="rounded-2xl border bg-white p-4 text-sm">
       <h2 class="mb-2 text-xs font-semibold text-gray-500 uppercase">Producción</h2>
       {% if order %}
@@ -51,6 +52,7 @@
         <p class="text-xs text-gray-400">Sin orden de producción</p>
       {% endif %}
     </div>
+    {% endif %}
 
     {# Ubicación actual #}
     <div class="rounded-2xl border bg-white p-4 text-sm">
@@ -204,6 +206,128 @@
       {% endfor %}
     </div>
   </div>
+  {% endif %}
+
+  {# ═══ INFORMACIÓN ESPECÍFICA PARA MATERIA PRIMA (RAW) ═══ #}
+  {% if is_raw_material %}
+    {# Recepción de MP #}
+    {% if raw_reception %}
+    <div class="mb-6 rounded-2xl border bg-white p-4 text-sm">
+      <h2 class="mb-3 text-sm font-semibold text-gray-800 flex items-center gap-2">
+        <svg class="h-5 w-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
+        </svg>
+        Recepción de Materia Prima
+      </h2>
+      <div class="grid gap-4 md:grid-cols-2">
+        <div class="space-y-2">
+          <div class="flex justify-between">
+            <span class="text-xs text-gray-600">Código recepción:</span>
+            <span class="text-sm font-semibold">{{ raw_reception.code }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-xs text-gray-600">Fecha recepción:</span>
+            <span class="text-sm">{{ raw_reception.reception_date|date:"d/m/Y" }}</span>
+          </div>
+          {% if raw_reception.purchase_order.supplier %}
+          <div class="flex justify-between">
+            <span class="text-xs text-gray-600">Proveedor:</span>
+            <span class="text-sm">{{ raw_reception.purchase_order.supplier.trade_name }}</span>
+          </div>
+          {% endif %}
+        </div>
+        <div class="space-y-2">
+          {% if raw_reception.purchase_order %}
+          <div class="flex justify-between">
+            <span class="text-xs text-gray-600">Orden de compra:</span>
+            <span class="text-sm font-semibold">{{ raw_reception.purchase_order.code }}</span>
+          </div>
+          {% endif %}
+          {% if raw_reception_line %}
+          <div class="flex justify-between">
+            <span class="text-xs text-gray-600">Cantidad recibida:</span>
+            <span class="text-sm">{{ raw_reception_line.received_quantity|floatformat:2 }} {{ raw_reception_line.unit.code }}</span>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    {# QA de Materia Prima #}
+    {% if raw_qa_inspections %}
+    <div class="mb-6 rounded-2xl border bg-white p-4 text-sm">
+      <h2 class="mb-3 text-sm font-semibold text-gray-800 flex items-center gap-2">
+        <svg class="h-5 w-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        Inspecciones de Calidad (Materia Prima)
+      </h2>
+      <div class="space-y-3">
+        {% for ins in raw_qa_inspections %}
+          <div class="rounded-lg border p-3 {% if ins.result == 'APPROVED' %}border-emerald-200 bg-emerald-50{% elif ins.result == 'REJECTED' %}border-red-200 bg-red-50{% else %}border-yellow-200 bg-yellow-50{% endif %}">
+            <div class="flex items-start justify-between gap-4">
+              <div class="flex-1">
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-semibold
+                    {% if ins.result == 'APPROVED' %}bg-emerald-100 text-emerald-800
+                    {% elif ins.result == 'REJECTED' %}bg-red-100 text-red-800
+                    {% else %}bg-yellow-100 text-yellow-800{% endif %}">
+                    {{ ins.get_result_display }}
+                  </span>
+                  <span class="text-xs text-gray-500">{{ ins.inspected_at|date:"d/m/Y H:i" }}</span>
+                </div>
+                {% if ins.plan %}
+                  <p class="text-xs text-gray-600">Plan: {{ ins.plan.name }}</p>
+                {% endif %}
+                {% if ins.notes %}
+                  <p class="text-xs text-gray-500 mt-1">{{ ins.notes }}</p>
+                {% endif %}
+              </div>
+              <div class="text-right">
+                <div class="flex items-center gap-1.5 text-xs text-gray-600">
+                  <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                  </svg>
+                  <span>{{ ins.inspected_by.get_full_name|default:ins.inspected_by.username }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {# Consumo en órdenes de producción #}
+    {% if consumption_orders %}
+    <div class="mb-6 rounded-2xl border bg-white p-4 text-sm">
+      <h2 class="mb-3 text-sm font-semibold text-gray-800 flex items-center gap-2">
+        <svg class="h-5 w-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/>
+        </svg>
+        Órdenes de Producción donde se Consumió
+      </h2>
+      <div class="space-y-2">
+        {% for po in consumption_orders %}
+          <div class="rounded-lg border bg-gray-50 p-3 flex items-center justify-between">
+            <div>
+              <div class="font-semibold text-gray-900">{{ po.code }}</div>
+              <div class="text-xs text-gray-600">{{ po.product.code }} - {{ po.product.name }}</div>
+            </div>
+            <div class="text-right">
+              {% if po.finished_lot %}
+              <div class="text-xs text-gray-600">
+                Lote producido: <span class="font-semibold">{{ po.finished_lot.lot_number }}</span>
+              </div>
+              {% endif %}
+              <div class="text-xs text-gray-500">{{ po.created_at|date:"d/m/Y" }}</div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
   {% endif %}
 
   {# ═══ QA PRODUCTO TERMINADO ═══ #}
@@ -376,8 +500,8 @@
                   <div class="font-medium text-gray-900">{{ op.step.work_center.code }} – {{ op.step.work_center.name }}</div>
                   <div class="text-[11px] text-gray-500">{{ op.step.name }}</div>
                 </td>
-                <td class="px-3 py-2 font-mono text-[11px]">{{ op.input_lot.internal_lot|default:"—" }}</td>
-                <td class="px-3 py-2 font-mono text-[11px]">{{ op.output_lot.internal_lot|default:"—" }}</td>
+                <td class="px-3 py-2 font-mono text-[11px]">{{ op.input_lot.lot_number|default:"—" }}</td>
+                <td class="px-3 py-2 font-mono text-[11px]">{{ op.output_lot.lot_number|default:"—" }}</td>
                 <td class="px-3 py-2 text-right text-[11px]">
                   {% if op.quantity_output %}{{ op.quantity_output|floatformat:2 }}{% else %}—{% endif %}
                 </td>
@@ -440,7 +564,7 @@
                   <div class="font-medium">{{ item.lot.product.code }}</div>
                   <div class="text-[11px] text-gray-500">{{ item.lot.product.name }}</div>
                 </td>
-                <td class="px-3 py-2 font-mono text-[11px]">{{ item.lot.internal_lot|default:"—" }}</td>
+                <td class="px-3 py-2 font-mono text-[11px]">{{ item.lot.lot_number|default:"—" }}</td>
                 <td class="px-3 py-2">
                   {% if item.lot.expiry_date %}
                     {{ item.lot.expiry_date|date:"d/m/Y" }}

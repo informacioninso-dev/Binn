@@ -136,8 +136,10 @@ def create_invoice(*, order, user):
         buyer_identification_type=buyer_id_type,
         buyer_identification=client.identification,
         buyer_legal_name=client.legal_name or client.trade_name,
-        buyer_address=client.address or "",
-        buyer_email=client.contact_email or "",
+        buyer_address=order.delivery_address or client.address or "",
+        buyer_city=order.delivery_city or client.city or "",
+        buyer_phone=order.delivery_phone or client.contact_phone or "",
+        buyer_email=order.delivery_email or client.contact_email or "",
         issue_date=now,
         status=InvoiceStatus.DRAFT,
         created_by=user,
@@ -291,9 +293,15 @@ def generate_invoice_xml(invoice):
     if invoice.buyer_email:
         campo = ET.SubElement(info_adicional, "campoAdicional", nombre="Email")
         campo.text = invoice.buyer_email
+    if invoice.buyer_phone:
+        campo = ET.SubElement(info_adicional, "campoAdicional", nombre="Teléfono")
+        campo.text = invoice.buyer_phone
     if invoice.buyer_address:
         campo = ET.SubElement(info_adicional, "campoAdicional", nombre="Dirección")
         campo.text = invoice.buyer_address
+    if invoice.buyer_city:
+        campo = ET.SubElement(info_adicional, "campoAdicional", nombre="Ciudad")
+        campo.text = invoice.buyer_city
     campo_pedido = ET.SubElement(info_adicional, "campoAdicional", nombre="Pedido")
     campo_pedido.text = invoice.order.code
 

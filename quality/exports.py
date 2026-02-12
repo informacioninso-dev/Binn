@@ -104,7 +104,7 @@ class InspectionListExcelView(LoginRequiredMixin, ModulePermissionMixin, View):
         for row, insp in enumerate(inspections, 2):
             values = [
                 insp.id,
-                insp.lot.internal_lot if insp.lot else "",
+                insp.lot.lot_number if insp.lot else "",
                 insp.lot.product.name if insp.lot and insp.lot.product else "",
                 insp.lot.product.code if insp.lot and insp.lot.product else "",
                 insp.get_stage_display(),

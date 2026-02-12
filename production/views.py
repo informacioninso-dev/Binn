@@ -73,7 +73,7 @@ class ProductionDashboardView(LoginRequiredMixin, ModulePermissionMixin, View):
     permission_required = "production.view_productionorder"
 
     def get(self, request, *args, **kwargs):
-        return redirect("production:operations_list")
+        return redirect("production:orders_list")
 
 
 # ---------------------------------------------------------
@@ -309,8 +309,7 @@ class PlanCalculateMaterialsView(LoginRequiredMixin, ModulePermissionMixin, View
                     "component_code": component.code,
                     "component_name": component.name,
                     "lot_id": selected_lot.id,
-                    "lot_internal": selected_lot.internal_lot,
-                    "lot_supplier": selected_lot.supplier_lot or "—",
+                    "lot_number": selected_lot.lot_number,
                     "qty_required": str(required_qty),
                     "qty_available": str(selected_lot.qty_effective.quantize(Decimal("0.0001"))),
                     "expiry_date": selected_lot.expiry_date.strftime("%d/%m/%Y") if selected_lot.expiry_date else "Sin fecha",
@@ -654,7 +653,7 @@ class ProductionOperationUpdateView(LoginRequiredMixin, ModulePermissionMixin, U
                 messages.success(
                     self.request,
                     f"La orden {order.code} ha sido cerrada y se generó el lote de producto terminado "
-                    f"{order.finished_lot.internal_lot if order.finished_lot else ''}."
+                    f"{order.finished_lot.lot_number if order.finished_lot else ''}."
                 )
             except ValidationError as e:
                 messages.warning(
@@ -1344,3 +1343,121 @@ class EstimateProductionTimeView(LoginRequiredMixin, ModulePermissionMixin, View
         result["estimated_end_date"] = result["estimated_end_date"].isoformat()
         result["start_date"] = result["start_date"].isoformat()
         return JsonResponse(result)
+
+
+# ─── DIAGRAMA DE GANTT DE PRODUCCIÓN ───────────────────────────────
+
+class ProductionGanttView(LoginRequiredMixin, ModulePermissionMixin, TemplateView):
+    permission_required = "production.view_productionorder"
+    """
+    Vista de diagrama de Gantt para visualización de órdenes de producción.
+    Muestra timeline de operaciones por orden o por work center.
+    """
+    template_name = "production/gantt.html"
+
+    def get_context_data(self, **kwargs):
+        from datetime import timedelta
+
+        ctx = super().get_context_data(**kwargs)
+
+        # Filtros
+        view_mode = self.request.GET.get("view", "order")  # order o workcenter
+        status_filter = self.request.GET.get("status", "active")  # active, all
+        date_from = self.request.GET.get("date_from", "")
+        date_to = self.request.GET.get("date_to", "")
+
+        # Query base: órdenes activas o todas
+        if status_filter == "active":
+            orders = ProductionOrder.objects.filter(
+                status__in=[ProductionOrderStatus.RELEASED, ProductionOrderStatus.IN_PROGRESS]
+            )
+        else:
+            orders = ProductionOrder.objects.all()
+
+        # Filtro por fecha
+        if date_from:
+            orders = orders.filter(start_date__gte=date_from)
+        if date_to:
+            orders = orders.filter(start_date__lte=date_to)
+
+        orders = orders.select_related("product", "finished_lot").order_by("start_date")
+
+        # Generar datos para Gantt
+        gantt_tasks = []
+
+        for order in orders:
+            operations = order.operations.select_related(
+                "step", "step__work_center", "input_lot", "output_lot"
+            ).order_by("sequence")
+
+            for op in operations:
+                # Calcular fechas
+                if op.started_at:
+                    start_date = op.started_at.date() if hasattr(op.started_at, 'date') else op.started_at
+                elif op.planned_start:
+                    start_date = op.planned_start.date() if hasattr(op.planned_start, 'date') else op.planned_start
+                else:
+                    start_date = order.start_date
+
+                if op.finished_at:
+                    end_date = op.finished_at.date() if hasattr(op.finished_at, 'date') else op.finished_at
+                elif op.planned_end:
+                    end_date = op.planned_end.date() if hasattr(op.planned_end, 'date') else op.planned_end
+                else:
+                    # Estimar duración
+                    duration_hours = op.step.duration_hours or 1
+                    end_date = start_date + timedelta(hours=duration_hours)
+
+                # Calcular progreso basado en cantidades
+                if op.quantity_input and op.quantity_input > 0:
+                    progress = int((op.quantity_output or 0) / op.quantity_input * 100)
+                else:
+                    # Sin cantidades, usar estado de la operación
+                    progress = {
+                        ProductionOperationStatus.PENDING: 0,
+                        ProductionOperationStatus.IN_PROGRESS: 50,
+                        ProductionOperationStatus.PAUSED: 50,
+                        ProductionOperationStatus.DONE: 100,
+                    }.get(op.status, 0)
+
+                # Clase CSS según estado
+                status_class = {
+                    ProductionOperationStatus.PENDING: "gantt-pending",
+                    ProductionOperationStatus.IN_PROGRESS: "gantt-in-progress",
+                    ProductionOperationStatus.DONE: "gantt-completed",
+                    ProductionOperationStatus.PAUSED: "gantt-paused",
+                }.get(op.status, "gantt-pending")
+
+                # Nombre de la tarea
+                if view_mode == "workcenter":
+                    task_name = f"{order.code} - {op.step.name}"
+                else:
+                    task_name = f"{op.step.name} ({op.step.work_center.name if op.step.work_center else 'Sin WC'})"
+
+                # Dependencies (operación anterior en la misma orden)
+                prev_op = operations.filter(sequence__lt=op.sequence).order_by("-sequence").first()
+                dependencies = f"op-{prev_op.id}" if prev_op else ""
+
+                gantt_tasks.append({
+                    "id": f"op-{op.id}",
+                    "name": task_name,
+                    "start": start_date.strftime("%Y-%m-%d"),
+                    "end": end_date.strftime("%Y-%m-%d"),
+                    "progress": progress,
+                    "dependencies": dependencies,
+                    "custom_class": status_class,
+                    # Metadata para tooltip
+                    "order_code": order.code,
+                    "operation_id": op.id,
+                    "work_center": op.step.work_center.name if op.step.work_center else "N/A",
+                    "status": op.get_status_display(),
+                })
+
+        ctx["gantt_data"] = json.dumps(gantt_tasks, ensure_ascii=False)
+        ctx["view_mode"] = view_mode
+        ctx["status_filter"] = status_filter
+        ctx["date_from"] = date_from
+        ctx["date_to"] = date_to
+        ctx["work_centers"] = WorkCenter.objects.filter(is_active=True).order_by("name")
+
+        return ctx

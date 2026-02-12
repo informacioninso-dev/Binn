@@ -119,6 +119,27 @@
         </td>
       </tr>
       {% endif %}
+      {% if invoice.buyer_city or invoice.buyer_phone or invoice.buyer_email %}
+      <tr>
+        {% if invoice.buyer_city %}
+        <td>
+          <span class="label">Ciudad:</span> {{ invoice.buyer_city }}
+        </td>
+        {% endif %}
+        {% if invoice.buyer_phone %}
+        <td>
+          <span class="label">Teléfono:</span> {{ invoice.buyer_phone }}
+        </td>
+        {% endif %}
+      </tr>
+      {% endif %}
+      {% if invoice.buyer_email %}
+      <tr>
+        <td colspan="2">
+          <span class="label">Email:</span> {{ invoice.buyer_email }}
+        </td>
+      </tr>
+      {% endif %}
     </table>
   </div>
 

@@ -55,4 +55,15 @@ urlpatterns = [
 
     # Notas de crédito
     path('credit-notes/', views.CreditNoteListView.as_view(), name='credit_note_list'),
+
+    # Listas de Precios
+    path('pricelists/', views.PriceListListView.as_view(), name='pricelist_list'),
+    path('pricelist/create/', views.pricelist_create, name='pricelist_create'),
+    path('pricelist/<int:pk>/', views.PriceListDetailView.as_view(), name='pricelist_detail'),
+    path('pricelist/<int:pk>/update/', views.pricelist_update, name='pricelist_update'),
+    path('pricelist/<int:pk>/item/add/', views.pricelist_item_add, name='pricelist_item_add'),
+    path('pricelist/<int:pk>/item/<int:item_pk>/delete/', views.pricelist_item_delete, name='pricelist_item_delete'),
+
+    # AJAX Endpoints
+    path('ajax/client-prices/<int:client_id>/', views.get_client_prices, name='ajax_client_prices'),
 ]

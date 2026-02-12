@@ -290,6 +290,26 @@ class RawMaterialReceptionCreateView(LoginRequiredMixin, View):
             })
         return json.dumps(data, ensure_ascii=False)
 
+    def _build_po_quantities_json(self, po):
+        """
+        Cantidades esperadas por producto desde la orden de compra.
+        Formato: {product_id: {quantity: X, unit_id: Y, product_name: "..."}}
+        """
+        if not po:
+            return json.dumps({})
+
+        data = {}
+        for line in po.lines.all():
+            if line.product:
+                data[str(line.product.id)] = {
+                    "quantity": str(line.quantity),
+                    "unit_id": line.unit.id if line.unit else None,
+                    "unit_code": line.unit.code if line.unit else "",
+                    "product_name": line.product.name,
+                    "product_code": line.product.code,
+                }
+        return json.dumps(data, ensure_ascii=False)
+
     # ---------- GET ----------
 
     def get(self, request, *args, **kwargs):
@@ -343,6 +363,7 @@ class RawMaterialReceptionCreateView(LoginRequiredMixin, View):
             "line_formset": line_formset,
             "purchase_order": po,
             "products_json": self._build_products_json(),
+            "po_quantities_json": self._build_po_quantities_json(po),
         }
         return render(request, self.template_name, context)
     # ---------- POST ----------
@@ -386,6 +407,7 @@ class RawMaterialReceptionCreateView(LoginRequiredMixin, View):
                     "line_formset": line_formset,
                     "purchase_order": po,
                     "products_json": self._build_products_json(),
+                    "po_quantities_json": self._build_po_quantities_json(po),
                 },
             )
 
@@ -452,3 +474,42 @@ class RawMaterialReceptionListView(LoginRequiredMixin, ListView):
 
     def get_queryset(self):
         return RawMaterialReception.objects.select_related("purchase_order").order_by("-reception_date", "-id")
+
+
+# ────────────────────────────────────────────────────────────────────────────────
+# AJAX Endpoints
+# ────────────────────────────────────────────────────────────────────────────────
+
+def get_supplier_products_ajax(request, supplier_id):
+    """
+    Endpoint AJAX para obtener productos que vende un proveedor específico.
+    Retorna JSON con productos del catálogo del proveedor.
+    """
+    from django.http import JsonResponse
+    from partners.models import SupplierProduct
+
+    try:
+        # Obtener productos del catálogo del proveedor
+        supplier_products = SupplierProduct.objects.filter(
+            supplier_id=supplier_id
+        ).select_related("product", "product__base_unit")
+
+        data = []
+        for sp in supplier_products:
+            product = sp.product
+            data.append({
+                "id": product.id,
+                "code": product.code,
+                "name": product.name,
+                "base_unit": getattr(product.base_unit, "code", ""),
+                "base_unit_id": product.base_unit.id if product.base_unit else None,
+                "unit_price": str(sp.supplier_unit_price),  # Precio del proveedor
+                "minimum_order_quantity": str(sp.minimum_order_quantity),
+                "lead_time_days": sp.lead_time_days,
+                "supplier_product_code": sp.supplier_product_code,
+            })
+
+        return JsonResponse(data, safe=False)
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=400)

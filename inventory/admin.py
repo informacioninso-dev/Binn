@@ -55,8 +55,7 @@ class InventoryMoveAdmin(admin.ModelAdmin):
 class LotAdmin(admin.ModelAdmin):
     list_display = (
         "product",
-        "internal_lot",
-        "supplier_lot",
+        "lot_number",
         "status",
         "quantity_current",
         "warehouse",
@@ -65,7 +64,7 @@ class LotAdmin(admin.ModelAdmin):
         "expiry_date",
     )
     list_filter = ("status", "warehouse", "product__product_type")
-    search_fields = ("product__code", "product__name", "internal_lot", "supplier_lot", "origin_reference")
+    search_fields = ("product__code", "product__name", "lot_number", "origin_reference")
     ordering = ("-created_at",)
 
 
@@ -73,7 +72,7 @@ class LotAdmin(admin.ModelAdmin):
 class LotBalanceAdmin(admin.ModelAdmin):
     list_display = ("lot", "warehouse", "location", "qty")
     list_filter = ("warehouse", "location", "lot")
-    search_fields = ("lot__internal_lot", "lot__product__name", "warehouse__name", "location__code")
-    ordering = ("lot__internal_lot", "location__code")
+    search_fields = ("lot__lot_number", "lot__product__name", "warehouse__name", "location__code")
+    ordering = ("lot__lot_number", "location__code")
 
 

@@ -1,0 +1,288 @@
+{% extends "layouts/app.html" %}
+{% load static %}
+
+{% block title %}Planificación Gantt · {{ block.super }}{% endblock %}
+
+{% block extra_head %}
+  <!-- Frappe Gantt CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.min.css">
+  <style>
+    /* Estilos personalizados para estados */
+    .gantt .bar-wrapper .gantt-pending {
+      fill: #94a3b8;
+    }
+    .gantt .bar-wrapper .gantt-in-progress {
+      fill: #3b82f6;
+    }
+    .gantt .bar-wrapper .gantt-completed {
+      fill: #10b981;
+    }
+    .gantt .bar-wrapper .gantt-paused {
+      fill: #f59e0b;
+    }
+
+    /* Tooltip mejorado */
+    .gantt .popup-wrapper {
+      padding: 12px;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    }
+
+    /* Contenedor del Gantt */
+    #gantt-container {
+      background: white;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+    }
+
+    /* Leyenda */
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-right: 16px;
+    }
+    .legend-color {
+      width: 20px;
+      height: 12px;
+      border-radius: 2px;
+    }
+  </style>
+{% endblock %}
+
+{% block app_content %}
+  {% include "production/_nav.html" %}
+
+  <div class="mb-6">
+    <div class="flex items-center justify-between mb-4">
+      <div>
+        <h1 class="text-2xl font-semibold">Planificación de Producción (Gantt)</h1>
+        <p class="text-sm text-gray-500">
+          Visualización timeline de órdenes y operaciones de producción
+        </p>
+      </div>
+
+      <!-- Botones de acción -->
+      <div class="flex gap-2">
+        <button id="gantt-today" class="rounded-lg border px-3 py-2 text-sm hover:bg-gray-50">
+          Hoy
+        </button>
+        <a href="{% url 'production:orders_create_planning' %}"
+           class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+          + Nueva orden
+        </a>
+      </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="mb-4 rounded-xl border bg-white p-4">
+      <form method="get" class="grid gap-4 md:grid-cols-4">
+        <div>
+          <label class="mb-1 block text-xs font-medium text-gray-600">Estado</label>
+          <select name="status"
+                  class="w-full rounded-lg border px-3 py-2 text-sm"
+                  onchange="this.form.submit()">
+            <option value="active" {% if status_filter == 'active' %}selected{% endif %}>
+              Solo activas (Liberadas + En proceso)
+            </option>
+            <option value="all" {% if status_filter == 'all' %}selected{% endif %}>
+              Todas
+            </option>
+          </select>
+        </div>
+
+        <div>
+          <label class="mb-1 block text-xs font-medium text-gray-600">Vista</label>
+          <select name="view"
+                  class="w-full rounded-lg border px-3 py-2 text-sm"
+                  onchange="this.form.submit()">
+            <option value="order" {% if view_mode == 'order' %}selected{% endif %}>
+              Por orden de producción
+            </option>
+            <option value="workcenter" {% if view_mode == 'workcenter' %}selected{% endif %}>
+              Por work center
+            </option>
+          </select>
+        </div>
+
+        <div>
+          <label class="mb-1 block text-xs font-medium text-gray-600">Desde</label>
+          <input type="date"
+                 name="date_from"
+                 value="{{ date_from }}"
+                 class="w-full rounded-lg border px-3 py-2 text-sm">
+        </div>
+
+        <div>
+          <label class="mb-1 block text-xs font-medium text-gray-600">Hasta</label>
+          <input type="date"
+                 name="date_to"
+                 value="{{ date_to }}"
+                 class="w-full rounded-lg border px-3 py-2 text-sm">
+        </div>
+      </form>
+
+      <!-- Leyenda de colores -->
+      <div class="mt-4 flex flex-wrap items-center gap-3 border-t pt-3">
+        <span class="text-xs font-medium text-gray-600">Leyenda:</span>
+        <div class="legend-item">
+          <div class="legend-color" style="background-color: #94a3b8;"></div>
+          <span class="text-xs text-gray-600">Pendiente</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background-color: #3b82f6;"></div>
+          <span class="text-xs text-gray-600">En proceso</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background-color: #10b981;"></div>
+          <span class="text-xs text-gray-600">Completada</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background-color: #f59e0b;"></div>
+          <span class="text-xs text-gray-600">Pausada</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Controles de zoom -->
+    <div class="mb-4 flex gap-2">
+      <button id="view-day" class="rounded-lg border px-3 py-1.5 text-sm hover:bg-gray-50">
+        Día
+      </button>
+      <button id="view-week" class="rounded-lg border px-3 py-1.5 text-sm hover:bg-gray-50 bg-gray-100">
+        Semana
+      </button>
+      <button id="view-month" class="rounded-lg border px-3 py-1.5 text-sm hover:bg-gray-50">
+        Mes
+      </button>
+    </div>
+  </div>
+
+  <!-- Contenedor del diagrama Gantt -->
+  <div id="gantt-container">
+    <div id="gantt"></div>
+  </div>
+
+  <!-- Mensaje si no hay datos -->
+  {% if not gantt_data or gantt_data == "[]" %}
+    <div class="mt-6 rounded-xl border bg-gray-50 p-8 text-center">
+      <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+      </svg>
+      <h3 class="mt-3 text-sm font-medium text-gray-900">No hay operaciones para mostrar</h3>
+      <p class="mt-1 text-sm text-gray-500">
+        Crea una nueva orden de producción para comenzar
+      </p>
+      <div class="mt-4">
+        <a href="{% url 'production:orders_create_planning' %}"
+           class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+          + Nueva orden de producción
+        </a>
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- Frappe Gantt JS -->
+  <script src="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.min.js"></script>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const tasksData = {{ gantt_data|safe }};
+
+      // Solo inicializar si hay datos
+      if (!tasksData || tasksData.length === 0) {
+        return;
+      }
+
+      let currentViewMode = 'Week';
+
+      const gantt = new Gantt("#gantt", tasksData, {
+        view_mode: currentViewMode,
+        language: 'es',
+        bar_height: 30,
+        bar_corner_radius: 3,
+        padding: 18,
+        date_format: 'YYYY-MM-DD',
+        popup_trigger: 'click',
+
+        // Personalizar tooltip
+        custom_popup_html: function(task) {
+          return `
+            <div class="p-3">
+              <h5 class="font-semibold text-gray-900 mb-2">${task.name}</h5>
+              <div class="space-y-1 text-xs text-gray-600">
+                <div><span class="font-medium">Orden:</span> ${task.order_code}</div>
+                <div><span class="font-medium">Work Center:</span> ${task.work_center}</div>
+                <div><span class="font-medium">Estado:</span> ${task.status}</div>
+                <div><span class="font-medium">Progreso:</span> ${task.progress}%</div>
+                <div><span class="font-medium">Inicio:</span> ${task.start}</div>
+                <div><span class="font-medium">Fin:</span> ${task.end}</div>
+              </div>
+              <div class="mt-2 pt-2 border-t">
+                <a href="/production/operations/${task.operation_id}/"
+                   class="text-xs text-blue-600 hover:text-blue-800">
+                  Ver detalle →
+                </a>
+              </div>
+            </div>
+          `;
+        },
+
+        // Al hacer click en una barra
+        on_click: function(task) {
+          // Redirigir a detalle de la operación
+          // window.location.href = `/production/operations/${task.operation_id}/`;
+        },
+
+        on_date_change: function(task, start, end) {
+          console.log('Fecha cambiada:', task, start, end);
+          // Aquí podrías implementar actualización de fechas vía AJAX
+        },
+
+        on_progress_change: function(task, progress) {
+          console.log('Progreso cambiado:', task, progress);
+        },
+
+        on_view_change: function(mode) {
+          currentViewMode = mode;
+        }
+      });
+
+      // Botones de zoom
+      document.getElementById('view-day').addEventListener('click', function() {
+        gantt.change_view_mode('Day');
+        updateActiveButton(this);
+      });
+
+      document.getElementById('view-week').addEventListener('click', function() {
+        gantt.change_view_mode('Week');
+        updateActiveButton(this);
+      });
+
+      document.getElementById('view-month').addEventListener('click', function() {
+        gantt.change_view_mode('Month');
+        updateActiveButton(this);
+      });
+
+      // Botón "Hoy"
+      document.getElementById('gantt-today').addEventListener('click', function() {
+        const today = new Date();
+        const todayStr = today.toISOString().split('T')[0];
+
+        // Scroll al día de hoy
+        const todayBar = document.querySelector(`[data-date="${todayStr}"]`);
+        if (todayBar) {
+          todayBar.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      });
+
+      function updateActiveButton(activeBtn) {
+        document.querySelectorAll('#view-day, #view-week, #view-month').forEach(btn => {
+          btn.classList.remove('bg-gray-100');
+        });
+        activeBtn.classList.add('bg-gray-100');
+      }
+    });
+  </script>
+{% endblock %}

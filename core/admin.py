@@ -4,8 +4,32 @@ from .models import TaxScheme, Unit, UnitCategory, Warehouse, Location, CompanyC
 
 admin.site.register(TaxScheme)
 admin.site.register(Unit)
-admin.site.register(Warehouse)
-admin.site.register(Location)
+@admin.register(Warehouse)
+class WarehouseAdmin(admin.ModelAdmin):
+    search_fields = ["code", "name"]
+
+
+@admin.register(Location)
+class LocationAdmin(admin.ModelAdmin):
+    list_display = ["code", "warehouse", "row", "rack", "level", "is_active"]
+    list_filter = ["warehouse", "is_active"]
+    search_fields = ["code", "row", "rack", "level"]
+    autocomplete_fields = ["warehouse"]
+    readonly_fields = ["created_at", "updated_at", "created_by", "updated_by"]
+
+    fieldsets = (
+        ("Información básica", {
+            "fields": ("warehouse", "code", "is_active")
+        }),
+        ("Ubicación física", {
+            "fields": ("row", "rack", "level"),
+            "description": "Especifica la posición dentro de la bodega (ej: Pasillo A, Rack 3, Nivel 2)"
+        }),
+        ("Auditoría", {
+            "fields": ("created_at", "updated_at", "created_by", "updated_by"),
+            "classes": ("collapse",)
+        }),
+    )
 
 
 @admin.register(CompanyConfig)

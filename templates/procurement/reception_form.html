@@ -1,13 +1,13 @@
 {% extends "layouts/app.html" %}
 {% load static %}
 
-{% block title %}Recepción de materia prima · {{ block.super }}{% endblock %}
+{% block title %}Recepción de Material (MP/PT) · {{ block.super }}{% endblock %}
 
 {% block app_content %}
 {% include "procurement/_nav.html" %}
 <div class="mb-6 flex items-center justify-between">
   <div>
-    <h1 class="text-2xl font-semibold">Recepción de materia prima</h1>
+    <h1 class="text-2xl font-semibold">Recepción de Material (MP/PT)</h1>
     <p class="text-sm text-gray-500">
       Registra el ingreso de materias primas a bodega de cuarentena conforme ISO&nbsp;13485.
     </p>
@@ -183,6 +183,11 @@
     </div>
   </div>
 
+  <!-- ALERTA DE EXCEDENTE (si existe OC) -->
+  <div id="quantity-warning-container" class="hidden">
+    <!-- Se llena dinámicamente con JavaScript -->
+  </div>
+
   <!-- CARD DETALLE DE PRODUCTOS -->
   <div class="rounded-2xl border bg-white p-4 md:p-6">
     <div class="mb-4 flex items-center justify-between">
@@ -197,7 +202,90 @@
     <!-- management_form del formset -->
     {{ line_formset.management_form }}
 
-    <div class="overflow-x-auto">
+    {# Mobile card layout #}
+    <div id="lines-body-mobile" class="space-y-3 md:hidden">
+      {% for form in line_formset %}
+        <div class="rounded-xl border p-3 line-row-mobile bg-white">
+          <div class="mb-2">
+            <label class="text-xs font-medium text-gray-600">Producto</label>
+            {{ form.product }}
+            {% for error in form.product.errors %}
+              <p class="mt-0.5 text-[10px] text-red-600">{{ error }}</p>
+            {% endfor %}
+          </div>
+
+          <div class="grid grid-cols-2 gap-2 mb-2">
+            <div>
+              <label class="text-xs font-medium text-gray-600">Cantidad</label>
+              {{ form.received_quantity }}
+              {% for error in form.received_quantity.errors %}
+                <p class="mt-0.5 text-[10px] text-red-600">{{ error }}</p>
+              {% endfor %}
+            </div>
+            <div>
+              <label class="text-xs font-medium text-gray-600">Unidad</label>
+              {{ form.unit }}
+              {% for error in form.unit.errors %}
+                <p class="mt-0.5 text-[10px] text-red-600">{{ error }}</p>
+              {% endfor %}
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2 mb-2">
+            <div>
+              <label class="text-xs font-medium text-gray-600">Costo unit.</label>
+              {{ form.unit_cost }}
+              {% for error in form.unit_cost.errors %}
+                <p class="mt-0.5 text-[10px] text-red-600">{{ error }}</p>
+              {% endfor %}
+            </div>
+            <div>
+              <label class="text-xs font-medium text-gray-600">Lote</label>
+              {{ form.lot_number }}
+              {% for error in form.lot_number.errors %}
+                <p class="mt-0.5 text-[10px] text-red-600">{{ error }}</p>
+              {% endfor %}
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2 mb-2">
+            <div>
+              <label class="text-xs font-medium text-gray-600">F. elaboración</label>
+              {{ form.manufacturing_date }}
+              {% for error in form.manufacturing_date.errors %}
+                <p class="mt-0.5 text-[10px] text-red-600">{{ error }}</p>
+              {% endfor %}
+            </div>
+            <div>
+              <label class="text-xs font-medium text-gray-600">F. caducidad</label>
+              {{ form.expiry_date }}
+              {% for error in form.expiry_date.errors %}
+                <p class="mt-0.5 text-[10px] text-red-600">{{ error }}</p>
+              {% endfor %}
+            </div>
+          </div>
+
+          <div class="mb-2">
+            <label class="text-xs font-medium text-gray-600">Notas</label>
+            {{ form.line_notes }}
+            {% for error in form.line_notes.errors %}
+              <p class="mt-0.5 text-[10px] text-red-600">{{ error }}</p>
+            {% endfor %}
+          </div>
+
+          <!-- Hidden fields -->
+          <div class="hidden">
+            {{ form.product_code }}
+          </div>
+          {% for hidden in form.hidden_fields %}
+            {{ hidden }}
+          {% endfor %}
+        </div>
+      {% endfor %}
+    </div>
+
+    {# Desktop table layout #}
+    <div class="hidden md:block overflow-x-auto">
       <table class="min-w-full text-xs md:text-sm">
         <thead>
           <tr class="border-b text-left text-gray-600">
@@ -206,10 +294,9 @@
             <th class="px-2 py-1">Cant. recibida</th>
             <th class="px-2 py-1">Unidad</th>
             <th class="px-2 py-1">Costo unit.</th>
-            <th class="px-2 py-1">Lote prov.</th>
+            <th class="px-2 py-1">Lote</th>
             <th class="px-2 py-1">F. elaboración</th>
             <th class="px-2 py-1">F. caducidad</th>
-            <th class="px-2 py-1">Zona</th>
             <th class="px-2 py-1">Notas</th>
           </tr>
         </thead>
@@ -234,7 +321,6 @@
                   <p class="text-xs text-red-600">{{ error }}</p>
                 {% endfor %}
               </td>
-              <!-- ⭐ CAMPO UNIDAD -->
               <td class="px-2 py-1">
                 {{ form.unit }}
                 {% for error in form.unit.errors %}
@@ -248,8 +334,8 @@
                 {% endfor %}
               </td>
               <td class="px-2 py-1">
-                {{ form.supplier_lot }}
-                {% for error in form.supplier_lot.errors %}
+                {{ form.lot_number }}
+                {% for error in form.lot_number.errors %}
                   <p class="text-xs text-red-600">{{ error }}</p>
                 {% endfor %}
               </td>
@@ -266,12 +352,6 @@
                 {% endfor %}
               </td>
               <td class="px-2 py-1">
-                {{ form.storage_area }}
-                {% for error in form.storage_area.errors %}
-                  <p class="text-xs text-red-600">{{ error }}</p>
-                {% endfor %}
-              </td>
-              <td class="px-2 py-1">
                 {{ form.line_notes }}
                 {% for error in form.line_notes.errors %}
                   <p class="text-xs text-red-600">{{ error }}</p>
@@ -285,7 +365,7 @@
       </table>
     </div>
 
-    <!-- fila oculta base para JS (usa empty_form del formset) -->
+    <!-- Desktop empty form template (hidden) -->
     <table class="hidden">
       <tbody>
         <tr id="empty-form-row" class="line-row hidden">
@@ -306,7 +386,7 @@
             {{ line_formset.empty_form.unit_cost }}
           </td>
           <td class="px-2 py-1">
-            {{ line_formset.empty_form.supplier_lot }}
+            {{ line_formset.empty_form.lot_number }}
           </td>
           <td class="px-2 py-1">
             {{ line_formset.empty_form.manufacturing_date }}
@@ -315,14 +395,65 @@
             {{ line_formset.empty_form.expiry_date  }}
           </td>
           <td class="px-2 py-1">
-            {{ line_formset.empty_form.storage_area }}
-          </td>
-          <td class="px-2 py-1">
             {{ line_formset.empty_form.line_notes }}
           </td>
         </tr>
       </tbody>
     </table>
+
+    <!-- Mobile empty form template (hidden) -->
+    <div id="empty-form-mobile" class="rounded-xl border p-3 line-row-mobile bg-white hidden">
+      <div class="mb-2">
+        <label class="text-xs font-medium text-gray-600">Producto</label>
+        {{ line_formset.empty_form.product }}
+      </div>
+
+      <div class="grid grid-cols-2 gap-2 mb-2">
+        <div>
+          <label class="text-xs font-medium text-gray-600">Cantidad</label>
+          {{ line_formset.empty_form.received_quantity }}
+        </div>
+        <div>
+          <label class="text-xs font-medium text-gray-600">Unidad</label>
+          {{ line_formset.empty_form.unit }}
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2 mb-2">
+        <div>
+          <label class="text-xs font-medium text-gray-600">Costo unit.</label>
+          {{ line_formset.empty_form.unit_cost }}
+        </div>
+        <div>
+          <label class="text-xs font-medium text-gray-600">Lote</label>
+          {{ line_formset.empty_form.lot_number }}
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2 mb-2">
+        <div>
+          <label class="text-xs font-medium text-gray-600">F. elaboración</label>
+          {{ line_formset.empty_form.manufacturing_date }}
+        </div>
+        <div>
+          <label class="text-xs font-medium text-gray-600">F. caducidad</label>
+          {{ line_formset.empty_form.expiry_date }}
+        </div>
+      </div>
+
+      <div class="mb-2">
+        <label class="text-xs font-medium text-gray-600">Notas</label>
+        {{ line_formset.empty_form.line_notes }}
+      </div>
+
+      <!-- Hidden fields -->
+      <div class="hidden">
+        {{ line_formset.empty_form.product_code }}
+      </div>
+      {% for hidden in line_formset.empty_form.hidden_fields %}
+        {{ hidden }}
+      {% endfor %}
+    </div>
   </div>
 
   <div class="flex justify-end gap-3">
@@ -340,23 +471,30 @@
 <!-- Catálogo de productos RAW activos -->
 <script>
   const RAW_PRODUCTS = {{ products_json|safe }};
+  const PO_QUANTITIES = {{ po_quantities_json|safe }};
+  const HAS_PURCHASE_ORDER = {% if purchase_order %}true{% else %}false{% endif %};
 </script>
 
-<!-- ⭐ JS MEJORADO: Autoseleccionar unidad base del producto -->
+<!-- ⭐ JS MEJORADO: Mobile + Desktop responsive form handling -->
 <script>
   (function() {
     const addBtn = document.getElementById("add-line");
-    const body = document.getElementById("lines-body");
+    const bodyDesktop = document.getElementById("lines-body");
+    const bodyMobile = document.getElementById("lines-body-mobile");
     const totalFormsInput = document.querySelector('[name="{{ line_formset.prefix }}-TOTAL_FORMS"]');
-    const emptyRow = document.getElementById("empty-form-row");
+    const emptyRowDesktop = document.getElementById("empty-form-row");
+    const emptyCardMobile = document.getElementById("empty-form-mobile");
 
-    if (!body || !totalFormsInput || !emptyRow) return;
+    if (!bodyDesktop || !bodyMobile || !totalFormsInput || !emptyRowDesktop || !emptyCardMobile) return;
 
-    function attachSyncHandlers(row, isNewRow) {
-      const codeInput = row.querySelector('[data-role="product-code"]');
-      const productSelect = row.querySelector('[data-role="product-select"]');
-      const unitSelect = row.querySelector('select[name*="-unit"]');
-      const costInput = row.querySelector('input[name*="-unit_cost"]');
+    function attachSyncHandlers(element, isNewRow) {
+      // Desktop uses data-role attributes, mobile uses name attributes
+      const codeInput = element.querySelector('[data-role="product-code"]') ||
+                        element.querySelector('input[name*="-product_code"]');
+      const productSelect = element.querySelector('[data-role="product-select"]') ||
+                            element.querySelector('select[name*="-product"]');
+      const unitSelect = element.querySelector('select[name*="-unit"]');
+      const costInput = element.querySelector('input[name*="-unit_cost"]');
 
       if (!productSelect) return;
 
@@ -438,18 +576,22 @@
       }
     }
 
-    // Handlers para filas existentes (NO pisar unidad pre-seleccionada)
-    body.querySelectorAll("tr.line-row").forEach(function(row) {
+    // Handlers para filas/cards existentes (NO pisar unidad pre-seleccionada)
+    bodyDesktop.querySelectorAll("tr.line-row").forEach(function(row) {
       attachSyncHandlers(row, false);
     });
+    bodyMobile.querySelectorAll("div.line-row-mobile").forEach(function(card) {
+      attachSyncHandlers(card, false);
+    });
 
-    // Botón para agregar nuevas filas
+    // Botón para agregar nuevas filas/cards
     if (addBtn) {
       addBtn.addEventListener("click", function() {
         const currentCount = parseInt(totalFormsInput.value, 10);
         const newIndex = currentCount;
 
-        const newRow = emptyRow.cloneNode(true);
+        // Clone desktop row
+        const newRow = emptyRowDesktop.cloneNode(true);
         newRow.id = "";
         newRow.classList.remove("hidden");
 
@@ -468,13 +610,151 @@
           }
         });
 
-        body.appendChild(newRow);
+        // Clone mobile card
+        const newCard = emptyCardMobile.cloneNode(true);
+        newCard.id = "";
+        newCard.classList.remove("hidden");
+
+        newCard.querySelectorAll("input, select, textarea").forEach(function(el) {
+          if (el.name) el.name = el.name.replace("__prefix__", newIndex);
+          if (el.id) el.id = el.id.replace("__prefix__", newIndex);
+
+          if (el.tagName === "INPUT" || el.tagName === "TEXTAREA") {
+            if (el.type === "checkbox" || el.type === "radio") {
+              el.checked = false;
+            } else {
+              el.value = "";
+            }
+          } else if (el.tagName === "SELECT") {
+            el.selectedIndex = 0;
+          }
+        });
+
+        // Append both
+        bodyDesktop.appendChild(newRow);
+        bodyMobile.appendChild(newCard);
         totalFormsInput.value = newIndex + 1;
 
+        // Attach handlers to both new elements
         attachSyncHandlers(newRow, true);
+        attachSyncHandlers(newCard, true);
+
+        // Validar cantidades después de agregar línea
+        if (HAS_PURCHASE_ORDER) {
+          checkQuantityExcess();
+        }
       });
     }
+
+    // Initial check si existe OC
+    if (HAS_PURCHASE_ORDER) {
+      checkQuantityExcess();
+    }
   })();
+
+  // ⭐ VALIDACIÓN DE CANTIDADES vs ORDEN DE COMPRA
+  function checkQuantityExcess() {
+    if (!HAS_PURCHASE_ORDER || !PO_QUANTITIES || Object.keys(PO_QUANTITIES).length === 0) {
+      return;
+    }
+
+    const warningContainer = document.getElementById("quantity-warning-container");
+    if (!warningContainer) return;
+
+    // Agrupar cantidades recibidas por producto
+    const receivedByProduct = {};
+
+    // Procesar líneas de desktop y mobile (ambas tienen los mismos datos)
+    document.querySelectorAll("tr.line-row").forEach(function(row) {
+      const productSelect = row.querySelector('select[name*="-product"]');
+      const quantityInput = row.querySelector('input[name*="-received_quantity"]');
+
+      if (!productSelect || !quantityInput) return;
+
+      const productId = productSelect.value;
+      const quantity = parseFloat(quantityInput.value) || 0;
+
+      if (productId && quantity > 0) {
+        if (!receivedByProduct[productId]) {
+          receivedByProduct[productId] = 0;
+        }
+        receivedByProduct[productId] += quantity;
+      }
+    });
+
+    // Comparar contra cantidades esperadas
+    const warnings = [];
+
+    for (const productId in receivedByProduct) {
+      const received = receivedByProduct[productId];
+      const expected = PO_QUANTITIES[productId];
+
+      if (expected) {
+        const expectedQty = parseFloat(expected.quantity);
+        if (received > expectedQty) {
+          const excess = received - expectedQty;
+          warnings.push({
+            productName: expected.product_name,
+            productCode: expected.product_code,
+            received: received,
+            expected: expectedQty,
+            excess: excess,
+            unit: expected.unit_code,
+          });
+        }
+      }
+    }
+
+    // Mostrar u ocultar warning
+    if (warnings.length > 0) {
+      let html = '<div class="mb-6 rounded-xl bg-yellow-50 border-2 border-yellow-400 p-4">';
+      html += '<div class="flex items-start gap-3">';
+      html += '<div class="text-yellow-600 text-xl">⚠️</div>';
+      html += '<div class="flex-1">';
+      html += '<h3 class="font-semibold text-yellow-900 mb-2">Advertencia: Excedente detectado</h3>';
+      html += '<p class="text-sm text-yellow-800 mb-3">Estás recibiendo más cantidad de la solicitada en la orden de compra:</p>';
+      html += '<ul class="space-y-2 text-sm">';
+
+      warnings.forEach(function(w) {
+        html += '<li class="flex items-center gap-2 text-yellow-900">';
+        html += '<span class="font-mono bg-yellow-100 px-2 py-0.5 rounded">' + w.productCode + '</span>';
+        html += '<span>' + w.productName + ':</span>';
+        html += '<span class="font-semibold">+' + w.excess.toFixed(2) + ' ' + w.unit + '</span>';
+        html += '<span class="text-yellow-700">(Solicitado: ' + w.expected.toFixed(2) + ' ' + w.unit + ', Recibiendo: ' + w.received.toFixed(2) + ' ' + w.unit + ')</span>';
+        html += '</li>';
+      });
+
+      html += '</ul>';
+      html += '<p class="text-xs text-yellow-700 mt-3">Puedes continuar y guardar la recepción. Documenta la razón del excedente en las notas.</p>';
+      html += '</div>';
+      html += '</div>';
+      html += '</div>';
+
+      warningContainer.innerHTML = html;
+      warningContainer.classList.remove("hidden");
+    } else {
+      warningContainer.innerHTML = "";
+      warningContainer.classList.add("hidden");
+    }
+  }
+
+  // Escuchar cambios en cantidades y productos
+  document.addEventListener("DOMContentLoaded", function() {
+    if (!HAS_PURCHASE_ORDER) return;
+
+    // Delegar eventos para líneas dinámicas
+    document.addEventListener("input", function(e) {
+      if (e.target.matches('input[name*="-received_quantity"]')) {
+        checkQuantityExcess();
+      }
+    });
+
+    document.addEventListener("change", function(e) {
+      if (e.target.matches('select[name*="-product"]')) {
+        checkQuantityExcess();
+      }
+    });
+  });
 </script>
 
 {% endblock %}

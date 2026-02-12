@@ -91,8 +91,8 @@
       {% for line in lines %}
       <tr{% if forloop.counter|divisibleby:2 %} class="even"{% endif %}>
         <td>{{ line.product.code }} — {{ line.product.name }}</td>
-        <td>{{ line.supplier_lot|default:"—" }}</td>
-        <td>{{ line.internal_lot|default:"—" }}</td>
+        <td>{{ line.lot_number|default:"—" }}</td>
+        <td>{{ line.lot_number|default:"—" }}</td>
         <td class="right">{{ line.expected_quantity|default:"—" }}</td>
         <td class="right">{{ line.received_quantity }}</td>
         <td>{{ line.unit.symbol|default:"" }}</td>

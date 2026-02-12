@@ -10,6 +10,9 @@ urlpatterns = [
     path("orders/new/", views.PurchaseOrderCreateView.as_view(), name="order_create"),
     path("orders/<int:pk>/edit/", views.PurchaseOrderUpdateView.as_view(), name="order_update"),
 
+    # AJAX Endpoints
+    path("ajax/supplier/<int:supplier_id>/products/", views.get_supplier_products_ajax, name="ajax_supplier_products"),
+
     # Recepciones de materia prima
     path("receptions/", views.RawMaterialReceptionListView.as_view(), name="receptions_list"),
     path("receptions/new/", views.RawMaterialReceptionCreateView.as_view(), name="receptions_create"),

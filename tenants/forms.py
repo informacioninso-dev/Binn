@@ -1,6 +1,7 @@
 import re
 
 from django import forms
+from django.conf import settings
 from django.core.exceptions import ValidationError
 
 from .models import Client, TenantMembership
@@ -15,7 +16,12 @@ _INPUT = {"class": "w-full rounded-lg border px-3 py-2"}
 class TenantCreateForm(forms.Form):
     name = forms.CharField(label="Nombre", max_length=120, widget=forms.TextInput(attrs=_INPUT))
     schema_name = forms.CharField(label="Schema", max_length=63, widget=forms.TextInput(attrs=_INPUT))
-    domain = forms.CharField(label="Dominio", max_length=255, widget=forms.TextInput(attrs=_INPUT))
+    subdomain = forms.CharField(
+        label="Subdominio",
+        max_length=63,
+        widget=forms.TextInput(attrs={**_INPUT, "placeholder": "acme"}),
+        help_text=f"Se convertirá en subdominio.{settings.TENANT_BASE_DOMAIN}"
+    )
     plan = forms.ChoiceField(label="Plan", choices=Client.PLAN_CHOICES, widget=forms.Select(attrs=_INPUT))
 
     admin_username = forms.CharField(label="Usuario admin", max_length=150, required=False, widget=forms.TextInput(attrs=_INPUT))
@@ -34,12 +40,22 @@ class TenantCreateForm(forms.Form):
             raise ValidationError("Schema invalido. Usa letras, numeros y guion bajo; min 3 caracteres.")
         return value
 
-    def clean_domain(self):
-        value = (self.cleaned_data.get("domain") or "").strip().lower()
+    def clean_subdomain(self):
+        value = (self.cleaned_data.get("subdomain") or "").strip().lower()
+        # Limpiar cualquier protocolo o path
         value = value.replace("https://", "").replace("http://", "").strip("/")
-        if not value:
-            raise ValidationError("Dominio invalido.")
-        return value
+        # Quitar el dominio base si lo incluyeron
+        base_domain = settings.TENANT_BASE_DOMAIN
+        if value.endswith(f".{base_domain}"):
+            value = value[: -(len(base_domain) + 1)]
+
+        # Validar formato de subdomain (solo alfanumérico y guiones)
+        if not re.match(r"^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$", value):
+            raise ValidationError("Subdominio inválido. Solo letras, números y guiones.")
+
+        # Construir dominio completo
+        full_domain = f"{value}.{base_domain}"
+        return full_domain
 
     def clean(self):
         cleaned = super().clean()

@@ -251,8 +251,8 @@ class RawMaterialReception(AuditModel):
     observations = models.TextField(blank=True, null=True)
 
     class Meta:
-        verbose_name = "Recepción de Materia Prima"
-        verbose_name_plural = "Recepciones de Materia Prima"
+        verbose_name = "Recepción de Material (MP/PT)"
+        verbose_name_plural = "Recepciones de Material (MP/PT)"
         ordering = ["-reception_date", "-code"]
 
     def __str__(self):
@@ -295,18 +295,16 @@ class RawMaterialReceptionLine(models.Model):
         help_text="Unidad en la que se recibió el material (puede diferir de la base)"
     )
 
-    supplier_lot = models.CharField(
+    lot_number = models.CharField(
         max_length=50,
         blank=True,
         null=True,
-        help_text="Lote según etiqueta del proveedor (si existe)"
+        verbose_name="Número de lote",
+        help_text="Número de lote único (puede ser del proveedor o auto-generado). Este será el lote usado en todo el sistema para trazabilidad."
     )
-    internal_lot = models.CharField(
-        max_length=50,
-        blank=True,
-        null=True,
-        help_text="Lote interno asignado por la empresa (si ya lo tienes al recibir)"
-    )
+    # Campos deprecados - mantener temporalmente para migración de datos
+    supplier_lot = models.CharField(max_length=50, blank=True, null=True)
+    internal_lot = models.CharField(max_length=50, blank=True, null=True)
     manufacturing_date = models.DateField(
         null=True,
         blank=True,

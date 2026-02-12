@@ -144,7 +144,76 @@
         </div>
       {% endif %}
 
-      <div class="overflow-x-auto">
+      {# Mobile card layout #}
+      <div id="lines-body-mobile" class="space-y-3 md:hidden">
+        {% for line_form in line_formset %}
+          <div class="rounded-xl border p-3 line-row-mobile bg-white">
+            <div class="mb-2">
+              <label class="text-xs font-medium text-gray-600">Producto</label>
+              {{ line_form.product }}
+              {% for error in line_form.product.errors %}
+                <p class="mt-0.5 text-[10px] text-red-600">{{ error }}</p>
+              {% endfor %}
+            </div>
+
+            <div class="mb-2">
+              <label class="text-xs font-medium text-gray-600">Descripción</label>
+              {{ line_form.description }}
+              {% for error in line_form.description.errors %}
+                <p class="mt-0.5 text-[10px] text-red-600">{{ error }}</p>
+              {% endfor %}
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 mb-2">
+              <div>
+                <label class="text-xs font-medium text-gray-600">Cantidad</label>
+                {{ line_form.quantity }}
+                {% for error in line_form.quantity.errors %}
+                  <p class="mt-0.5 text-[10px] text-red-600">{{ error }}</p>
+                {% endfor %}
+              </div>
+              <div>
+                <label class="text-xs font-medium text-gray-600">Unidad</label>
+                {{ line_form.unit }}
+                {% for error in line_form.unit.errors %}
+                  <p class="mt-0.5 text-[10px] text-red-600">{{ error }}</p>
+                {% endfor %}
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 mb-2">
+              <div>
+                <label class="text-xs font-medium text-gray-600">Precio unitario</label>
+                {{ line_form.unit_price }}
+                {% for error in line_form.unit_price.errors %}
+                  <p class="mt-0.5 text-[10px] text-red-600">{{ error }}</p>
+                {% endfor %}
+              </div>
+              <div>
+                <label class="text-xs font-medium text-gray-600">Subtotal</label>
+                <div class="rounded-lg border bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-700">
+                  <span class="line-subtotal">0.00</span>
+                </div>
+              </div>
+            </div>
+
+            {% if line_form.DELETE %}
+              <div class="flex items-center gap-2 pt-2 border-t">
+                {{ line_form.DELETE }}
+                <label class="text-xs text-gray-600">Marcar para eliminar</label>
+              </div>
+            {% endif %}
+
+            <!-- Hidden fields -->
+            {% for hidden in line_form.hidden_fields %}
+              {{ hidden }}
+            {% endfor %}
+          </div>
+        {% endfor %}
+      </div>
+
+      {# Desktop table layout #}
+      <div class="hidden md:block overflow-x-auto">
         <table class="min-w-full text-xs md:text-sm">
           <thead>
             <tr class="border-b bg-gray-50 text-[11px] font-semibold text-gray-600">
@@ -223,7 +292,7 @@
             {% endfor %}
           </tbody>
         </table>
-      </div>
+      </div>  {# Cierre de hidden md:block #}
 
       <div class="mt-4 flex justify-end text-sm">
         <div class="rounded-xl bg-gray-50 px-4 py-2">
@@ -249,7 +318,7 @@
     </div>
   </form>
 
-  {# Fila plantilla oculta para nuevas líneas (usa empty_form del formset) #}
+  {# Desktop empty form template #}
   <table class="hidden">
     <tbody>
       <tr id="empty-line-row" class="line-row">
@@ -285,11 +354,62 @@
       </tr>
     </tbody>
   </table>
+
+  {# Mobile empty form template #}
+  <div id="empty-line-mobile" class="rounded-xl border p-3 line-row-mobile bg-white hidden">
+    <div class="mb-2">
+      <label class="text-xs font-medium text-gray-600">Producto</label>
+      {{ line_formset.empty_form.product }}
+    </div>
+
+    <div class="mb-2">
+      <label class="text-xs font-medium text-gray-600">Descripción</label>
+      {{ line_formset.empty_form.description }}
+    </div>
+
+    <div class="grid grid-cols-2 gap-2 mb-2">
+      <div>
+        <label class="text-xs font-medium text-gray-600">Cantidad</label>
+        {{ line_formset.empty_form.quantity }}
+      </div>
+      <div>
+        <label class="text-xs font-medium text-gray-600">Unidad</label>
+        {{ line_formset.empty_form.unit }}
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-2 mb-2">
+      <div>
+        <label class="text-xs font-medium text-gray-600">Precio unitario</label>
+        {{ line_formset.empty_form.unit_price }}
+      </div>
+      <div>
+        <label class="text-xs font-medium text-gray-600">Subtotal</label>
+        <div class="rounded-lg border bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-700">
+          <span class="line-subtotal">0.00</span>
+        </div>
+      </div>
+    </div>
+
+    {% if line_formset.empty_form.DELETE %}
+      <div class="flex items-center gap-2 pt-2 border-t">
+        {{ line_formset.empty_form.DELETE }}
+        <label class="text-xs text-gray-600">Marcar para eliminar</label>
+      </div>
+    {% endif %}
+
+    <!-- Hidden fields -->
+    {% for hidden in line_formset.empty_form.hidden_fields %}
+      {{ hidden }}
+    {% endfor %}
+  </div>
   <script>
   document.addEventListener("DOMContentLoaded", function () {
       const addBtn = document.getElementById("add-line");
-      const body = document.getElementById("lines-body");
-      const emptyRow = document.getElementById("empty-line-row");
+      const bodyDesktop = document.getElementById("lines-body");
+      const bodyMobile = document.getElementById("lines-body-mobile");
+      const emptyRowDesktop = document.getElementById("empty-line-row");
+      const emptyCardMobile = document.getElementById("empty-line-mobile");
       const prefix = "{{ line_formset.prefix }}";
       const totalFormsInput = document.getElementById(`id_${prefix}-TOTAL_FORMS`);
       const orderTotalEl = document.getElementById("order-total");
@@ -303,14 +423,14 @@
         productsMap = {};
       }
 
-      if (!addBtn || !body || !emptyRow || !totalFormsInput) {
+      if (!addBtn || !bodyDesktop || !bodyMobile || !emptyRowDesktop || !emptyCardMobile || !totalFormsInput) {
         return;
       }
 
-      function recalcLine(row) {
-        const qtyInput = row.querySelector('input[name$="-quantity"]');
-        const priceInput = row.querySelector('input[name$="-unit_price"]');
-        const subtotalEl = row.querySelector(".line-subtotal");
+      function recalcLine(element) {
+        const qtyInput = element.querySelector('input[name$="-quantity"]');
+        const priceInput = element.querySelector('input[name$="-unit_price"]');
+        const subtotalEl = element.querySelector(".line-subtotal");
 
         const qty = parseFloat(qtyInput && qtyInput.value.replace(",", ".")) || 0;
         const price = parseFloat(priceInput && priceInput.value.replace(",", ".")) || 0;
@@ -332,21 +452,21 @@
         }
       }
 
-      function hookRowEvents(row) {
+      function hookRowEvents(element) {
         // Cantidad / precio → subtotal
-        const inputs = row.querySelectorAll(
+        const inputs = element.querySelectorAll(
           'input[name$="-quantity"], input[name$="-unit_price"]'
         );
         inputs.forEach(function (input) {
           input.addEventListener("input", function () {
-            recalcLine(row);
+            recalcLine(element);
             recalcOrderTotal();
           });
         });
 
         // ⭐ AUTOSELECCIONAR UNIDAD BASE AL ELEGIR PRODUCTO
-        const productSelect = row.querySelector('select[name$="-product"]');
-        const unitSelect = row.querySelector('select[name$="-unit"]');
+        const productSelect = element.querySelector('select[name$="-product"]');
+        const unitSelect = element.querySelector('select[name$="-unit"]');
 
         if (productSelect && unitSelect) {
           function updateUnit() {
@@ -369,11 +489,18 @@
         }
       }
 
-      // Hook de filas iniciales
+      // Hook de filas/cards iniciales - DESKTOP
       document.querySelectorAll("#lines-body .line-row").forEach(function (row) {
         hookRowEvents(row);
         recalcLine(row);
       });
+
+      // Hook de filas/cards iniciales - MOBILE
+      document.querySelectorAll("#lines-body-mobile .line-row-mobile").forEach(function (card) {
+        hookRowEvents(card);
+        recalcLine(card);
+      });
+
       recalcOrderTotal();
 
       // Botón "Agregar línea"
@@ -381,7 +508,8 @@
         const currentCount = parseInt(totalFormsInput.value, 10) || 0;
         const newIndex = currentCount;
 
-        const newRow = emptyRow.cloneNode(true);
+        // Clone desktop row
+        const newRow = emptyRowDesktop.cloneNode(true);
         newRow.id = "";
         newRow.classList.add("line-row");
 
@@ -400,13 +528,89 @@
           }
         });
 
-        body.appendChild(newRow);
+        // Clone mobile card
+        const newCard = emptyCardMobile.cloneNode(true);
+        newCard.id = "";
+        newCard.classList.remove("hidden");
+        newCard.classList.add("line-row-mobile");
+
+        newCard.querySelectorAll("input, select, textarea").forEach(function (el) {
+          if (el.name) {
+            el.name = el.name.replace("__prefix__", newIndex);
+          }
+          if (el.id) {
+            el.id = el.id.replace("__prefix__", newIndex);
+          }
+
+          if (el.type === "checkbox" || el.type === "radio") {
+            el.checked = false;
+          } else {
+            el.value = "";
+          }
+        });
+
+        // Append both
+        bodyDesktop.appendChild(newRow);
+        bodyMobile.appendChild(newCard);
         totalFormsInput.value = newIndex + 1;
 
+        // Hook events on both
         hookRowEvents(newRow);
         recalcLine(newRow);
+        hookRowEvents(newCard);
+        recalcLine(newCard);
         recalcOrderTotal();
       });
+
+      // ── Carga dinámica de productos por proveedor ──
+      const supplierSelect = document.querySelector('select[name="supplier"]');
+      if (supplierSelect) {
+        supplierSelect.addEventListener('change', function() {
+          const supplierId = this.value;
+          if (!supplierId) {
+            // Si no hay proveedor seleccionado, limpiar productos
+            productsMap = {};
+            return;
+          }
+
+          // Cargar productos del proveedor via AJAX
+          fetch(`/procurement/ajax/supplier/${supplierId}/products/`)
+            .then(response => response.json())
+            .then(data => {
+              // Actualizar productsMap con productos del proveedor
+              productsMap = {};
+              data.forEach(product => {
+                productsMap[product.id] = product;
+              });
+
+              // Actualizar los selects de productos en líneas existentes (desktop y mobile)
+              document.querySelectorAll('select[name$="-product"]').forEach(select => {
+                const currentValue = select.value;
+                // Limpiar opciones existentes excepto la primera (vacía)
+                while (select.options.length > 1) {
+                  select.remove(1);
+                }
+                // Agregar productos del proveedor
+                data.forEach(product => {
+                  const option = new Option(
+                    `${product.code} - ${product.name}`,
+                    product.id
+                  );
+                  select.add(option);
+                });
+                // Restaurar selección si el producto está en el nuevo catálogo
+                if (currentValue && productsMap[currentValue]) {
+                  select.value = currentValue;
+                }
+              });
+
+              console.log(`Cargados ${data.length} productos del proveedor ${supplierId}`);
+            })
+            .catch(error => {
+              console.error('Error cargando productos del proveedor:', error);
+            });
+        });
+      }
   });
   </script>
 {% endblock %}

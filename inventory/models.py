@@ -142,8 +142,16 @@ class Lot(AuditModel):
     Modelo que las cantidades de Location de "code/models" como  location
     """
     product = models.ForeignKey(Product, on_delete=models.PROTECT, related_name="lots")
-    internal_lot = models.CharField(max_length=50)  # lote interno generado por la empresa
-    supplier_lot = models.CharField(max_length=50, blank=True, null=True)  # lote del proveedor
+    lot_number = models.CharField(
+        max_length=50,
+        null=True,
+        blank=True,
+        verbose_name="Número de lote",
+        help_text="Número de lote único para trazabilidad (del proveedor o auto-generado)"
+    )
+    # Campos deprecados - mantener temporalmente para migración de datos
+    internal_lot = models.CharField(max_length=50, null=True, blank=True)
+    supplier_lot = models.CharField(max_length=50, blank=True, null=True)
     quantity_initial = models.DecimalField(max_digits=12, decimal_places=4)
     warehouse = models.ForeignKey(
         Warehouse,
@@ -173,12 +181,12 @@ class Lot(AuditModel):
         return total or Decimal('0')
     
     class Meta:
-        unique_together = ("product", "internal_lot")
+        unique_together = ("product", "lot_number")
         verbose_name = "Lote"
         verbose_name_plural = "Lotes"
 
     def __str__(self):
-        return f"{self.product.code} - Lote {self.internal_lot}"
+        return f"{self.product.code} - Lote {self.lot_number}"
 
 # ---------------------------- Modelos de Recepción de Materia Prima -------------------------
 
@@ -199,7 +207,7 @@ class LotBalance(AuditModel):
         ]
 
     def __str__(self):
-        return f"{self.lot.internal_lot} @ {self.location.code} = {self.qty}"
+        return f"{self.lot.lot_number} @ {self.location.code} = {self.qty}"
 
 
 #----------------------------Modelo de Movimiento de Inventario

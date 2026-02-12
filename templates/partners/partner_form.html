@@ -43,16 +43,14 @@
     {# 1. Identificación básica #}
     <div class="rounded-2xl border bg-white p-4 md:p-6">
       <h2 class="mb-4 text-lg font-semibold text-gray-900">Identificación</h2>
-      <div class="grid gap-4 md:grid-cols-3">
+      <div class="grid gap-4 md:grid-cols-2">
         <div>
           <label class="mb-1 block text-sm font-medium">{{ form.code.label }}</label>
           {{ form.code }}
           {% for error in form.code.errors %}<p class="text-xs text-red-600">{{ error }}</p>{% endfor %}
-        </div>
-        <div>
-          <label class="mb-1 block text-sm font-medium">{{ form.alt_code.label }}</label>
-          {{ form.alt_code }}
-          {% for error in form.alt_code.errors %}<p class="text-xs text-red-600">{{ error }}</p>{% endfor %}
+          <p class="mt-1 text-[11px] text-gray-500" id="code-help-text">
+            El sistema sugerirá un código automáticamente. Ejemplo: PROV-ECU-001
+          </p>
         </div>
         <div>
           <label class="mb-1 block text-sm font-medium">{{ form.identification_type.label }}</label>
@@ -142,10 +140,18 @@
         </div>
       </div>
 
-      <div class="mt-4">
-        <label class="mb-1 block text-sm font-medium">{{ form.retention_profile.label }}</label>
-        {{ form.retention_profile }}
-        {% for error in form.retention_profile.errors %}<p class="text-xs text-red-600">{{ error }}</p>{% endfor %}
+      <div class="mt-4 grid gap-4 md:grid-cols-2">
+        <div>
+          <label class="mb-1 block text-sm font-medium">{{ form.retention_profile.label }}</label>
+          {{ form.retention_profile }}
+          {% for error in form.retention_profile.errors %}<p class="text-xs text-red-600">{{ error }}</p>{% endfor %}
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium">{{ form.price_list.label }}</label>
+          {{ form.price_list }}
+          {% for error in form.price_list.errors %}<p class="text-xs text-red-600">{{ error }}</p>{% endfor %}
+          <p class="mt-1 text-[11px] text-gray-500">Lista de precios aplicable a este cliente.</p>
+        </div>
       </div>
     </div>
 
@@ -254,4 +260,99 @@
       </button>
     </div>
   </form>
+
+  <script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const codeInput = document.getElementById('id_code');
+    const isSupplierCheck = document.getElementById('id_is_supplier');
+    const isCustomerCheck = document.getElementById('id_is_customer');
+    const isPublicEntityCheck = document.getElementById('id_is_public_entity');
+    const countryInput = document.getElementById('id_country');
+    const codeHelpText = document.getElementById('code-help-text');
+
+    let lastSuggestedCode = '';
+    let isUpdatingProgrammatically = false;
+
+    // Detectar si el usuario editó manualmente el código
+    if (codeInput) {
+      codeInput.addEventListener('input', function() {
+        // Ignorar si estamos actualizando programáticamente
+        if (isUpdatingProgrammatically) {
+          return;
+        }
+        // Si el valor cambió y no es el último sugerido, marcar como editado manualmente
+        if (codeInput.value !== lastSuggestedCode) {
+          lastSuggestedCode = '';  // Desactivar auto-sugerencias futuras
+        }
+      });
+    }
+
+    function suggestCode() {
+      const isSupplier = isSupplierCheck ? isSupplierCheck.checked : false;
+      const isCustomer = isCustomerCheck ? isCustomerCheck.checked : false;
+      const isPublicEntity = isPublicEntityCheck ? isPublicEntityCheck.checked : false;
+      const country = countryInput ? countryInput.value : '';
+
+      // Solo sugerir si hay al menos un tipo seleccionado
+      if (!isSupplier && !isCustomer && !isPublicEntity) {
+        if (codeHelpText) {
+          codeHelpText.textContent = 'Selecciona el tipo (Cliente, Proveedor o Entidad pública) para sugerencia automática.';
+        }
+        return;
+      }
+
+      // Llamar al endpoint AJAX
+      const params = new URLSearchParams({
+        is_supplier: isSupplier,
+        is_customer: isCustomer,
+        is_public_entity: isPublicEntity,
+        country: country
+      });
+
+      fetch(`/partners/ajax/suggest-code/?${params}`)
+        .then(response => response.json())
+        .then(data => {
+          // Solo actualizar si el campo está vacío o contiene el último código sugerido
+          const currentValue = codeInput.value.trim();
+          const canUpdate = !currentValue || currentValue === lastSuggestedCode;
+
+          if (canUpdate) {
+            isUpdatingProgrammatically = true;
+            codeInput.value = data.suggested_code;
+            lastSuggestedCode = data.suggested_code;
+            isUpdatingProgrammatically = false;
+
+            if (codeHelpText) {
+              codeHelpText.innerHTML = `
+                <span class="text-blue-600">✓ Código sugerido automáticamente</span>
+                <span class="text-gray-400">(puedes editarlo)</span>
+              `;
+            }
+          } else {
+            // El usuario editó manualmente el código
+            if (codeHelpText) {
+              codeHelpText.innerHTML = `
+                <span class="text-gray-500">Código personalizado</span>
+                <span class="text-gray-400">(sugerencia desactivada)</span>
+              `;
+            }
+          }
+        })
+        .catch(error => {
+          console.error('Error sugiriendo código:', error);
+        });
+    }
+
+    // Escuchar cambios en los campos relevantes
+    if (isSupplierCheck) isSupplierCheck.addEventListener('change', suggestCode);
+    if (isCustomerCheck) isCustomerCheck.addEventListener('change', suggestCode);
+    if (isPublicEntityCheck) isPublicEntityCheck.addEventListener('change', suggestCode);
+    if (countryInput) countryInput.addEventListener('change', suggestCode);  // Cambio: 'change' en vez de 'blur'
+
+    // Sugerir código al cargar la página si es nuevo (no hay código aún)
+    if (codeInput && !codeInput.value) {
+      suggestCode();
+    }
+  });
+  </script>
 {% endblock %}

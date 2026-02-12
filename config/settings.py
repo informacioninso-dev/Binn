@@ -74,6 +74,9 @@ TENANT_MODEL = 'tenants.Client'
 TENANT_DOMAIN_MODEL = 'tenants.Domain'
 DATABASE_ROUTERS = ('django_tenants.routers.TenantSyncRouter',)
 
+# Dominio base para tenants (usa .env para producción)
+TENANT_BASE_DOMAIN = os.getenv('TENANT_BASE_DOMAIN', 'localhost')
+
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
@@ -185,3 +188,42 @@ if not DEBUG:
     SECURE_BROWSER_XSS_FILTER = True
     X_FRAME_OPTIONS = 'DENY'
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# ---- Logging ----
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+        'file': {
+            'class': 'logging.FileHandler',
+            'filename': BASE_DIR / 'logs' / 'kore.log',
+            'formatter': 'verbose',
+        },
+    },
+    'root': {
+        'handlers': ['console', 'file'] if not DEBUG else ['console'],
+        'level': 'INFO' if not DEBUG else 'DEBUG',
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console', 'file'] if not DEBUG else ['console'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+        'django.request': {
+            'handlers': ['console', 'file'] if not DEBUG else ['console'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+    },
+}

@@ -94,10 +94,18 @@
                 {% endif %}
               </td>
               <td class="px-3 py-2 align-top text-right text-xs">
-                <a href="{% url 'partners:update' p.pk %}"
-                   class="rounded-lg border px-2 py-1 hover:bg-gray-50">
-                  Editar
-                </a>
+                <div class="flex gap-1 justify-end">
+                  <a href="{% url 'partners:update' p.pk %}"
+                     class="rounded-lg border px-2 py-1 hover:bg-gray-50">
+                    Editar
+                  </a>
+                  {% if p.is_supplier %}
+                    <a href="{% url 'partners:catalog' p.pk %}"
+                       class="rounded-lg border border-blue-200 px-2 py-1 text-blue-600 hover:bg-blue-50">
+                      Catálogo
+                    </a>
+                  {% endif %}
+                </div>
               </td>
             </tr>
           {% endfor %}

@@ -6,6 +6,7 @@ from .models import (
     GuiaRemision, GuiaRemisionLine,
     ReturnReason, SaleReturn, SaleReturnLine,
     CreditNote, CreditNoteLine,
+    PriceList, PriceListItem,
 )
 
 
@@ -118,3 +119,29 @@ class GuiaRemisionAdmin(admin.ModelAdmin):
     list_filter = ("status",)
     search_fields = ("sequential", "dispatch__code", "carrier_legal_name")
     inlines = [GuiaRemisionLineInline]
+
+
+# ─── Listas de Precios ─────────────────────────────────────
+
+class PriceListItemInline(admin.TabularInline):
+    model = PriceListItem
+    extra = 1
+    autocomplete_fields = ["product"]
+    fields = ["product", "unit_price"]
+
+
+@admin.register(PriceList)
+class PriceListAdmin(admin.ModelAdmin):
+    list_display = ["code", "name", "currency", "is_active", "created_at"]
+    list_filter = ["is_active", "currency"]
+    search_fields = ["code", "name"]
+    inlines = [PriceListItemInline]
+    readonly_fields = ["created_at", "updated_at", "created_by", "updated_by"]
+
+
+@admin.register(PriceListItem)
+class PriceListItemAdmin(admin.ModelAdmin):
+    list_display = ["price_list", "product", "unit_price"]
+    list_filter = ["price_list"]
+    search_fields = ["product__code", "product__name"]
+    autocomplete_fields = ["product", "price_list"]

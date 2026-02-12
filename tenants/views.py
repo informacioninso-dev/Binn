@@ -42,7 +42,7 @@ class TenantCreateView(LoginRequiredMixin, SuperAdminRequiredMixin, View):
         schema_name = form.cleaned_data["schema_name"]
         name = form.cleaned_data["name"]
         plan = form.cleaned_data["plan"]
-        domain = form.cleaned_data["domain"]
+        domain = form.cleaned_data["subdomain"]
 
         try:
             with transaction.atomic():
@@ -54,14 +54,27 @@ class TenantCreateView(LoginRequiredMixin, SuperAdminRequiredMixin, View):
                 )
                 client.save()
                 Domain.objects.create(domain=domain, tenant=client, is_primary=True)
-        except IntegrityError:
-            messages.error(request, "El schema o dominio ya existe.")
+        except IntegrityError as e:
+            messages.error(request, f"El schema o dominio ya existe: {str(e)}")
+            return render(request, self.template_name, {"form": form})
+        except Exception as e:
+            messages.error(request, f"Error al crear tenant: {str(e)}")
             return render(request, self.template_name, {"form": form})
 
         # Migrar schema y cargar seed base
-        call_command("migrate_schemas", schema_name=client.schema_name, interactive=False, verbosity=0)
-        with schema_context(client.schema_name):
-            call_command("seed_data", verbosity=0)
+        try:
+            call_command("migrate_schemas", schema_name=client.schema_name, interactive=False, verbosity=0)
+        except Exception as e:
+            messages.error(request, f"Error al migrar schema: {str(e)}")
+            # Eliminar el tenant creado si las migraciones fallan
+            client.delete()
+            return render(request, self.template_name, {"form": form})
+
+        try:
+            with schema_context(client.schema_name):
+                call_command("seed_data", verbosity=0)
+        except Exception as e:
+            messages.warning(request, f"Tenant creado pero seed_data falló: {str(e)}")
             try:
                 from core.models import CompanyConfig
                 config = CompanyConfig.get()

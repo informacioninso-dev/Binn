@@ -40,6 +40,7 @@ class SaleOrder(AuditModel):
     delivery_address = models.CharField("Dirección de entrega", max_length=300, blank=True)
     delivery_city = models.CharField("Ciudad de entrega", max_length=100, blank=True)
     delivery_phone = models.CharField("Teléfono de contacto", max_length=50, blank=True)
+    delivery_email = models.EmailField("Email de contacto", blank=True)
     notes = models.TextField("Notas", blank=True, null=True)
     payment_method = models.CharField("Método de pago", max_length=50, blank=True, null=True)
 
@@ -140,7 +141,7 @@ class SaleDispatchLine(AuditModel):
     quantity = models.DecimalField("Cantidad", max_digits=12, decimal_places=4)
 
     def __str__(self):
-        return f"{self.product.name} x {self.quantity} (Lote {self.lot.internal_lot})"
+        return f"{self.product.name} x {self.quantity} (Lote {self.lot.lot_number})"
 
 
 # ─── Picking ───────────────────────────────────────────────
@@ -203,7 +204,7 @@ class PickingLine(AuditModel):
         verbose_name_plural = "Líneas de picking"
 
     def __str__(self):
-        return f"{self.product.name} x {self.quantity_requested} (Lote {self.lot.internal_lot})"
+        return f"{self.product.name} x {self.quantity_requested} (Lote {self.lot.lot_number})"
 
 
 # ─── Packing ──────────────────────────────────────────────
@@ -294,6 +295,8 @@ class SaleInvoice(AuditModel):
     buyer_identification = models.CharField("Identificación comprador", max_length=20, default="")
     buyer_legal_name = models.CharField("Razón social comprador", max_length=300, default="")
     buyer_address = models.CharField("Dirección comprador", max_length=300, blank=True)
+    buyer_city = models.CharField("Ciudad comprador", max_length=100, blank=True)
+    buyer_phone = models.CharField("Teléfono comprador", max_length=50, blank=True)
     buyer_email = models.EmailField("Email comprador", blank=True)
 
     # Montos
@@ -669,3 +672,51 @@ class CreditNoteLine(AuditModel):
 
     def __str__(self):
         return f"{self.description} x {self.quantity}"
+
+
+# ─── Listas de Precios ────────────────────────────────────
+
+class PriceList(AuditModel):
+    """Lista de precios para asignar a clientes."""
+    code = models.CharField("Código", max_length=20, unique=True)
+    name = models.CharField("Nombre", max_length=100)
+    currency = models.CharField("Moneda", max_length=3, default="USD")
+    is_active = models.BooleanField("Activa", default=True)
+    description = models.TextField("Descripción", blank=True)
+
+    class Meta:
+        verbose_name = "Lista de precios"
+        verbose_name_plural = "Listas de precios"
+        ordering = ["code"]
+
+    def __str__(self):
+        return f"{self.code} - {self.name}"
+
+
+class PriceListItem(AuditModel):
+    """Precio específico de un producto en una lista."""
+    price_list = models.ForeignKey(
+        PriceList,
+        on_delete=models.CASCADE,
+        related_name="items",
+        verbose_name="Lista de precios"
+    )
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.PROTECT,
+        verbose_name="Producto"
+    )
+    unit_price = models.DecimalField(
+        "Precio unitario",
+        max_digits=12,
+        decimal_places=4
+    )
+
+    class Meta:
+        verbose_name = "Línea de lista de precios"
+        verbose_name_plural = "Líneas de lista de precios"
+        unique_together = ("price_list", "product")
+        ordering = ["product__code"]
+
+    def __str__(self):
+        return f"{self.product.code} - ${self.unit_price}"

@@ -11,8 +11,13 @@ build/
 # Django
 db.sqlite3
 *.log
+logs/
+!logs/.gitkeep
 staticfiles/
 media/
+
+# Debug / utility scripts (no enviar a produccion)
+nul
 
 # Tailwind CLI
 tailwindcss.exe

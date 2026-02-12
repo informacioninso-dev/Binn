@@ -45,7 +45,7 @@
       {% for insp in inspections %}
       <tr{% if forloop.counter|divisibleby:2 %} class="even"{% endif %}>
         <td>{{ insp.id }}</td>
-        <td class="bold">{{ insp.lot.internal_lot|default:"—" }}</td>
+        <td class="bold">{{ insp.lot.lot_number|default:"—" }}</td>
         <td>
           {% if insp.lot and insp.lot.product %}
             {{ insp.lot.product.name }}<br>

@@ -9,7 +9,7 @@
   <div class="mb-6 flex items-center justify-between">
     <div>
       <h1 class="text-2xl font-semibold">
-        Inspección de calidad – Lote {{ inspection.lot.internal_lot }}
+        Inspección de calidad – Lote {{ inspection.lot.lot_number }}
       </h1>
       <p class="text-sm text-gray-500">
         Revisión de resultados y parámetros de control conforme al plan de QA aplicado.
@@ -28,7 +28,7 @@
       <div class="space-y-1">
         <p class="text-xs font-medium text-gray-500">Lote</p>
         <p class="text-sm font-semibold text-gray-900">
-          {{ inspection.lot.internal_lot }}
+          {{ inspection.lot.lot_number }}
           <span class="ml-2 text-xs text-gray-500">
             ({{ inspection.lot.product.code }} – {{ inspection.lot.product.name }})
           </span>

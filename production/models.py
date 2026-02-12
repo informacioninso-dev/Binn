@@ -678,7 +678,7 @@ class ProductionPlanRawLot(models.Model):
         unique_together = ("plan", "component")
 
     def __str__(self):
-        return f"{self.plan} – MP {self.lot.internal_lot}"
+        return f"{self.plan} – MP {self.lot.lot_number}"
 
 
 class MaterialTransferStatus(models.TextChoices):

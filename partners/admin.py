@@ -4,7 +4,22 @@ from django.contrib import admin
 # partners/admin.py
 
 from django.contrib import admin
-from .models import Partner
+from .models import Partner, SupplierProduct
+
+
+class SupplierProductInline(admin.TabularInline):
+    """Inline para gestionar catálogo de productos del proveedor"""
+    model = SupplierProduct
+    extra = 1
+    autocomplete_fields = ["product"]
+    fields = [
+        "product",
+        "supplier_unit_price",
+        "minimum_order_quantity",
+        "lead_time_days",
+        "supplier_product_code",
+        "is_preferred",
+    ]
 
 
 @admin.register(Partner)
@@ -25,6 +40,7 @@ class PartnerAdmin(admin.ModelAdmin):
         "credit_limit",
         "credit_available",
         "is_qualified_supplier",
+        "price_list",
         "is_active",
     )
 
@@ -39,6 +55,7 @@ class PartnerAdmin(admin.ModelAdmin):
         "category",
         "retention_profile",
         "is_qualified_supplier",
+        "price_list",
         "province",
         "city",
     )
@@ -67,6 +84,9 @@ class PartnerAdmin(admin.ModelAdmin):
     list_per_page = 50
     save_on_top = True
 
+    # Inlines (catálogo de productos para proveedores)
+    inlines = [SupplierProductInline]
+
     # Layout del formulario
     fieldsets = (
         ("Identificación y tipo", {
@@ -86,6 +106,11 @@ class PartnerAdmin(admin.ModelAdmin):
         ("Uso en el sistema", {
             "fields": (
                 ("is_customer", "is_supplier", "is_public_entity"),
+            )
+        }),
+        ("Lista de precios (clientes)", {
+            "fields": (
+                "price_list",
             )
         }),
         ("Crédito y condiciones", {
@@ -154,3 +179,25 @@ class PartnerAdmin(admin.ModelAdmin):
     @admin.action(description="Quitar Proveedor calificado ISO 13485")
     def unmark_as_qualified_supplier(self, request, queryset):
         queryset.update(is_qualified_supplier=False)
+
+
+@admin.register(SupplierProduct)
+class SupplierProductAdmin(admin.ModelAdmin):
+    """Admin para gestionar catálogo de productos por proveedor"""
+    list_display = [
+        "supplier",
+        "product",
+        "supplier_unit_price",
+        "minimum_order_quantity",
+        "lead_time_days",
+        "is_preferred",
+    ]
+    list_filter = ["is_preferred", "supplier"]
+    search_fields = [
+        "supplier__trade_name",
+        "product__code",
+        "product__name",
+        "supplier_product_code",
+    ]
+    autocomplete_fields = ["supplier", "product"]
+    list_per_page = 50

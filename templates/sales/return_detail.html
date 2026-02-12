@@ -144,7 +144,7 @@
       <div class="rounded-xl border bg-white p-4">
         <div class="font-semibold text-sm">{{ line.product.name }}</div>
         {% if line.lot %}
-          <div class="text-xs text-gray-600 mt-1">Lote: {{ line.lot.internal_lot }}</div>
+          <div class="text-xs text-gray-600 mt-1">Lote: {{ line.lot.lot_number }}</div>
         {% endif %}
         <div class="mt-2 grid grid-cols-3 gap-2 text-xs">
           <div>
@@ -180,7 +180,7 @@
         {% for line in return_doc.lines.all %}
           <tr>
             <td class="px-3 py-2 text-xs">{{ line.product.name }}</td>
-            <td class="px-3 py-2 text-xs text-gray-600">{{ line.lot.internal_lot|default:"–" }}</td>
+            <td class="px-3 py-2 text-xs text-gray-600">{{ line.lot.lot_number|default:"–" }}</td>
             <td class="px-3 py-2 text-xs text-right">{{ line.quantity_returned }}</td>
             <td class="px-3 py-2 text-xs text-right">${{ line.unit_price|floatformat:2 }}</td>
             <td class="px-3 py-2 text-xs text-right font-medium">${{ line.subtotal|floatformat:2 }}</td>

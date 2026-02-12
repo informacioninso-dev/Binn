@@ -116,8 +116,8 @@
                 <div class="font-medium">{{ line.product.name }}</div>
                 <div class="text-xs text-gray-500">{{ line.product.code }}</div>
               </td>
-              <td class="px-3 py-2 text-xs">{{ line.supplier_lot|default:"—" }}</td>
-              <td class="px-3 py-2 text-xs font-medium">{{ line.internal_lot|default:"—" }}</td>
+              <td class="px-3 py-2 text-xs">{{ line.lot_number|default:"—" }}</td>
+              <td class="px-3 py-2 text-xs font-medium">{{ line.lot_number|default:"—" }}</td>
               <td class="px-3 py-2 text-right">{{ line.received_quantity }}</td>
               <td class="px-3 py-2 text-xs">{{ line.unit.code|default:"—" }}</td>
               <td class="px-3 py-2 text-xs">{{ line.expiry_date|date:"d/m/Y"|default:"—" }}</td>

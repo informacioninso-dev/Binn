@@ -481,7 +481,7 @@ def receive_return(*, return_doc, user):
         # Crear nuevo lote para el producto devuelto
         lot = Lot.objects.create(
             product=line.product,
-            internal_lot=generate_internal_lot(line.product),
+            lot_number=generate_internal_lot(line.product),
             quantity_initial=line.quantity_returned,
             status=LotStatus.QUARANTINE,
             warehouse=quarantine_wh,

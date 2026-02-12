@@ -108,11 +108,9 @@ class RawMaterialReceptionLineAdmin(admin.ModelAdmin):
         "product",
         "received_quantity",
         "unit_cost",
-        "supplier_lot",
-        "internal_lot",
-        "storage_area",
+        "lot_number",
     )
     list_filter = ("reception__status", "product__product_type")
-    search_fields = ("reception__code", "product__code", "product__name", "supplier_lot", "internal_lot")
+    search_fields = ("reception__code", "product__code", "product__name", "lot_number")
     ordering = ("-id",)
 

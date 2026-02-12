@@ -58,7 +58,35 @@
             <p class="text-xs text-red-600">{{ error }}</p>
           {% endfor %}
         </div>
-        <div class="md:col-span-4">
+        <div class="md:col-span-2">
+          <label class="mb-1 block text-sm font-medium">{{ form.delivery_address.label }}</label>
+          {{ form.delivery_address }}
+          {% for error in form.delivery_address.errors %}
+            <p class="text-xs text-red-600">{{ error }}</p>
+          {% endfor %}
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium">{{ form.delivery_city.label }}</label>
+          {{ form.delivery_city }}
+          {% for error in form.delivery_city.errors %}
+            <p class="text-xs text-red-600">{{ error }}</p>
+          {% endfor %}
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium">{{ form.delivery_phone.label }}</label>
+          {{ form.delivery_phone }}
+          {% for error in form.delivery_phone.errors %}
+            <p class="text-xs text-red-600">{{ error }}</p>
+          {% endfor %}
+        </div>
+        <div class="md:col-span-2">
+          <label class="mb-1 block text-sm font-medium">{{ form.delivery_email.label }}</label>
+          {{ form.delivery_email }}
+          {% for error in form.delivery_email.errors %}
+            <p class="text-xs text-red-600">{{ error }}</p>
+          {% endfor %}
+        </div>
+        <div class="md:col-span-2">
           <label class="mb-1 block text-sm font-medium">{{ form.notes.label }}</label>
           {{ form.notes }}
           {% for error in form.notes.errors %}
@@ -421,6 +449,74 @@
       totalFormsInput.value = currentCount + 1;
       recalcTotal();
     });
+
+    // Auto-populate delivery fields from selected client
+    const clientSelect = document.getElementById("id_client");
+    const deliveryAddressInput = document.querySelector('input[name="delivery_address"]');
+    const deliveryCityInput = document.querySelector('input[name="delivery_city"]');
+    const deliveryPhoneInput = document.querySelector('input[name="delivery_phone"]');
+    const deliveryEmailInput = document.querySelector('input[name="delivery_email"]');
+
+    let partnersMap = {};
+    try {
+      partnersMap = JSON.parse("{{ partners_json|escapejs }}") || {};
+    } catch (e) {
+      partnersMap = {};
+    }
+
+    if (clientSelect) {
+      clientSelect.addEventListener("change", function () {
+        const partnerId = clientSelect.value;
+        if (!partnerId) return;
+
+        const partnerData = partnersMap[partnerId];
+        if (!partnerData) return;
+
+        // Auto-populate delivery fields if they are empty
+        if (deliveryAddressInput && !deliveryAddressInput.value && partnerData.address) {
+          deliveryAddressInput.value = partnerData.address;
+        }
+        if (deliveryCityInput && !deliveryCityInput.value && partnerData.city) {
+          deliveryCityInput.value = partnerData.city;
+        }
+        if (deliveryPhoneInput && !deliveryPhoneInput.value && partnerData.phone) {
+          deliveryPhoneInput.value = partnerData.phone;
+        }
+        if (deliveryEmailInput && !deliveryEmailInput.value && partnerData.email) {
+          deliveryEmailInput.value = partnerData.email;
+        }
+
+        // Load client-specific prices from price list
+        fetch(`/sales/ajax/client-prices/${partnerId}/`)
+          .then(response => response.json())
+          .then(data => {
+            // Update productsMap with client-specific prices
+            productsMap = data;
+
+            // Update prices in existing line items (only if price field is empty)
+            document.querySelectorAll(".line-row, .line-row-mobile").forEach(function (row) {
+              var productSelect = row.querySelector('select[name$="-product"]');
+              var priceInput = row.querySelector('input[name$="-unit_price"]');
+
+              if (productSelect && productSelect.value && priceInput) {
+                var productData = productsMap[productSelect.value];
+                if (productData && productData.unit_price) {
+                  // Only update if price field is empty (avoid overwriting manual edits)
+                  if (!priceInput.value || priceInput.value === "0" || priceInput.value === "0.00") {
+                    priceInput.value = productData.unit_price;
+                    recalcLine(row);
+                  }
+                }
+              }
+            });
+
+            recalcTotal();
+          })
+          .catch(error => {
+            console.error('Error loading client prices:', error);
+          });
+      });
+    }
   });
   </script>
 {% endblock %}

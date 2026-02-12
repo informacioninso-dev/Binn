@@ -39,7 +39,7 @@
             {% for lot in raw_lots_pending %}
               <tr class="hover:bg-gray-50">
                 <td class="px-3 py-2 align-top">
-                  <span class="font-medium text-gray-900">{{ lot.internal_lot }}</span>
+                  <span class="font-medium text-gray-900">{{ lot.lot_number }}</span>
                 </td>
                 <td class="px-3 py-2 align-top">
                   <div class="text-gray-900 text-sm">
@@ -112,7 +112,7 @@
                 <td class="px-3 py-2 align-top">
                   {% if op.input_lot %}
                     <div class="text-sm text-gray-900">
-                      {{ op.input_lot.internal_lot }}
+                      {{ op.input_lot.lot_number }}
                     </div>
                   {% else %}
                     <span class="text-xs text-gray-400">Sin lote de entrada</span>
@@ -189,7 +189,7 @@
             {% for lot in fg_lots_pending %}
               <tr class="hover:bg-gray-50">
                 <td class="px-3 py-2 align-top">
-                  <span class="font-medium text-gray-900">{{ lot.internal_lot }}</span>
+                  <span class="font-medium text-gray-900">{{ lot.lot_number }}</span>
                 </td>
                 <td class="px-3 py-2 align-top">
                   <div class="text-sm text-gray-900">

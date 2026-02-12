@@ -1,4 +1,4 @@
-# production/urls 
+# production/urls
 from django.urls import path
 from .views import (
     ProductionDashboardView,
@@ -27,6 +27,7 @@ from .views import (
     MaterialTransferListView,
     MaterialTransferConfirmView,
     EstimateProductionTimeView,
+    ProductionGanttView,
 )
 
 app_name = "production"
@@ -74,4 +75,7 @@ urlpatterns = [
 
     # Estimación de tiempo (AJAX)
     path("estimate-time/", EstimateProductionTimeView.as_view(), name="estimate_time"),
+
+    # Diagrama de Gantt
+    path("gantt/", ProductionGanttView.as_view(), name="gantt"),
 ]

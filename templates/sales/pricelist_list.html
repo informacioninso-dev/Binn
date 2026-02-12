@@ -1,0 +1,84 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}Listas de Precios · {{ block.super }}{% endblock %}
+
+{% block app_content %}
+  {% include "sales/_nav.html" %}
+
+  <div class="mb-6 flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold">Listas de Precios</h1>
+      <p class="text-sm text-gray-500">Gestiona precios personalizados por cliente</p>
+    </div>
+    <a href="{% url 'sales:pricelist_create' %}"
+       class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+      + Nueva Lista
+    </a>
+  </div>
+
+  {% if pricelists %}
+    <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {% for pricelist in pricelists %}
+        <a href="{% url 'sales:pricelist_detail' pricelist.pk %}"
+           class="block rounded-2xl border bg-white p-6 hover:border-blue-200 hover:shadow-md transition">
+          <div class="mb-3 flex items-start justify-between">
+            <div class="flex-1">
+              <h3 class="font-semibold text-gray-900">{{ pricelist.name }}</h3>
+              <p class="text-sm text-gray-500">{{ pricelist.code }}</p>
+            </div>
+            <span class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium
+              {% if pricelist.is_active %}bg-green-100 text-green-700{% else %}bg-gray-100 text-gray-600{% endif %}">
+              {% if pricelist.is_active %}Activa{% else %}Inactiva{% endif %}
+            </span>
+          </div>
+
+          {% if pricelist.description %}
+            <p class="mb-3 text-sm text-gray-600 line-clamp-2">{{ pricelist.description }}</p>
+          {% endif %}
+
+          <div class="flex items-center justify-between border-t pt-3 text-xs text-gray-500">
+            <span>{{ pricelist.items.count }} productos</span>
+            <span>{{ pricelist.currency }}</span>
+          </div>
+
+          <div class="mt-2 text-xs text-gray-400">
+            Creada {{ pricelist.created_at|date:"d/m/Y" }}
+          </div>
+        </a>
+      {% endfor %}
+    </div>
+
+    {% if is_paginated %}
+      <div class="mt-6 flex justify-center gap-2">
+        {% if page_obj.has_previous %}
+          <a href="?page=1" class="rounded-lg border px-3 py-2 text-sm hover:bg-gray-50">Primera</a>
+          <a href="?page={{ page_obj.previous_page_number }}" class="rounded-lg border px-3 py-2 text-sm hover:bg-gray-50">Anterior</a>
+        {% endif %}
+
+        <span class="rounded-lg border bg-gray-50 px-3 py-2 text-sm">
+          Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+        </span>
+
+        {% if page_obj.has_next %}
+          <a href="?page={{ page_obj.next_page_number }}" class="rounded-lg border px-3 py-2 text-sm hover:bg-gray-50">Siguiente</a>
+          <a href="?page={{ page_obj.paginator.num_pages }}" class="rounded-lg border px-3 py-2 text-sm hover:bg-gray-50">Última</a>
+        {% endif %}
+      </div>
+    {% endif %}
+  {% else %}
+    <div class="rounded-2xl border bg-white p-12 text-center">
+      <svg class="mx-auto h-16 w-16 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+      </svg>
+      <h3 class="mt-4 text-lg font-medium text-gray-900">No hay listas de precios</h3>
+      <p class="mt-2 text-sm text-gray-500">
+        Crea tu primera lista de precios para ofrecer precios personalizados a tus clientes.
+      </p>
+      <a href="{% url 'sales:pricelist_create' %}"
+         class="mt-6 inline-flex rounded-xl bg-blue-600 px-6 py-3 text-sm font-medium text-white hover:bg-blue-700">
+        + Nueva Lista de Precios
+      </a>
+    </div>
+  {% endif %}
+{% endblock %}

@@ -310,17 +310,17 @@ class QualityInspectionCreateView(LoginRequiredMixin, ModulePermissionMixin, Cre
                 if result == LotStatus.APPROVED:
                     messages.success(
                         self.request,
-                        f"Lote {lot.internal_lot} APROBADO. Stock actualizado y movido a bodega destino."
+                        f"Lote {lot.lot_number} APROBADO. Stock actualizado y movido a bodega destino."
                     )
                 elif result == LotStatus.REJECTED:
                     messages.warning(
                         self.request,
-                        f"Lote {lot.internal_lot} RECHAZADO. Movido a bodega de baja."
+                        f"Lote {lot.lot_number} RECHAZADO. Movido a bodega de baja."
                     )
                 else:
                     messages.info(
                         self.request,
-                        f"Lote {lot.internal_lot} permanece en CUARENTENA."
+                        f"Lote {lot.lot_number} permanece en CUARENTENA."
                     )
             except Exception as e:
                 messages.error(self.request, f"Error al liberar lote: {e}")
@@ -352,7 +352,7 @@ class QualityInspectionListView(LoginRequiredMixin, ModulePermissionMixin, ListV
         stage = self.request.GET.get("stage", "").strip()
         if q:
             qs = qs.filter(
-                Q(lot__internal_lot__icontains=q)
+                Q(lot__lot_number__icontains=q)
                 | Q(lot__product__name__icontains=q)
                 | Q(lot__product__code__icontains=q)
             )
@@ -467,7 +467,7 @@ class PendingLotsQAView(LoginRequiredMixin, ModulePermissionMixin, TemplateView)
             .filter(Q(total_qty__gt=0))
             .distinct()
             .select_related("product")
-            .order_by("product__name", "internal_lot")
+            .order_by("product__name", "lot_number")
         )
 
         # 2) Lotes de producto terminado (FG) con QA pendiente
@@ -483,7 +483,7 @@ class PendingLotsQAView(LoginRequiredMixin, ModulePermissionMixin, TemplateView)
             .filter(Q(total_qty__gt=0))
             .distinct()
             .select_related("product")
-            .order_by("product__name", "internal_lot")
+            .order_by("product__name", "lot_number")
         )
 
         # 3) Operaciones WIP con QA requerido y sin inspección final
@@ -589,9 +589,9 @@ class ReceptionQAActionView(LoginRequiredMixin, ModulePermissionMixin, View):
 class LotAuditView(LoginRequiredMixin, ModulePermissionMixin, DetailView):
     permission_required = "quality.view_qualityinspection"
     """
-    Panel de trazabilidad / auditoría por lote terminado (FG).
+    Panel de trazabilidad / auditoría por lote (FG o RAW).
 
-    Muestra:
+    Para producto terminado (FG):
       - Lote
       - Orden de producción asociada (finished_lot)
       - Operaciones de producción
@@ -602,18 +602,28 @@ class LotAuditView(LoginRequiredMixin, ModulePermissionMixin, DetailView):
       - Despachos realizados
       - Devoluciones
       - Lista de issues detectados
+
+    Para materia prima (RAW):
+      - Lote
+      - Recepción de MP (purchase order, proveedor)
+      - QA de materia prima (RAW stage)
+      - Consumo en órdenes de producción
+      - Ubicación actual en bodegas
     """
     model = Lot
     template_name = "quality/audit_lot.html"
     context_object_name = "lot"
 
     def get_context_data(self, **kwargs):
-        from inventory.models import LotBalance
+        from inventory.models import LotBalance, ProductType
         from sales.models import SaleDispatchLine, SaleReturn, SaleReturnLine
         from decimal import Decimal
 
         ctx = super().get_context_data(**kwargs)
         lot: Lot = self.object
+
+        # Determinar si es RAW o FG para mostrar información relevante
+        ctx["is_raw_material"] = lot.product.product_type == ProductType.RAW
 
         # 1) Orden de producción que generó este lote (finished_lot)
         order = (
@@ -657,7 +667,7 @@ class LotAuditView(LoginRequiredMixin, ModulePermissionMixin, DetailView):
                 InventoryMove.objects
                 .filter(reference=order.code)
                 .select_related("product", "lot", "warehouse")
-                .order_by("movement_type", "product__name", "lot__internal_lot")
+                .order_by("movement_type", "product__name", "lot__lot_number")
             )
             ctx["moves"] = moves
 
@@ -676,20 +686,20 @@ class LotAuditView(LoginRequiredMixin, ModulePermissionMixin, DetailView):
             )
             ctx["mp_lots"] = mp_lots
 
-            # 4.1) Mapear recepciones por lote de MP (según internal_lot)
-            internal_lots = [l.internal_lot for l in mp_lots if l.internal_lot]
+            # 4.1) Mapear recepciones por lote de MP (según lot_number)
+            lot_numbers = [l.lot_number for l in mp_lots if l.lot_number]
             rec_lines = (
                 RawMaterialReceptionLine.objects
-                .filter(internal_lot__in=internal_lots)
+                .filter(lot_number__in=lot_numbers)
                 .select_related("reception", "reception__purchase_order")
             )
 
-            rec_by_internal: dict[str, RawMaterialReception] = {}
+            rec_by_lot: dict[str, RawMaterialReception] = {}
             for ln in rec_lines:
-                rec_by_internal.setdefault(ln.internal_lot, ln.reception)
+                rec_by_lot.setdefault(ln.lot_number, ln.reception)
 
             for l in mp_lots:
-                rec = rec_by_internal.get(l.internal_lot)
+                rec = rec_by_lot.get(l.lot_number)
                 if rec:
                     receptions_by_lot[l.id] = rec
 
@@ -706,6 +716,54 @@ class LotAuditView(LoginRequiredMixin, ModulePermissionMixin, DetailView):
                 qa_raw_by_lot.setdefault(ins.lot_id, []).append(ins)
 
         ctx["qa_raw_by_lot"] = qa_raw_by_lot
+
+        # 4.3) Para lotes de MATERIA PRIMA (RAW): Mostrar recepción y consumo
+        raw_reception = None
+        raw_qa_inspections = []
+        consumption_orders = []
+
+        if ctx["is_raw_material"]:
+            # Buscar recepción de este lote RAW
+            if lot.lot_number:
+                rec_line = (
+                    RawMaterialReceptionLine.objects
+                    .filter(lot_number=lot.lot_number, product=lot.product)
+                    .select_related("reception", "reception__purchase_order", "reception__purchase_order__supplier")
+                    .first()
+                )
+                if rec_line:
+                    raw_reception = rec_line.reception
+                    ctx["raw_reception_line"] = rec_line
+
+            # QA inspections del lote RAW
+            raw_qa_inspections = (
+                QualityInspection.objects
+                .filter(lot=lot, stage=InspectionStage.RAW)
+                .select_related("inspected_by", "plan")
+                .order_by("-inspected_at")
+            )
+
+            # Buscar en qué órdenes de producción se consumió este lote RAW
+            consumption_moves = (
+                InventoryMove.objects
+                .filter(lot=lot, movement_type=MovementTypes.OUT)
+                .select_related("product", "warehouse")
+                .order_by("-date")
+            )
+
+            # Extraer códigos de referencia (códigos de OP)
+            op_codes = [m.reference for m in consumption_moves if m.reference]
+            if op_codes:
+                consumption_orders = (
+                    ProductionOrder.objects
+                    .filter(code__in=op_codes)
+                    .select_related("product", "finished_lot")
+                    .order_by("-created_at")
+                )
+
+        ctx["raw_reception"] = raw_reception
+        ctx["raw_qa_inspections"] = raw_qa_inspections
+        ctx["consumption_orders"] = consumption_orders
 
         # 5) UBICACIÓN ACTUAL - Balances en bodegas
         lot_balances = list(
@@ -777,29 +835,43 @@ class LotAuditView(LoginRequiredMixin, ModulePermissionMixin, DetailView):
         # 9) Issues / alertas para auditoría
         issues: list[str] = []
 
-        if not order:
-            issues.append(
-                "El lote no está vinculado a ninguna orden de producción (finished_lot)."
-            )
-
-        if order and not order.bom:
-            issues.append("La orden de producción no tiene un BOM asociado.")
-
-        if order and not operations:
-            issues.append("La orden de producción no tiene operaciones generadas.")
-
-        if not qa_fg.exists():
-            issues.append(
-                "El lote de producto terminado no tiene inspección de calidad en etapa FG."
-            )
-
-        # Lotes de MP sin QA RAW
-        for l in mp_lots:
-            inspections = qa_raw_by_lot.get(l.id, [])
-            if not inspections:
+        # Validaciones para PRODUCTO TERMINADO (FG)
+        if not ctx["is_raw_material"]:
+            if not order:
                 issues.append(
-                    f"El lote de materia prima {l.internal_lot} ({l.product.code}) "
-                    "no tiene inspección de calidad en etapa RAW."
+                    "El lote no está vinculado a ninguna orden de producción (finished_lot)."
+                )
+
+            if order and not order.bom:
+                issues.append("La orden de producción no tiene un BOM asociado.")
+
+            if order and not operations:
+                issues.append("La orden de producción no tiene operaciones generadas.")
+
+            if not qa_fg.exists():
+                issues.append(
+                    "El lote de producto terminado no tiene inspección de calidad en etapa FG."
+                )
+
+            # Lotes de MP sin QA RAW
+            for l in mp_lots:
+                inspections = qa_raw_by_lot.get(l.id, [])
+                if not inspections:
+                    issues.append(
+                        f"El lote de materia prima {l.lot_number} ({l.product.code}) "
+                        "no tiene inspección de calidad en etapa RAW."
+                    )
+
+        # Validaciones para MATERIA PRIMA (RAW)
+        else:
+            if not raw_reception:
+                issues.append(
+                    f"No se encontró la recepción de materia prima para el lote {lot.lot_number}."
+                )
+
+            if not raw_qa_inspections:
+                issues.append(
+                    "El lote de materia prima no tiene inspección de calidad en etapa RAW."
                 )
 
         ctx["issues"] = issues
@@ -814,7 +886,7 @@ class LotAuditSearchView(LoginRequiredMixin, ModulePermissionMixin, TemplateView
     template_name = "quality/audit_search.html"
 
     def post(self, request, *args, **kwargs):
-        code = request.POST.get("internal_lot", "").strip()
+        code = request.POST.get("lot_number", "").strip()
 
         if not code:
             messages.error(request, "Ingresa un código de lote para continuar.")
@@ -823,7 +895,7 @@ class LotAuditSearchView(LoginRequiredMixin, ModulePermissionMixin, TemplateView
         lot = (
             Lot.objects
             .select_related("product")
-            .filter(internal_lot__iexact=code)
+            .filter(lot_number__iexact=code)
             .first()
         )
 

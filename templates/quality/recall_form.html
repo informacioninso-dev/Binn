@@ -160,7 +160,7 @@
                         <input type="checkbox" name="lot_ids" value="{{ item.lot.pk }}"
                                class="lot-checkbox text-red-600">
                       </td>
-                      <td class="px-3 py-2 font-medium">{{ item.lot.internal_lot }}</td>
+                      <td class="px-3 py-2 font-medium">{{ item.lot.lot_number }}</td>
                       <td class="px-3 py-2 text-xs text-gray-600">
                         {{ item.lot.expiration_date|date:"d/m/Y"|default:"–" }}
                       </td>

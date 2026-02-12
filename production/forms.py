@@ -275,7 +275,7 @@ class ProductionPlanRawLotForm(forms.ModelForm):
                 product__product_type=ProductType.RAW,
                 quantity_current__gt=0,
             )
-            .order_by("expiration_date", "internal_lot")  # 👈 FEFO
+            .order_by("expiration_date", "lot_number")  # 👈 FEFO
         )
 class ProductionPlanForm(forms.ModelForm):
     class Meta:

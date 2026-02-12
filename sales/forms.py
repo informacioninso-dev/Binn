@@ -9,11 +9,19 @@ FIELD_CSS = "w-full rounded-lg border px-3 py-2 text-sm"
 class SaleOrderForm(forms.ModelForm):
     class Meta:
         model = SaleOrder
-        fields = ["client", "delivery_date", "payment_method", "notes"]
+        fields = [
+            "client", "delivery_date", "payment_method",
+            "delivery_address", "delivery_city", "delivery_phone", "delivery_email",
+            "notes"
+        ]
         labels = {
             "client": "Cliente",
             "delivery_date": "Fecha de entrega",
             "payment_method": "Método de pago",
+            "delivery_address": "Dirección de entrega",
+            "delivery_city": "Ciudad",
+            "delivery_phone": "Teléfono",
+            "delivery_email": "Email",
             "notes": "Notas",
         }
         widgets = {
@@ -25,6 +33,10 @@ class SaleOrderForm(forms.ModelForm):
                 "class": FIELD_CSS,
                 "placeholder": "Ej: Transferencia, Efectivo, Crédito 30 días",
             }),
+            "delivery_address": forms.TextInput(attrs={"class": FIELD_CSS}),
+            "delivery_city": forms.TextInput(attrs={"class": FIELD_CSS}),
+            "delivery_phone": forms.TextInput(attrs={"class": FIELD_CSS}),
+            "delivery_email": forms.EmailInput(attrs={"class": FIELD_CSS}),
             "notes": forms.Textarea(attrs={"class": FIELD_CSS, "rows": 2}),
         }
 

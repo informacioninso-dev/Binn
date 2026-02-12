@@ -27,7 +27,7 @@ def validate_mp_lot_allowed_by_plan(*, plan, mp_lot):
     ok = ProductionPlanRawLot.objects.filter(plan=plan, lot=mp_lot).exists()
     if not ok:
         raise ValidationError(
-            f"El lote MP {mp_lot.internal_lot} no está autorizado en el plan {plan.code}. "
+            f"El lote MP {mp_lot.lot_number} no está autorizado en el plan {plan.code}. "
             f"Debe ajustarse el plan o crear un plan nuevo."
         )
 
@@ -310,7 +310,7 @@ def create_wip_lot_for_operation(
     # Verificar si ya existe
     existing = Lot.objects.filter(
         product=order.product,
-        internal_lot=lot_code,
+        lot_number=lot_code,
     ).first()
     if existing:
         return existing
@@ -324,7 +324,7 @@ def create_wip_lot_for_operation(
 
     wip_lot = Lot.objects.create(
         product=order.product,
-        internal_lot=lot_code,
+        lot_number=lot_code,
         manufacturing_date=order.start_date or timezone.localdate(),
         status=LotStatus.PENDING,
         quantity_initial=Decimal("0"),
@@ -565,7 +565,7 @@ def ensure_finished_lot_for_order(*, order: ProductionOrder, user) -> Lot:
 
     fg_lot = Lot.objects.create(
         product=order.product,
-        internal_lot=lot_code,
+        lot_number=lot_code,
         manufacturing_date=order.plan.manufacturing_date or timezone.localdate(),
         status=LotStatus.PENDING,  # pendiente de QA FG
         quantity_initial=Decimal("0"),
@@ -779,7 +779,7 @@ def validate_mp_lot_allowed_by_plan(*, plan, mp_lot):
     ok = ProductionPlanRawLot.objects.filter(plan=plan, lot=mp_lot).exists()
     if not ok:
         raise ValidationError(
-            f"El lote MP {mp_lot.internal_lot} no está autorizado en el plan {plan.code}. "
+            f"El lote MP {mp_lot.lot_number} no está autorizado en el plan {plan.code}. "
             f"Debe ajustarse el plan o crear un plan nuevo."
         )
     
@@ -1067,7 +1067,7 @@ def confirm_material_transfer(*, transfer, quantity_confirmed: Decimal, user, no
     # Verificar stock disponible
     if lot.quantity_current < quantity_confirmed:
         raise ValidationError(
-            f"Stock insuficiente del lote {lot.internal_lot}. "
+            f"Stock insuficiente del lote {lot.lot_number}. "
             f"Disponible: {lot.quantity_current}, solicitado: {quantity_confirmed}."
         )
 
@@ -1181,7 +1181,7 @@ def release_lot_by_qa(
         lot=lot,
         movement_type=MovementTypes.TRANSFER,
         quantity=lot.quantity_current,
-        reference=f"Liberación QA - Lote {lot.internal_lot}",
+        reference=f"Liberación QA - Lote {lot.lot_number}",
         warehouse=to_wh,
         location=to_loc,
         area="Liberación QA",

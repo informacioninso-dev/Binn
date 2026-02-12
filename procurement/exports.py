@@ -201,7 +201,7 @@ class ReceptionDetailExcelView(LoginRequiredMixin, ModulePermissionMixin, View):
         ws.cell(row=row, column=1, value="Detalle de líneas").font = Font(bold=True, size=12)
         row += 1
 
-        line_headers = ["Producto", "Lote Proveedor", "Lote Interno", "Cant. Esperada", "Cant. Recibida", "Unidad", "Costo Unit.", "Vencimiento"]
+        line_headers = ["Producto", "Número de Lote", "Cant. Esperada", "Cant. Recibida", "Unidad", "Costo Unit.", "Vencimiento"]
         hs = _header_style()
         for col, h in enumerate(line_headers, 1):
             cell = ws.cell(row=row, column=col, value=h)
@@ -212,8 +212,7 @@ class ReceptionDetailExcelView(LoginRequiredMixin, ModulePermissionMixin, View):
             row += 1
             values = [
                 f"{line.product.code} - {line.product.name}",
-                line.supplier_lot or "",
-                line.internal_lot or "",
+                line.lot_number or "",
                 float(line.expected_quantity) if line.expected_quantity else None,
                 float(line.received_quantity),
                 line.unit.code if line.unit else "",

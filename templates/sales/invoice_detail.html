@@ -75,6 +75,18 @@
           <p>{{ invoice.buyer_address }}</p>
         </div>
         {% endif %}
+        {% if invoice.buyer_city %}
+        <div>
+          <span class="text-xs text-gray-500">Ciudad</span>
+          <p>{{ invoice.buyer_city }}</p>
+        </div>
+        {% endif %}
+        {% if invoice.buyer_phone %}
+        <div>
+          <span class="text-xs text-gray-500">Teléfono</span>
+          <p>{{ invoice.buyer_phone }}</p>
+        </div>
+        {% endif %}
         {% if invoice.buyer_email %}
         <div>
           <span class="text-xs text-gray-500">Email</span>

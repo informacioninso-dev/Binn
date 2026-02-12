@@ -95,6 +95,16 @@ class Partner(AuditModel):
         default=CompanyType.COMPANY,
     )
 
+    # Lista de precios
+    price_list = models.ForeignKey(
+        "sales.PriceList",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="partners",
+        verbose_name="Lista de precios"
+    )
+
     # Flags de uso
     is_customer = models.BooleanField("Cliente", default=False)
     is_supplier = models.BooleanField("Proveedor", default=True)
@@ -234,3 +244,73 @@ class Partner(AuditModel):
 
     def __str__(self) -> str:
         return f"{self.trade_name or self.legal_name} ({self.code})"
+
+
+class SupplierProduct(AuditModel):
+    """
+    Catálogo de productos que vende cada proveedor.
+    Define qué productos ofrece cada proveedor, a qué precio, y con qué condiciones.
+    """
+    supplier = models.ForeignKey(
+        Partner,
+        on_delete=models.CASCADE,
+        related_name="supplier_products",
+        verbose_name="Proveedor",
+        limit_choices_to={"is_supplier": True}
+    )
+    product = models.ForeignKey(
+        "inventory.Product",
+        on_delete=models.CASCADE,
+        related_name="supplier_offerings",
+        verbose_name="Producto"
+    )
+
+    # Precio y condiciones comerciales
+    supplier_unit_price = models.DecimalField(
+        "Precio unitario del proveedor",
+        max_digits=12,
+        decimal_places=4,
+        help_text="Precio al que este proveedor vende este producto"
+    )
+    minimum_order_quantity = models.DecimalField(
+        "Cantidad mínima de pedido",
+        max_digits=12,
+        decimal_places=4,
+        default=1,
+        help_text="Cantidad mínima que acepta el proveedor"
+    )
+    lead_time_days = models.PositiveIntegerField(
+        "Tiempo de entrega (días)",
+        default=0,
+        help_text="Días que tarda el proveedor en entregar"
+    )
+
+    # Referencias del proveedor
+    supplier_product_code = models.CharField(
+        "Código del producto en catálogo del proveedor",
+        max_length=100,
+        blank=True,
+        help_text="Código/referencia que usa el proveedor para este producto"
+    )
+
+    # Preferencia
+    is_preferred = models.BooleanField(
+        "Proveedor preferido",
+        default=False,
+        help_text="Marcar si es el proveedor preferido para este producto"
+    )
+
+    notes = models.TextField(
+        "Notas",
+        blank=True,
+        help_text="Observaciones sobre este producto con este proveedor"
+    )
+
+    class Meta:
+        verbose_name = "Producto de proveedor"
+        verbose_name_plural = "Productos de proveedores"
+        unique_together = ("supplier", "product")
+        ordering = ["supplier__trade_name", "product__code"]
+
+    def __str__(self):
+        return f"{self.supplier.trade_name} - {self.product.code}"

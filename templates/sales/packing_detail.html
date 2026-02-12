@@ -85,7 +85,7 @@
             <div class="grid grid-cols-2 gap-2 text-xs">
               <div>
                 <span class="text-gray-500">Lote</span>
-                <p class="font-medium">{{ line.lot.internal_lot }}</p>
+                <p class="font-medium">{{ line.lot.lot_number }}</p>
                 {% if line.lot.expiry_date %}
                   <p class="text-[11px] text-gray-500">Vence: {{ line.lot.expiry_date|date:"d/m/Y" }}</p>
                 {% endif %}
@@ -124,7 +124,7 @@
                   <div class="text-[11px] text-gray-500">{{ line.product.code }}</div>
                 </td>
                 <td class="px-3 py-2 text-xs">
-                  <div class="font-medium">{{ line.lot.internal_lot }}</div>
+                  <div class="font-medium">{{ line.lot.lot_number }}</div>
                   {% if line.lot.expiry_date %}
                     <div class="text-[11px] text-gray-500">Vence: {{ line.lot.expiry_date|date:"d/m/Y" }}</div>
                   {% endif %}

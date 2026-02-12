@@ -82,4 +82,4 @@ class ProductionPlanAdmin(admin.ModelAdmin):
 class MaterialTransferAdmin(admin.ModelAdmin):
     list_display = ("order", "component", "lot", "quantity_requested", "status", "created_at")
     list_filter = ("status",)
-    search_fields = ("order__code", "lot__internal_lot", "component__code")
+    search_fields = ("order__code", "lot__lot_number", "component__code")

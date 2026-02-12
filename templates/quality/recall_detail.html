@@ -140,7 +140,7 @@
         {% for rl in affected_lots %}
           <tr class="hover:bg-gray-50">
             <td class="px-3 py-2">
-              <div class="font-medium">{{ rl.lot.internal_lot }}</div>
+              <div class="font-medium">{{ rl.lot.lot_number }}</div>
               <div class="text-xs text-gray-500">Venc: {{ rl.lot.expiration_date|date:"d/m/Y"|default:"–" }}</div>
             </td>
             <td class="px-3 py-2 text-xs text-right">{{ rl.quantity_in_warehouse|floatformat:2 }}</td>
@@ -264,7 +264,7 @@
           <tr class="hover:bg-gray-50">
             <td class="px-3 py-2">
               <div class="font-medium">{{ ac.client_name }}</div>
-              <div class="text-xs text-gray-500">{{ ac.recall_lot.lot.internal_lot }}</div>
+              <div class="text-xs text-gray-500">{{ ac.recall_lot.lot.lot_number }}</div>
             </td>
             <td class="px-3 py-2 text-xs">
               <div>{{ ac.client_address|default:"–" }}</div>

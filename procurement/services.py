@@ -80,6 +80,9 @@ def create_raw_material_reception(
             from_unit=from_unit,
             product=product
         )
+        # Determinar número de lote único
+        lot_number = line_data.get("lot_number") or generate_internal_lot(product)
+
         # Crear línea (guarda en UNIDAD BASE para contabilidad e inventario)
         line = RawMaterialReceptionLine.objects.create(
             reception=reception,
@@ -88,21 +91,16 @@ def create_raw_material_reception(
             received_quantity=received_quantity_base,  # ✅ En unidad base (ej: 0.5 kg)
             unit=product.base_unit,                    # ✅ Unidad base (ej: kg)
             unit_cost=line_data.get("unit_cost"),
-            supplier_lot=line_data.get("supplier_lot"),
-            internal_lot=line_data.get("internal_lot"),
-            storage_area=line_data.get("storage_area"),
+            lot_number=lot_number,
             notes=line_data.get("line_notes") or line_data.get("notes"),
             expiry_date=line_data.get("expiry_date"),
             manufacturing_date=line_data.get("manufacturing_date"),
         )
 
-        internal_lot = line.internal_lot or generate_internal_lot(product)
-
         # ⭐ Crear lote SIN quantity_current
         lot = Lot.objects.create(
             product=product,
-            internal_lot=internal_lot,
-            supplier_lot=line.supplier_lot,
+            lot_number=lot_number,
             quantity_initial=received_quantity_base,
             # NO quantity_current - es property calculada
             status=LotStatus.PENDING,

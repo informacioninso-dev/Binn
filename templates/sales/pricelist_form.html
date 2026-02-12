@@ -1,0 +1,103 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}{% if pricelist %}Editar{% else %}Nueva{% endif %} Lista de Precios · {{ block.super }}{% endblock %}
+
+{% block app_content %}
+  {% include "sales/_nav.html" %}
+
+  <div class="mb-6 flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold">
+        {% if pricelist %}Editar Lista de Precios{% else %}Nueva Lista de Precios{% endif %}
+      </h1>
+      <p class="text-sm text-gray-500">
+        {% if pricelist %}Modifica los datos de la lista{% else %}Define los datos básicos de la lista{% endif %}
+      </p>
+    </div>
+    <a href="{% if pricelist %}{% url 'sales:pricelist_detail' pricelist.pk %}{% else %}{% url 'sales:pricelist_list' %}{% endif %}"
+       class="rounded-xl border px-4 py-2 text-sm hover:bg-gray-50">
+      Cancelar
+    </a>
+  </div>
+
+  <div class="rounded-2xl border bg-white p-6">
+    <form method="post">
+      {% csrf_token %}
+
+      <div class="grid gap-6 md:grid-cols-2">
+        <div>
+          <label class="mb-1 block text-sm font-medium">Código *</label>
+          <input type="text"
+                 name="code"
+                 value="{% if pricelist %}{{ pricelist.code }}{% endif %}"
+                 required
+                 class="w-full rounded-lg border px-3 py-2 text-sm"
+                 placeholder="Ej: MAYOR, VIP, DIST">
+        </div>
+
+        <div>
+          <label class="mb-1 block text-sm font-medium">Nombre *</label>
+          <input type="text"
+                 name="name"
+                 value="{% if pricelist %}{{ pricelist.name }}{% endif %}"
+                 required
+                 class="w-full rounded-lg border px-3 py-2 text-sm"
+                 placeholder="Ej: Mayorista, VIP, Distribuidor">
+        </div>
+
+        <div>
+          <label class="mb-1 block text-sm font-medium">Moneda *</label>
+          <select name="currency" class="w-full rounded-lg border px-3 py-2 text-sm">
+            <option value="USD" {% if pricelist and pricelist.currency == "USD" %}selected{% endif %}>USD - Dólares</option>
+            <option value="EUR" {% if pricelist and pricelist.currency == "EUR" %}selected{% endif %}>EUR - Euros</option>
+            <option value="PEN" {% if pricelist and pricelist.currency == "PEN" %}selected{% endif %}>PEN - Soles</option>
+          </select>
+        </div>
+
+        <div class="flex items-center">
+          <label class="flex items-center gap-2">
+            <input type="checkbox"
+                   name="is_active"
+                   {% if not pricelist or pricelist.is_active %}checked{% endif %}
+                   class="rounded border-gray-300">
+            <span class="text-sm font-medium">Lista activa</span>
+          </label>
+        </div>
+
+        <div class="md:col-span-2">
+          <label class="mb-1 block text-sm font-medium">Descripción</label>
+          <textarea name="description"
+                    rows="3"
+                    class="w-full rounded-lg border px-3 py-2 text-sm"
+                    placeholder="Descripción opcional de la lista de precios">{% if pricelist %}{{ pricelist.description }}{% endif %}</textarea>
+        </div>
+      </div>
+
+      <div class="mt-6 flex justify-end gap-3">
+        <a href="{% if pricelist %}{% url 'sales:pricelist_detail' pricelist.pk %}{% else %}{% url 'sales:pricelist_list' %}{% endif %}"
+           class="rounded-xl border px-6 py-2 text-sm hover:bg-gray-50">
+          Cancelar
+        </a>
+        <button type="submit"
+                class="rounded-xl bg-blue-600 px-6 py-2 text-sm font-medium text-white hover:bg-blue-700">
+          {% if pricelist %}Guardar Cambios{% else %}Crear Lista{% endif %}
+        </button>
+      </div>
+    </form>
+  </div>
+
+  {% if not pricelist %}
+    <div class="mt-6 rounded-2xl border border-blue-100 bg-blue-50 p-4">
+      <div class="flex gap-3">
+        <svg class="h-5 w-5 text-blue-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <div class="text-sm text-blue-700">
+          <p class="font-medium">Después de crear la lista</p>
+          <p class="mt-1">Podrás agregar productos con sus precios específicos desde la página de detalle.</p>
+        </div>
+      </div>
+    </div>
+  {% endif %}
+{% endblock %}

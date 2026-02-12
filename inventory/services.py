@@ -77,7 +77,7 @@ def _update_lot_balance(
     
     if new_qty < 0:
         raise ValidationError(
-            f"La operación dejaría el balance del lote {lot.internal_lot} "
+            f"La operación dejaría el balance del lote {lot.lot_number} "
             f"en {location.code} con cantidad negativa."
         )
     
@@ -161,8 +161,7 @@ def register_inventory_move(
     area: str | None = None,
     notes: str | None = None,
     lot: Lot | None = None,
-    supplier_lot: str | None = None,
-    internal_lot: str | None = None,
+    lot_number: str | None = None,
     allow_pending_lot: bool = False,
     warehouse: Warehouse | None = None,
     location: Location | None = None,
@@ -176,7 +175,7 @@ def register_inventory_move(
 
     Reglas:
     - OUT con lote: lote debe estar APPROVED (salvo allow_pending_lot=True)
-    - IN sin lote: si pasan supplier_lot/internal_lot, busca/crea lote (PENDING)
+    - IN sin lote: si pasa lot_number, busca/crea lote (PENDING)
     """
     quantity = _to_decimal(quantity)
     if quantity <= 0:
@@ -199,21 +198,17 @@ def register_inventory_move(
 
     # Si no se pasa lote, en IN intentamos resolver/crear
     if lot is None and movement_type == MovementTypes.IN:
-        if not supplier_lot and not internal_lot:
-            internal_lot = generate_internal_lot(product)
+        if not lot_number:
+            lot_number = generate_internal_lot(product)
 
-        if supplier_lot:
-            lot = Lot.objects.filter(product=product, supplier_lot=supplier_lot).first()
-
-        if internal_lot and lot is None:
-            lot = Lot.objects.filter(product=product, internal_lot=internal_lot).first()
+        # Buscar lote existente por número
+        lot = Lot.objects.filter(product=product, lot_number=lot_number).first()
 
         if lot is None:
             # ⭐ Crear lote SIN quantity_current
             lot = Lot.objects.create(
                 product=product,
-                internal_lot=internal_lot,
-                supplier_lot=supplier_lot,
+                lot_number=lot_number,
                 quantity_initial=quantity,
                 # quantity_current es property calculada
                 status=LotStatus.PENDING,
@@ -418,7 +413,7 @@ def release_lot_by_qa(
         lot=lot,
         movement_type=MovementTypes.TRANSFER,
         quantity=qty,
-        reference=f"Liberación QA - Lote {lot.internal_lot}",
+        reference=f"Liberación QA - Lote {lot.lot_number}",
         warehouse=to_wh,
         location=to_loc,
         area="Liberación QA",
@@ -504,7 +499,7 @@ def transfer_lot(
         movement_type=MovementTypes.TRANSFER,
         quantity=qty,
         unit_cost=None,
-        reference=f"Transferencia {lot.internal_lot}",
+        reference=f"Transferencia {lot.lot_number}",
         warehouse=new_warehouse,
         location=new_location,
         area="TRANSFERENCIA",

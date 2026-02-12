@@ -44,7 +44,7 @@ class PartnerForm(forms.ModelForm):
         fields = [
             # Identificación básica
             "code",
-            "alt_code",
+            # "alt_code",  # Oculto - se puede usar en admin si se necesita
             "identification_type",
             "identification",
             "trade_name",
@@ -56,6 +56,9 @@ class PartnerForm(forms.ModelForm):
             "is_customer",
             "is_supplier",
             "is_public_entity",
+
+            # Lista de precios
+            "price_list",
 
             # Crédito
             "credit_limit",
@@ -101,6 +104,8 @@ class PartnerForm(forms.ModelForm):
             "is_customer": forms.CheckboxInput(attrs={"class": "rounded"}),
             "is_supplier": forms.CheckboxInput(attrs={"class": "rounded"}),
             "is_public_entity": forms.CheckboxInput(attrs={"class": "rounded"}),
+
+            "price_list": forms.Select(attrs={"class": "w-full rounded-lg border px-3 py-2 text-sm"}),
 
             "credit_limit": forms.NumberInput(attrs={"class": "w-full rounded-lg border px-3 py-2 text-sm", "step": "0.01"}),
             "credit_available": forms.NumberInput(attrs={"class": "w-full rounded-lg border px-3 py-2 text-sm", "step": "0.01"}),

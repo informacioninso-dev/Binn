@@ -31,10 +31,12 @@
     </div>
 
     <div>
-      <label class="mb-1 block text-sm font-medium">Dominio</label>
-      {{ form.domain }}
-      <p class="text-xs text-gray-500">Ej: acme.localhost</p>
-      {{ form.domain.errors }}
+      <label class="mb-1 block text-sm font-medium">Subdominio</label>
+      {{ form.subdomain }}
+      {% if form.subdomain.help_text %}
+        <p class="text-xs text-gray-500">{{ form.subdomain.help_text }}</p>
+      {% endif %}
+      {{ form.subdomain.errors }}
     </div>
 
     <div>

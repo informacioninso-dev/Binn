@@ -34,9 +34,10 @@ class PurchaseOrderForm(forms.ModelForm):
         user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
 
-        # Solo proveedores activos
+        # Solo proveedores activos y calificados ISO 13485
         self.fields["supplier"].queryset = Partner.objects.filter(
             is_supplier=True,
+            is_qualified_supplier=True,
             is_active=True,
         ).order_by("trade_name", "legal_name")
 
@@ -121,13 +122,19 @@ class RawMaterialReceptionHeaderForm(forms.Form):
     supplier_name = forms.CharField(
         label="Proveedor",
         max_length=200,
-        widget=forms.TextInput(attrs={"class": "w-full rounded-lg border px-3 py-2"}),
+        widget=forms.TextInput(attrs={
+            "class": "w-full rounded-lg border px-3 py-2 bg-gray-100 cursor-not-allowed",
+            "readonly": "readonly"
+        }),
     )
     supplier_ruc = forms.CharField(
         label="RUC proveedor",
         max_length=20,
         required=False,
-        widget=forms.TextInput(attrs={"class": "w-full rounded-lg border px-3 py-2"}),
+        widget=forms.TextInput(attrs={
+            "class": "w-full rounded-lg border px-3 py-2 bg-gray-100 cursor-not-allowed",
+            "readonly": "readonly"
+        }),
     )
     document_type = forms.CharField(
         label="Tipo de documento",
@@ -135,8 +142,9 @@ class RawMaterialReceptionHeaderForm(forms.Form):
         required=False,
         widget=forms.TextInput(
             attrs={
-                "class": "w-full rounded-lg border px-3 py-2",
+                "class": "w-full rounded-lg border px-3 py-2 bg-gray-100 cursor-not-allowed",
                 "placeholder": "Factura, guía, OC...",
+                "readonly": "readonly"
             }
         ),
     )
@@ -144,7 +152,10 @@ class RawMaterialReceptionHeaderForm(forms.Form):
         label="N° documento",
         max_length=50,
         required=False,
-        widget=forms.TextInput(attrs={"class": "w-full rounded-lg border px-3 py-2"}),
+        widget=forms.TextInput(attrs={
+            "class": "w-full rounded-lg border px-3 py-2 bg-gray-100 cursor-not-allowed",
+            "readonly": "readonly"
+        }),
     )
     reception_date = forms.DateField(
         label="Fecha de recepción",
@@ -300,17 +311,14 @@ class RawMaterialReceptionLineForm(forms.Form):
         required=False,
         widget=forms.NumberInput(attrs={"class": "w-full rounded-lg border px-2 py-1 text-sm"}),
     )
-    supplier_lot = forms.CharField(
-        label="Lote proveedor",
+    lot_number = forms.CharField(
+        label="Lote",
         max_length=50,
         required=False,
-        widget=forms.TextInput(attrs={"class": "w-full rounded-lg border px-2 py-1 text-sm"}),
-    )
-    internal_lot = forms.CharField(
-        label="Lote interno",
-        max_length=50,
-        required=False,
-        widget=forms.TextInput(attrs={"class": "w-full rounded-lg border px-2 py-1 text-sm"}),
+        widget=forms.TextInput(attrs={
+            "class": "w-full rounded-lg border px-2 py-1 text-sm",
+            "placeholder": "Lote del proveedor o auto-generado"
+        }),
     )
     manufacturing_date = forms.DateField(
         label="Fecha de elaboración",
@@ -334,12 +342,6 @@ class RawMaterialReceptionLineForm(forms.Form):
             format="%Y-%m-%d"
         ),
     )
-    storage_area = forms.CharField(
-        label="Área/bodega",
-        max_length=100,
-        required=False,
-        widget=forms.TextInput(attrs={"class": "w-full rounded-lg border px-2 py-1 text-sm"}),
-    )
     line_notes = forms.CharField(
         label="Notas",
         required=False,
@@ -351,13 +353,13 @@ class RawMaterialReceptionLineForm(forms.Form):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # solo materias primas activas
+        # Materias primas Y productos terminados (para compras)
         self.fields["product"].queryset = Product.objects.filter(
-            product_type=ProductType.RAW,
+            product_type__in=[ProductType.RAW, ProductType.FG],
             is_active=True,
-        ).order_by("name")
-        # Mostrar solo el nombre en el dropdown (el código va en su columna aparte)
-        self.fields["product"].label_from_instance = lambda obj: obj.name
+        ).order_by("product_type", "name")
+        # Mostrar tipo + nombre en el dropdown para diferenciar
+        self.fields["product"].label_from_instance = lambda obj: f"[{obj.get_product_type_display()}] {obj.name}"
     
     def clean(self):
         cleaned = super().clean()
@@ -375,12 +377,12 @@ class RawMaterialReceptionLineForm(forms.Form):
             try:
                 product = Product.objects.get(
                     code=product_code,
-                    product_type=ProductType.RAW,
+                    product_type__in=[ProductType.RAW, ProductType.FG],
                     is_active=True,
                 )
                 cleaned["product"] = product
             except Product.DoesNotExist:
-                self.add_error("product_code", "No existe un producto RAW activo con este código.")
+                self.add_error("product_code", "No existe un producto (MP o PT) activo con este código.")
 
         # Si hay producto (por código o por select), exigimos cantidad recibida > 0
         if product and (received_quantity is None or received_quantity <= 0):

@@ -2,11 +2,6 @@
 {% with url_name=request.resolver_match.url_name %}
 <nav class="mb-5 -mx-1 overflow-x-auto scrollbar-none">
   <div class="flex gap-2 px-1 py-1 min-w-max">
-    <a href="{% url 'production:operations_list' %}"
-       class="whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-colors
-       {% if 'operation' in url_name %}bg-blue-600 text-white shadow-sm{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}">
-      Operaciones
-    </a>
     <a href="{% url 'production:plans_list' %}"
        class="whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-colors
        {% if 'plans' in url_name %}bg-blue-600 text-white shadow-sm{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}">
@@ -16,6 +11,16 @@
        class="whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-colors
        {% if 'order' in url_name %}bg-blue-600 text-white shadow-sm{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}">
       Órdenes
+    </a>
+    <a href="{% url 'production:gantt' %}"
+       class="whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-colors
+       {% if 'gantt' in url_name %}bg-blue-600 text-white shadow-sm{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}">
+      📊 Planificación
+    </a>
+    <a href="{% url 'production:operations_list' %}"
+       class="whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-colors
+       {% if 'operation' in url_name %}bg-blue-600 text-white shadow-sm{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}">
+      Operaciones
     </a>
   </div>
 </nav>
