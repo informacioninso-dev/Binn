@@ -71,94 +71,90 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f"Esquema tributario listo: {tax_scheme_iva0}"))
 
         # Unidades de medida base
-        unit_kg, _ = Unit.objects.get_or_create(
-            code="kg",
-            defaults={
-                "name": "Kilogramo",
-                "category": UnitCategory.MASS,
-                "factor_to_base": Decimal("1"),
-                "is_active": True,
-            },
-        )
-        self.stdout.write(self.style.SUCCESS(f"Unidad lista: {unit_kg}"))
+        units_data = [
+            # Masa
+            ("kg", "Kilogramo", UnitCategory.MASS, Decimal("1")),
+            ("g", "Gramo", UnitCategory.MASS, Decimal("0.001")),
+            ("lb", "Libra", UnitCategory.MASS, Decimal("0.4536")),
+            ("oz", "Onza", UnitCategory.MASS, Decimal("0.02835")),
+            # Conteo
+            ("un", "Unidad", UnitCategory.COUNT, Decimal("1")),
+            ("caja", "Caja", UnitCategory.COUNT, Decimal("1")),
+            ("rollo", "Rollo", UnitCategory.COUNT, Decimal("1")),
+            ("par", "Par", UnitCategory.COUNT, Decimal("1")),
+            ("paq", "Paquete", UnitCategory.COUNT, Decimal("1")),
+            # Longitud
+            ("m", "Metro", UnitCategory.LENGTH, Decimal("1")),
+            ("cm", "Centímetro", UnitCategory.LENGTH, Decimal("0.01")),
+            ("mm", "Milímetro", UnitCategory.LENGTH, Decimal("0.001")),
+            ("pulg", "Pulgada", UnitCategory.LENGTH, Decimal("0.0254")),
+            # Volumen
+            ("L", "Litro", UnitCategory.VOLUME, Decimal("1")),
+            ("mL", "Mililitro", UnitCategory.VOLUME, Decimal("0.001")),
+            ("gal", "Galón", UnitCategory.VOLUME, Decimal("3.7854")),
+            # Área
+            ("m2", "Metro cuadrado", UnitCategory.AREA, Decimal("1")),
+        ]
+        for code, name, category, factor in units_data:
+            unit, created = Unit.objects.get_or_create(
+                code=code,
+                defaults={
+                    "name": name,
+                    "category": category,
+                    "factor_to_base": factor,
+                    "is_active": True,
+                },
+            )
+            status = "creada" if created else "ya existía"
+            self.stdout.write(self.style.SUCCESS(f"Unidad {status}: {unit}"))
 
-        unit_un, _ = Unit.objects.get_or_create(
-            code="un",
-            defaults={
-                "name": "Unidad",
-                "category": UnitCategory.COUNT,
-                "factor_to_base": Decimal("1"),
-                "is_active": True,
-            },
-        )
-        self.stdout.write(self.style.SUCCESS(f"Unidad lista: {unit_un}"))
+        # Bodegas mínimas
+        warehouses_data = [
+            ("BOD-CUA", "Cuarentena", WarehouseType.QUARANTINE, True, False, False),
+            ("BOD-MP", "Bodega de Materia Prima", WarehouseType.RAW, False, True, False),
+            ("BOD-SE", "Bodega de Semielaborado", WarehouseType.WIP, False, False, False),
+            ("BOD-PT", "Bodega de Producto Terminado", WarehouseType.FINISHED, False, False, True),
+            ("BOD-SCR", "Bodega de Scrap / Rechazo", WarehouseType.SCRAP, False, False, False),
+            ("BOD-RET", "Retiro de Mercado", WarehouseType.RECALL, False, False, False),
+            ("BOD-DEV", "Devoluciones de Clientes", WarehouseType.RETURNS, False, False, False),
+            ("BOD-DES", "Zona de Predespacho", WarehouseType.STAGING, False, False, False),
+            ("BOD-MUE", "Muestras / Retención", WarehouseType.SAMPLES, False, False, False),
+            ("BOD-EMP", "Material de Empaque", WarehouseType.PACK, False, False, False),
+        ]
+        warehouses = {}
+        for code, name, wtype, is_quarantine, is_raw, is_fg in warehouses_data:
+            wh, created = Warehouse.objects.get_or_create(
+                code=code,
+                defaults={
+                    "name": name,
+                    "type": wtype,
+                    "is_active": True,
+                    "is_default_quarantine": is_quarantine,
+                    "is_default_for_raw": is_raw,
+                    "is_default_fg_released": is_fg,
+                },
+            )
+            warehouses[code] = wh
+            status = "creada" if created else "ya existía"
+            self.stdout.write(self.style.SUCCESS(f"Bodega {status}: {wh}"))
 
-        unit_m, _ = Unit.objects.get_or_create(
-            code="m",
-            defaults={
-                "name": "Metro",
-                "category": UnitCategory.LENGTH,
-                "factor_to_base": Decimal("1"),
-                "is_active": True,
-            },
-        )
-        self.stdout.write(self.style.SUCCESS(f"Unidad lista: {unit_m}"))
-
-        # Bodegas minimas
-        warehouse_raw, _ = Warehouse.objects.get_or_create(
-            code="BOD-MP",
-            defaults={
-                "name": "Bodega de Materia Prima",
-                "type": WarehouseType.RAW,
-                "is_active": True,
-                "is_default_quarantine": False,
-                "is_default_for_raw": True,
-                "is_default_fg_released": False,
-            },
-        )
-        self.stdout.write(self.style.SUCCESS(f"Bodega lista: {warehouse_raw}"))
-
-        warehouse_finished, _ = Warehouse.objects.get_or_create(
-            code="BOD-PT",
-            defaults={
-                "name": "Bodega de Producto Terminado",
-                "type": WarehouseType.FINISHED,
-                "is_active": True,
-                "is_default_quarantine": False,
-                "is_default_for_raw": False,
-                "is_default_fg_released": True,
-            },
-        )
-        self.stdout.write(self.style.SUCCESS(f"Bodega lista: {warehouse_finished}"))
-
-        # Ubicaciones minimas
-        location_01, _ = Location.objects.get_or_create(
-            warehouse=warehouse_raw,
-            code="EST-01-N1-A",
-            defaults={
-                "name": "Estante 1 - Nivel 1 - A",
-                "description": "Primer estante de materia prima",
-                "row": "1",
-                "rack": "1",
-                "level": "1",
-                "is_active": True,
-            },
-        )
-        self.stdout.write(self.style.SUCCESS(f"Ubicacion lista: {location_01}"))
-
-        location_02, _ = Location.objects.get_or_create(
-            warehouse=warehouse_finished,
-            code="EST-01-N1-B",
-            defaults={
-                "name": "Estante 2 - Nivel 1 - B",
-                "description": "Estante para productos terminados",
-                "row": "1",
-                "rack": "2",
-                "level": "1",
-                "is_active": True,
-            },
-        )
-        self.stdout.write(self.style.SUCCESS(f"Ubicacion lista: {location_02}"))
+        # Ubicaciones mínimas (1 por bodega)
+        for code, wh in warehouses.items():
+            loc_code = f"{code}-LOC-01"
+            loc, created = Location.objects.get_or_create(
+                warehouse=wh,
+                code=loc_code,
+                defaults={
+                    "name": f"Ubicación principal - {wh.name}",
+                    "description": f"Ubicación por defecto de {wh.name}",
+                    "row": "1",
+                    "rack": "1",
+                    "level": "1",
+                    "is_active": True,
+                },
+            )
+            status = "creada" if created else "ya existía"
+            self.stdout.write(self.style.SUCCESS(f"Ubicación {status}: {loc}"))
 
         # Motivos de devolución - Comerciales
         commercial_reasons = [
