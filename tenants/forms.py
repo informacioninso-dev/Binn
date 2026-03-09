@@ -2,6 +2,7 @@ import re
 
 from django import forms
 from django.conf import settings
+from django.contrib.auth.forms import AuthenticationForm
 from django.core.exceptions import ValidationError
 
 from .models import Client, TenantMembership
@@ -92,4 +93,26 @@ class AddMemberForm(forms.Form):
         label="Es administrador",
         required=False,
         widget=forms.CheckboxInput(attrs={"class": "h-4 w-4 rounded border-gray-300"}),
+    )
+
+
+class TenantAuthenticationForm(AuthenticationForm):
+    username = forms.CharField(
+        label="Usuario o correo",
+        max_length=254,
+        widget=forms.TextInput(
+            attrs={
+                "autofocus": True,
+                "class": "w-full rounded-lg border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500",
+            }
+        ),
+    )
+    password = forms.CharField(
+        label="Contraseña",
+        strip=False,
+        widget=forms.PasswordInput(
+            attrs={
+                "class": "w-full rounded-lg border px-3 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500",
+            }
+        ),
     )

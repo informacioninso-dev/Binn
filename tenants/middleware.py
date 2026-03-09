@@ -39,7 +39,7 @@ class TenantAccessMiddleware:
 
         if not allowed:
             logout(request)
-            messages.error(request, "No tienes acceso a esta empresa.")
+            messages.error(request, "No tienes acceso a esta clinica.")
             return redirect(settings.LOGIN_URL)
 
         return None

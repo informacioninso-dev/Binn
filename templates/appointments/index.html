@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}Citas{% endblock %}
+
+{% block content %}
+  <div class="rounded-2xl border bg-white p-6">
+    <div class="mb-4 flex items-center justify-between">
+      <h1 class="text-2xl font-bold">Citas</h1>
+      <span class="text-sm text-gray-500">Base inicial</span>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead class="bg-gray-50 text-left text-gray-600">
+          <tr>
+            <th class="px-4 py-2">Fecha</th>
+            <th class="px-4 py-2">Paciente</th>
+            <th class="px-4 py-2">Duracion</th>
+            <th class="px-4 py-2">Estado</th>
+            <th class="px-4 py-2">Motivo</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for appointment in appointments %}
+            <tr class="border-t">
+              <td class="px-4 py-2">{{ appointment.scheduled_at|date:"d/m/Y H:i" }}</td>
+              <td class="px-4 py-2">{{ appointment.patient.last_name }}, {{ appointment.patient.first_name }}</td>
+              <td class="px-4 py-2">{{ appointment.duration_minutes }} min</td>
+              <td class="px-4 py-2">{{ appointment.get_status_display }}</td>
+              <td class="px-4 py-2">{{ appointment.reason|default:"-" }}</td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="5" class="px-4 py-6 text-center text-gray-500">Sin citas registradas.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endblock %}

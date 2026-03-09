@@ -1,127 +1,18 @@
-{# templates/pages/dashboard.html #}
-{% extends 'layouts/app.html' %}
-{% block title %}Dashboard · Panel{% endblock %}
+{% extends "base.html" %}
 
-{% block app_content %}
-  <h1 class="mb-6 text-2xl font-bold">Inicio</h1>
+{% block title %}Inicio · MediEcua{% endblock %}
 
-  {# ── Fila 1: KPIs principales ── #}
-  <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-
-    <div class="rounded-2xl border bg-white p-4">
-      <div class="flex items-center justify-between">
-        <p class="text-sm text-gray-500">Productos activos</p>
-        <span class="text-xl">📦</span>
+{% block content %}
+  <div class="rounded-2xl border bg-white p-6">
+    <h1 class="text-2xl font-bold">MediEcua 360</h1>
+    <p class="mt-2 text-sm text-gray-600">
+      Lienzo limpio preparado para construir el sistema gestor clínico.
+    </p>
+    {% if tenant_schema and tenant_schema != "public" %}
+      <div class="mt-6 rounded-lg bg-blue-50 p-4 text-sm text-blue-800">
+        <p><strong>Clínica:</strong> {{ tenant_name|default:"-" }}</p>
+        <p><strong>Schema:</strong> {{ tenant_schema }}</p>
       </div>
-      <p class="mt-1 text-2xl font-semibold">{{ products_active }}</p>
-    </div>
-
-    <div class="rounded-2xl border bg-white p-4">
-      <div class="flex items-center justify-between">
-        <p class="text-sm text-gray-500">Pedidos pendientes</p>
-        <span class="text-xl">📋</span>
-      </div>
-      <p class="mt-1 text-2xl font-semibold">{{ pedidos_pendientes }}</p>
-    </div>
-
-    <div class="rounded-2xl border bg-white p-4">
-      <div class="flex items-center justify-between">
-        <p class="text-sm text-gray-500">Ventas del mes</p>
-        <span class="text-xl">💰</span>
-      </div>
-      <p class="mt-1 text-2xl font-semibold">{{ sales_month }}</p>
-      <p class="text-xs text-gray-400">${{ sales_month_total }}</p>
-    </div>
-
-    <div class="rounded-2xl border bg-white p-4">
-      <div class="flex items-center justify-between">
-        <p class="text-sm text-gray-500">Facturas pendientes</p>
-        <span class="text-xl">🧾</span>
-      </div>
-      <p class="mt-1 text-2xl font-semibold">{{ pending_invoices }}</p>
-    </div>
-
-  </div>
-
-  {# ── Fila 2: KPIs operativos ── #}
-  <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-
-    <div class="rounded-2xl border bg-white p-4">
-      <div class="flex items-center justify-between">
-        <p class="text-sm text-gray-500">OC pendientes</p>
-        <span class="text-xl">🛒</span>
-      </div>
-      <p class="mt-1 text-2xl font-semibold">{{ oc_pending }}</p>
-    </div>
-
-    <div class="rounded-2xl border bg-white p-4">
-      <div class="flex items-center justify-between">
-        <p class="text-sm text-gray-500">Recepciones en QA</p>
-        <span class="text-xl">🔬</span>
-      </div>
-      <p class="mt-1 text-2xl font-semibold">{{ receptions_qa }}</p>
-    </div>
-
-    <div class="rounded-2xl border bg-white p-4">
-      <div class="flex items-center justify-between">
-        <p class="text-sm text-gray-500">Órdenes producción abiertas</p>
-        <span class="text-xl">⚙️</span>
-      </div>
-      <p class="mt-1 text-2xl font-semibold">{{ op_open }}</p>
-    </div>
-
-    <div class="rounded-2xl border bg-white p-4">
-      <div class="flex items-center justify-between">
-        <p class="text-sm text-gray-500">Inspecciones QA pendientes</p>
-        <span class="text-xl">🔎</span>
-      </div>
-      <p class="mt-1 text-2xl font-semibold">{{ qa_pending }}</p>
-    </div>
-
-  </div>
-
-  {# ── Tabla: últimos movimientos de inventario ── #}
-  <div class="rounded-2xl border bg-white">
-    <div class="border-b px-4 py-3">
-      <h2 class="font-semibold">Últimos movimientos de inventario</h2>
-    </div>
-    <div class="overflow-x-auto p-4">
-      <table class="min-w-full text-sm">
-        <thead>
-          <tr class="text-left text-xs font-semibold text-gray-600">
-            <th class="px-3 py-2">Fecha</th>
-            <th class="px-3 py-2">Tipo</th>
-            <th class="px-3 py-2">Producto</th>
-            <th class="px-3 py-2 text-right">Cantidad</th>
-            <th class="px-3 py-2">Bodega</th>
-            <th class="px-3 py-2">Referencia</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-gray-100">
-          {% for m in last_moves %}
-            <tr class="hover:bg-gray-50">
-              <td class="px-3 py-2 text-xs text-gray-700">{{ m.date|date:'d/m/Y H:i' }}</td>
-              <td class="px-3 py-2 text-xs">
-                <span class="inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium
-                  {% if m.movement_type == 'IN' %}bg-green-100 text-green-700
-                  {% elif m.movement_type == 'OUT' %}bg-red-100 text-red-700
-                  {% elif m.movement_type == 'ADJ' %}bg-yellow-100 text-yellow-700
-                  {% else %}bg-blue-100 text-blue-700{% endif %}">
-                  {{ m.get_movement_type_display }}
-                </span>
-              </td>
-              <td class="px-3 py-2 text-xs">{{ m.product.name }}</td>
-              <td class="px-3 py-2 text-xs text-right">{{ m.quantity }}</td>
-              <td class="px-3 py-2 text-xs text-gray-500">{{ m.warehouse.name|default:"—" }}</td>
-              <td class="px-3 py-2 text-xs text-gray-500">{{ m.reference|default:"—" }}</td>
-            </tr>
-          {% empty %}
-            <tr>
-              <td colspan="6" class="px-3 py-6 text-center text-gray-400">Sin movimientos registrados</td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
+    {% endif %}
   </div>
 {% endblock %}

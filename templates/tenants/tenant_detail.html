@@ -35,7 +35,7 @@
         {% if tenant.is_active %}
           <button type="submit"
                   class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600 hover:bg-red-100"
-                  onclick="return confirm('Desactivar empresa {{ tenant.name }}?')">
+                  onclick="return confirm('Desactivar Clinica {{ tenant.name }}?')">
             Desactivar
           </button>
         {% else %}
@@ -128,7 +128,7 @@
                       {% csrf_token %}
                       <button type="submit"
                               class="rounded border border-red-200 px-2 py-1 text-xs text-red-600 hover:bg-red-50"
-                              onclick="return confirm('Remover {{ m.user.username }} de esta empresa?')">
+                              onclick="return confirm('Remover {{ m.user.username }} de esta Clinica?')">
                         Remover
                       </button>
                     </form>
@@ -167,6 +167,7 @@
   </div>
 
   <div class="mt-4">
-    <a href="{% url 'tenants:list' %}" class="text-sm text-gray-500 hover:underline">&larr; Volver a empresas</a>
+    <a href="{% url 'tenants:list' %}" class="text-sm text-gray-500 hover:underline">&larr; Volver a Clinicas</a>
   </div>
 {% endblock %}
+

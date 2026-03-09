@@ -14,7 +14,6 @@ from pathlib import Path
 import os
 from dotenv import load_dotenv
 from django.core.exceptions import ImproperlyConfigured
-import config.db as db
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -22,8 +21,16 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / '.env')
 
 # ---- Seguridad ----
-SECRET_KEY = os.getenv('SECRET_KEY')
+SECRET_KEY = os.getenv('SECRET_KEY', 'dev-key-CHANGE-IN-PRODUCTION-d8f9a7b6c5e4f3a2b1')
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
+
+# Validar SECRET_KEY en producciÃ³n
+if not DEBUG and SECRET_KEY == 'dev-key-CHANGE-IN-PRODUCTION-d8f9a7b6c5e4f3a2b1':
+    raise ImproperlyConfigured(
+        'SECRET_KEY debe estar configurada en producciÃ³n. '
+        'Genera una con: python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"'
+    )
+
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,.localhost').split(',')
 
 
@@ -42,13 +49,8 @@ SHARED_APPS = [
 
 TENANT_APPS = [
     'core',
-    'inventory',
-    'finance',
-    'sales',
-    'production',
-    'quality',
-    'procurement',
-    'partners',
+    'patients',
+    'appointments',
 ]
 
 INSTALLED_APPS = SHARED_APPS + [app for app in TENANT_APPS if app not in SHARED_APPS]
@@ -74,7 +76,7 @@ TENANT_MODEL = 'tenants.Client'
 TENANT_DOMAIN_MODEL = 'tenants.Domain'
 DATABASE_ROUTERS = ('django_tenants.routers.TenantSyncRouter',)
 
-# Dominio base para tenants (usa .env para producción)
+# Dominio base para tenants (usa .env para producciÃ³n)
 TENANT_BASE_DOMAIN = os.getenv('TENANT_BASE_DOMAIN', 'localhost')
 
 TEMPLATES = [
@@ -87,7 +89,6 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                'core.context_processors.module_access',
             ],
         },
     },
@@ -106,7 +107,7 @@ if _db_engine != 'postgresql':
 DATABASES = {
     'default': {
         'ENGINE': 'django_tenants.postgresql_backend',
-        'NAME': os.getenv('DB_NAME', 'erp'),
+        'NAME': os.getenv('DB_NAME', 'mediecua'),
         'USER': os.getenv('DB_USER', 'postgres'),
         'PASSWORD': os.getenv('DB_PASSWORD', ''),
         'HOST': os.getenv('DB_HOST', 'localhost'),
@@ -121,9 +122,14 @@ AUTH_PASSWORD_VALIDATORS = [
    
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
-     "OPTIONS": {"min_length": 8}},  # súbelo o bájalo
+     "OPTIONS": {"min_length": 8}},  # sÃºbelo o bÃ¡jalo
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
-    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},  # quítalo si no quieres bloquear numéricas
+    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},  # quÃ­talo si no quieres bloquear numÃ©ricas
+]
+
+AUTHENTICATION_BACKENDS = [
+    "tenants.auth_backends.TenantAwareBackend",
+    "django.contrib.auth.backends.ModelBackend",
 ]
 
 
@@ -139,7 +145,7 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 MEDIA_URL = '/media/'
@@ -153,39 +159,40 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR,'static'),]
 
-# Redirecciones después de login/logout
+# Redirecciones despuÃ©s de login/logout
 
 # config/settings.py
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'dashboard'
 LOGOUT_REDIRECT_URL = 'login'
 
-# Configuración de sesión
-SESSION_COOKIE_AGE = 60 * 60 * 24 * 14  # 14 días
+# ConfiguraciÃ³n de sesiÃ³n
+SESSION_COOKIE_AGE = 60 * 60 * 24 * 14  # 14 dÃ­as
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_DOMAIN = os.getenv('SESSION_COOKIE_DOMAIN') or None
 
 # Cookies CSRF
 CSRF_COOKIE_HTTPONLY = True
 CSRF_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_DOMAIN = os.getenv('CSRF_COOKIE_DOMAIN') or None
 CSRF_TRUSTED_ORIGINS = os.getenv(
     'CSRF_TRUSTED_ORIGINS',
     'https://localhost',
 ).split(',')
 
-# Seguridad adicional en producción
+# Seguridad adicional en producciÃ³n
 if not DEBUG:
     ENABLE_SSL = os.getenv('ENABLE_SSL', 'False') == 'True'
     SESSION_COOKIE_SECURE = ENABLE_SSL
     CSRF_COOKIE_SECURE = ENABLE_SSL
     SECURE_SSL_REDIRECT = ENABLE_SSL
     if ENABLE_SSL:
-        SECURE_HSTS_SECONDS = 31536000  # 1 año
+        SECURE_HSTS_SECONDS = 31536000  # 1 aÃ±o
         SECURE_HSTS_INCLUDE_SUBDOMAINS = True
         SECURE_HSTS_PRELOAD = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
-    SECURE_BROWSER_XSS_FILTER = True
     X_FRAME_OPTIONS = 'DENY'
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
@@ -206,7 +213,7 @@ LOGGING = {
         },
         'file': {
             'class': 'logging.FileHandler',
-            'filename': BASE_DIR / 'logs' / 'kore.log',
+            'filename': BASE_DIR / 'logs' / 'mediecua.log',
             'formatter': 'verbose',
         },
     },
@@ -227,3 +234,4 @@ LOGGING = {
         },
     },
 }
+

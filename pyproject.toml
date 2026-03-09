@@ -1,5 +1,5 @@
 [project]
-name = "erp"
+name = "mediecua360"
 version = "0.1.0"
 description = ""
 authors = [
@@ -12,11 +12,7 @@ dependencies = [
     "django (>=5.2.7,<6.0.0)",
     "django-tenants (>=3.6,<4.0.0)",
     "psycopg2 (>=2.9.11,<3.0.0)",
-    "weasyprint (>=67.0,<68.0)",
-    "future (>=1.0.0,<2.0.0)",
     "python-dotenv (>=1.2.1,<2.0.0)",
-    "openpyxl (>=3.1.5,<4.0.0)",
-    "xhtml2pdf (>=0.2.17,<0.3.0)",
     "gunicorn (>=25.0.1,<26.0.0)"
 ]
 

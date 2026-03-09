@@ -15,25 +15,22 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import include, path
 from django.conf import settings
 from django.conf.urls.static import static
 from core import views
 from django.contrib.auth import views as auth_views
+from tenants import views as tenant_views
 
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', views.dashboard, name='dashboard'),
-    path('inventory/', include(('inventory.urls', 'inventory'), namespace='inventory')),
-    path('finance/', include(('finance.urls', 'finance'), namespace='finance')),
-    path('sales/', include(('sales.urls', 'sales'), namespace='sales')),
-    path('production/', include(('production.urls', 'production'), namespace='production')),
-    path("core/", include("core.urls", namespace="core")),
-    path('quality/', include('quality.urls',namespace="quality")),  
+    path('patients/', include(('patients.urls', 'patients'), namespace='patients')),
+    path('appointments/', include(('appointments.urls', 'appointments'), namespace='appointments')),
 
     # Auth (login/logout)
-    path('accounts/login/',auth_views.LoginView.as_view(template_name='auth/login.html'),name='login'),
+    path('accounts/login/', tenant_views.TenantLoginView.as_view(), name='login'),
     path('accounts/logout/',auth_views.LogoutView.as_view(), name='logout'),
 
     # Cambio de contraseña (usuario logueado)
@@ -60,9 +57,6 @@ urlpatterns = [
     path('accounts/reset/done/', auth_views.PasswordResetCompleteView.as_view(
         template_name='auth/password_reset_complete.html'
     ), name='password_reset_complete'),
-
-    path("partners/", include("partners.urls", namespace="partners")),
-    path("procurement/", include("procurement.urls", namespace="procurement")),
 
 ]
 

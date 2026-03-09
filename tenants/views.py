@@ -1,20 +1,78 @@
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
-from django.contrib.auth.models import Group
+from django.contrib.auth.views import LoginView
 from django.core.management import call_command
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError
 from django.shortcuts import redirect, render
+from django.urls import reverse
 from django.views.generic import ListView, UpdateView, View
 from django_tenants.utils import schema_context
 
-from .forms import AddMemberForm, TenantCreateForm, TenantEditForm
+from .forms import AddMemberForm, TenantAuthenticationForm, TenantCreateForm, TenantEditForm
 from .models import Client, Domain, TenantMembership
 
 
 class SuperAdminRequiredMixin(UserPassesTestMixin):
     def test_func(self):
         return self.request.user.is_superuser
+
+
+class TenantLoginView(LoginView):
+    template_name = "auth/login.html"
+    authentication_form = TenantAuthenticationForm
+
+    def form_valid(self, form):
+        user = form.get_user()
+        tenant = getattr(self.request, "tenant", None)
+        if tenant and tenant.schema_name == settings.PUBLIC_SCHEMA_NAME and not user.is_superuser:
+            has_membership = TenantMembership.objects.filter(
+                user=user,
+                is_active=True,
+                tenant__is_active=True,
+            ).exists()
+            if not has_membership:
+                form.add_error(None, "No tienes clinicas activas asignadas.")
+                return self.form_invalid(form)
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        redirect_to = self.get_redirect_url()
+        if redirect_to:
+            return redirect_to
+
+        tenant = getattr(self.request, "tenant", None)
+        if tenant and tenant.schema_name == settings.PUBLIC_SCHEMA_NAME:
+            if self.request.user.is_superuser:
+                return reverse("tenants:list")
+
+            memberships = TenantMembership.objects.filter(
+                user=self.request.user,
+                is_active=True,
+                tenant__is_active=True,
+            ).select_related("tenant")
+
+            if memberships.count() == 1:
+                return reverse("tenants:switch", kwargs={"pk": memberships.first().tenant_id})
+            return reverse("dashboard")
+
+        return reverse("dashboard")
+
+
+class TenantAccessListView(LoginRequiredMixin, ListView):
+    model = TenantMembership
+    template_name = "tenants/my_tenants.html"
+    context_object_name = "memberships"
+
+    def get_queryset(self):
+        qs = TenantMembership.objects.select_related("tenant").prefetch_related("tenant__domains").filter(
+            is_active=True,
+            tenant__is_active=True,
+        )
+        if self.request.user.is_superuser:
+            return qs.order_by("tenant__name")
+        return qs.filter(user=self.request.user).order_by("tenant__name")
 
 
 class TenantListView(LoginRequiredMixin, SuperAdminRequiredMixin, ListView):
@@ -31,66 +89,47 @@ class TenantCreateView(LoginRequiredMixin, SuperAdminRequiredMixin, View):
     template_name = "tenants/tenant_form.html"
 
     def get(self, request):
-        form = TenantCreateForm()
-        return render(request, self.template_name, {"form": form})
+        return render(request, self.template_name, {"form": TenantCreateForm()})
 
     def post(self, request):
         form = TenantCreateForm(request.POST)
         if not form.is_valid():
             return render(request, self.template_name, {"form": form})
 
-        schema_name = form.cleaned_data["schema_name"]
-        name = form.cleaned_data["name"]
-        plan = form.cleaned_data["plan"]
-        domain = form.cleaned_data["subdomain"]
-
+        client = None
         try:
-            with transaction.atomic():
-                client = Client(
-                    schema_name=schema_name,
-                    name=name,
-                    plan=plan,
-                    is_active=True,
-                )
-                client.save()
-                Domain.objects.create(domain=domain, tenant=client, is_primary=True)
+            client = Client(
+                schema_name=form.cleaned_data["schema_name"],
+                name=form.cleaned_data["name"],
+                plan=form.cleaned_data["plan"],
+                is_active=True,
+            )
+            client.save()
+            Domain.objects.create(
+                domain=form.cleaned_data["subdomain"],
+                tenant=client,
+                is_primary=True,
+            )
         except IntegrityError as e:
-            messages.error(request, f"El schema o dominio ya existe: {str(e)}")
+            if client and getattr(client, "pk", None):
+                client.delete(force_drop=True)
+            messages.error(request, f"El schema o dominio ya existe: {e}")
             return render(request, self.template_name, {"form": form})
         except Exception as e:
-            messages.error(request, f"Error al crear tenant: {str(e)}")
-            return render(request, self.template_name, {"form": form})
-
-        # Migrar schema y cargar seed base
-        try:
-            call_command("migrate_schemas", schema_name=client.schema_name, interactive=False, verbosity=0)
-        except Exception as e:
-            messages.error(request, f"Error al migrar schema: {str(e)}")
-            # Eliminar el tenant creado si las migraciones fallan
-            client.delete()
+            if client and getattr(client, "pk", None):
+                client.delete(force_drop=True)
+            messages.error(request, f"Error al crear clinica: {e}")
             return render(request, self.template_name, {"form": form})
 
         try:
             with schema_context(client.schema_name):
                 call_command("seed_data", verbosity=0)
         except Exception as e:
-            messages.warning(request, f"Tenant creado pero seed_data falló: {str(e)}")
-            try:
-                from core.models import CompanyConfig
-                config = CompanyConfig.get()
-                if config:
-                    config.legal_name = client.name
-                    if not config.trade_name:
-                        config.trade_name = client.name
-                    config.save(update_fields=["legal_name", "trade_name"])
-            except Exception:
-                pass
+            messages.warning(request, f"Clinica creada pero seed_data fallo: {e}")
 
-        # Crear o asociar usuario admin al tenant
         username = (form.cleaned_data.get("admin_username") or "").strip()
         email = (form.cleaned_data.get("admin_email") or "").strip()
         password = (form.cleaned_data.get("admin_password") or "").strip()
-
         if username:
             User = get_user_model()
             user, created = User.objects.get_or_create(
@@ -104,16 +143,13 @@ class TenantCreateView(LoginRequiredMixin, SuperAdminRequiredMixin, View):
                 user.set_password(password)
                 user.save()
 
-            admin_group, _ = Group.objects.get_or_create(name="admin")
-            user.groups.add(admin_group)
-
             TenantMembership.objects.get_or_create(
                 tenant=client,
                 user=user,
                 defaults={"is_admin": True, "is_active": True},
             )
 
-        messages.success(request, f"Empresa '{client.name}' creada correctamente.")
+        messages.success(request, f"Clinica '{client.name}' creada correctamente.")
         return redirect("tenants:list")
 
 
@@ -123,7 +159,7 @@ class TenantEditView(LoginRequiredMixin, SuperAdminRequiredMixin, UpdateView):
     template_name = "tenants/tenant_edit.html"
 
     def get_success_url(self):
-        messages.success(self.request, f"Empresa '{self.object.name}' actualizada.")
+        messages.success(self.request, f"Clinica '{self.object.name}' actualizada.")
         return self.object.get_absolute_url()
 
     def get_context_data(self, **kwargs):
@@ -136,15 +172,14 @@ class TenantDetailView(LoginRequiredMixin, SuperAdminRequiredMixin, View):
     def get(self, request, pk):
         tenant = Client.objects.filter(pk=pk).prefetch_related("domains", "memberships__user").first()
         if not tenant:
-            messages.error(request, "Empresa no encontrada.")
+            messages.error(request, "Clinica no encontrada.")
             return redirect("tenants:list")
-        form = AddMemberForm()
-        return render(request, "tenants/tenant_detail.html", {"tenant": tenant, "form": form})
+        return render(request, "tenants/tenant_detail.html", {"tenant": tenant, "form": AddMemberForm()})
 
     def post(self, request, pk):
         tenant = Client.objects.filter(pk=pk).prefetch_related("domains", "memberships__user").first()
         if not tenant:
-            messages.error(request, "Empresa no encontrada.")
+            messages.error(request, "Clinica no encontrada.")
             return redirect("tenants:list")
 
         form = AddMemberForm(request.POST)
@@ -164,7 +199,7 @@ class TenantDetailView(LoginRequiredMixin, SuperAdminRequiredMixin, View):
             if created:
                 messages.success(request, f"Usuario '{user.username}' agregado.")
             else:
-                messages.info(request, f"'{user.username}' ya es miembro de esta empresa.")
+                messages.info(request, f"'{user.username}' ya es miembro de esta clinica.")
             return redirect("tenants:detail", pk=tenant.pk)
 
         return render(request, "tenants/tenant_detail.html", {"tenant": tenant, "form": form})
@@ -174,12 +209,12 @@ class TenantToggleActiveView(LoginRequiredMixin, SuperAdminRequiredMixin, View):
     def post(self, request, pk):
         tenant = Client.objects.filter(pk=pk).first()
         if not tenant:
-            messages.error(request, "Empresa no encontrada.")
+            messages.error(request, "Clinica no encontrada.")
             return redirect("tenants:list")
         tenant.is_active = not tenant.is_active
         tenant.save(update_fields=["is_active"])
         estado = "activada" if tenant.is_active else "desactivada"
-        messages.success(request, f"Empresa '{tenant.name}' {estado}.")
+        messages.success(request, f"Clinica '{tenant.name}' {estado}.")
         return redirect("tenants:detail", pk=tenant.pk)
 
 
@@ -205,25 +240,34 @@ class MembershipDeleteView(LoginRequiredMixin, SuperAdminRequiredMixin, View):
         tenant_pk = membership.tenant.pk
         username = membership.user.username
         membership.delete()
-        messages.success(request, f"Usuario '{username}' removido de la empresa.")
+        messages.success(request, f"Usuario '{username}' removido de la clinica.")
         return redirect("tenants:detail", pk=tenant_pk)
 
 
-class TenantSwitchView(LoginRequiredMixin, SuperAdminRequiredMixin, View):
+class TenantSwitchView(LoginRequiredMixin, View):
     def get(self, request, pk):
-        tenant = Client.objects.filter(pk=pk).prefetch_related("domains").first()
+        tenant = Client.objects.filter(pk=pk, is_active=True).prefetch_related("domains").first()
         if not tenant:
-            messages.error(request, "Empresa no encontrada.")
-            return redirect("tenants:list")
+            messages.error(request, "Clinica no encontrada.")
+            return redirect("dashboard")
+
+        if not request.user.is_superuser:
+            has_membership = TenantMembership.objects.filter(
+                tenant=tenant,
+                user=request.user,
+                is_active=True,
+            ).exists()
+            if not has_membership:
+                messages.error(request, "No tienes acceso a esta clinica.")
+                return redirect("dashboard")
 
         domain = tenant.domains.filter(is_primary=True).first() or tenant.domains.first()
         if not domain:
-            messages.error(request, "La empresa no tiene dominio configurado.")
-            return redirect("tenants:list")
+            messages.error(request, "La clinica no tiene dominio configurado.")
+            return redirect("dashboard")
 
-        host = request.get_host()  # ej: localhost:8000
+        host = request.get_host()
         port = ""
         if ":" in host:
             port = ":" + host.split(":")[-1]
-        target = f"{request.scheme}://{domain.domain}{port}/"
-        return redirect(target)
+        return redirect(f"{request.scheme}://{domain.domain}{port}/")

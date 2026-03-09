@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}Pacientes{% endblock %}
+
+{% block content %}
+  <div class="rounded-2xl border bg-white p-6">
+    <div class="mb-4 flex items-center justify-between">
+      <h1 class="text-2xl font-bold">Pacientes</h1>
+      <span class="text-sm text-gray-500">Base inicial</span>
+    </div>
+
+    <form method="get" class="mb-4">
+      <input
+        type="text"
+        name="q"
+        value="{{ q }}"
+        placeholder="Buscar por historia clinica o nombre..."
+        class="w-full rounded-lg border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+      />
+    </form>
+
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead class="bg-gray-50 text-left text-gray-600">
+          <tr>
+            <th class="px-4 py-2">Historia</th>
+            <th class="px-4 py-2">Paciente</th>
+            <th class="px-4 py-2">Documento</th>
+            <th class="px-4 py-2">Telefono</th>
+            <th class="px-4 py-2">Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for patient in patients %}
+            <tr class="border-t">
+              <td class="px-4 py-2 font-mono text-xs">{{ patient.mrn }}</td>
+              <td class="px-4 py-2">{{ patient.last_name }}, {{ patient.first_name }}</td>
+              <td class="px-4 py-2">{{ patient.document_type }} {{ patient.document_number }}</td>
+              <td class="px-4 py-2">{{ patient.phone|default:"-" }}</td>
+              <td class="px-4 py-2">
+                {% if patient.is_active %}
+                  <span class="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">Activo</span>
+                {% else %}
+                  <span class="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">Inactivo</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="5" class="px-4 py-6 text-center text-gray-500">Sin pacientes registrados.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endblock %}

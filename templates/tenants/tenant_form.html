@@ -1,10 +1,10 @@
 {% extends 'base.html' %}
 
-{% block title %}Nueva empresa{% endblock %}
+{% block title %}Nueva Clinica{% endblock %}
 
 {% block content %}
   <div class="mb-4">
-    <h1 class="text-2xl font-bold">Nueva empresa</h1>
+    <h1 class="text-2xl font-bold">Nueva Clinica</h1>
     <p class="text-sm text-gray-600">Crea un tenant en su propio schema y aplica seed basico.</p>
   </div>
 
@@ -68,7 +68,7 @@
 
     <div class="flex gap-2">
       <button class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
-        Crear empresa
+        Crear Clinica
       </button>
       <a href="{% url 'tenants:list' %}" class="rounded-lg border px-4 py-2 text-sm">
         Cancelar
@@ -76,3 +76,4 @@
     </div>
   </form>
 {% endblock %}
+

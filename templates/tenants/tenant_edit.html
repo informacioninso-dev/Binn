@@ -4,7 +4,7 @@
 
 {% block content %}
   <div class="mb-4">
-    <h1 class="text-2xl font-bold">Editar empresa</h1>
+    <h1 class="text-2xl font-bold">Editar Clinica</h1>
     <p class="text-sm text-gray-600">Schema: <span class="font-mono">{{ object.schema_name }}</span></p>
   </div>
 
@@ -31,7 +31,7 @@
 
     <div class="flex items-center gap-2">
       {{ form.is_active }}
-      <label class="text-sm font-medium">Empresa activa</label>
+      <label class="text-sm font-medium">Clinica activa</label>
       {{ form.is_active.errors }}
     </div>
 
@@ -58,3 +58,4 @@
     </div>
   </form>
 {% endblock %}
+
