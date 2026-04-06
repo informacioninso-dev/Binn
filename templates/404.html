@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+
+{% block title %}No encontrado{% endblock %}
+
+{% block content %}
+  <div class="flex min-h-[60vh] items-center justify-center">
+    <div class="max-w-lg space-y-4 text-center">
+      <h1 class="text-6xl font-bold text-gray-300">404</h1>
+      <h2 class="text-2xl font-semibold text-gray-800">No encontramos lo que buscabas</h2>
+      <p class="text-gray-500">
+        El recurso puede haber cambiado, no existir o no pertenecer a esta clinica.
+      </p>
+      <a href="{% url 'dashboard' %}" class="inline-block rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+        Volver al panel
+      </a>
+    </div>
+  </div>
+{% endblock %}

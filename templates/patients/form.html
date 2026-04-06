@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page_title }} | Onne{% endblock %}
+
+{% block content %}
+  <div class="mx-auto max-w-5xl rounded-2xl border bg-white p-6">
+    <div class="mb-6">
+      <h1 class="text-2xl font-bold">{{ page_title }}</h1>
+      <p class="mt-2 text-sm text-gray-600">Completa la ficha administrativa base del paciente.</p>
+    </div>
+
+    <form method="post" class="space-y-8">
+      {% csrf_token %}
+      {% if form.non_field_errors %}
+        <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {{ form.non_field_errors }}
+        </div>
+      {% endif %}
+
+      <section>
+        <h2 class="text-lg font-semibold">Identificacion</h2>
+        <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div>
+            <label class="mb-1 block text-xs text-gray-500">{{ form.mrn.label }}</label>
+            {{ form.mrn }}
+            {{ form.mrn.errors }}
+          </div>
+          <div>
+            <label class="mb-1 block text-xs text-gray-500">{{ form.document_type.label }}</label>
+            {{ form.document_type }}
+            {{ form.document_type.errors }}
+          </div>
+          <div>
+            <label class="mb-1 block text-xs text-gray-500">{{ form.document_number.label }}</label>
+            {{ form.document_number }}
+            {{ form.document_number.errors }}
+          </div>
+          <div>
+            <label class="mb-1 block text-xs text-gray-500">{{ form.first_name.label }}</label>
+            {{ form.first_name }}
+            {{ form.first_name.errors }}
+          </div>
+          <div>
+            <label class="mb-1 block text-xs text-gray-500">{{ form.last_name.label }}</label>
+            {{ form.last_name }}
+            {{ form.last_name.errors }}
+          </div>
+          <div>
+            <label class="mb-1 block text-xs text-gray-500">{{ form.birth_date.label }}</label>
+            {{ form.birth_date }}
+            {{ form.birth_date.errors }}
+          </div>
+          <div>
+            <label class="mb-1 block text-xs text-gray-500">{{ form.sex.label }}</label>
+            {{ form.sex }}
+            {{ form.sex.errors }}
+          </div>
+          <div>
+            <label class="mb-1 block text-xs text-gray-500">{{ form.source.label }}</label>
+            {{ form.source }}
+            {{ form.source.errors }}
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2 class="text-lg font-semibold">Contacto</h2>
+        <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div>
+            <label class="mb-1 block text-xs text-gray-500">{{ form.phone.label }}</label>
+            {{ form.phone }}
+            {{ form.phone.errors }}
+          </div>
+          <div>
+            <label class="mb-1 block text-xs text-gray-500">{{ form.email.label }}</label>
+            {{ form.email }}
+            {{ form.email.errors }}
+          </div>
+          <div class="md:col-span-2">
+            <label class="mb-1 block text-xs text-gray-500">{{ form.address.label }}</label>
+            {{ form.address }}
+            {{ form.address.errors }}
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2 class="text-lg font-semibold">Responsables y emergencia</h2>
+        <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div>
+            <label class="mb-1 block text-xs text-gray-500">{{ form.responsible_party_name.label }}</label>
+            {{ form.responsible_party_name }}
+            {{ form.responsible_party_name.errors }}
+          </div>
+          <div>
+            <label class="mb-1 block text-xs text-gray-500">{{ form.responsible_party_phone.label }}</label>
+            {{ form.responsible_party_phone }}
+            {{ form.responsible_party_phone.errors }}
+          </div>
+          <div>
+            <label class="mb-1 block text-xs text-gray-500">{{ form.emergency_contact_name.label }}</label>
+            {{ form.emergency_contact_name }}
+            {{ form.emergency_contact_name.errors }}
+          </div>
+          <div>
+            <label class="mb-1 block text-xs text-gray-500">{{ form.emergency_contact_phone.label }}</label>
+            {{ form.emergency_contact_phone }}
+            {{ form.emergency_contact_phone.errors }}
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2 class="text-lg font-semibold">Seguro y notas</h2>
+        <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div>
+            <label class="mb-1 block text-xs text-gray-500">{{ form.insurance_provider.label }}</label>
+            {{ form.insurance_provider }}
+            {{ form.insurance_provider.errors }}
+          </div>
+          <div>
+            <label class="mb-1 block text-xs text-gray-500">{{ form.insurance_plan.label }}</label>
+            {{ form.insurance_plan }}
+            {{ form.insurance_plan.errors }}
+          </div>
+          <div class="md:col-span-2">
+            <label class="mb-1 block text-xs text-gray-500">{{ form.notes.label }}</label>
+            {{ form.notes }}
+            {{ form.notes.errors }}
+          </div>
+          <label class="flex items-center gap-2 text-sm text-gray-600">
+            {{ form.marketing_opt_in }}
+            <span>{{ form.marketing_opt_in.label }}</span>
+          </label>
+          <label class="flex items-center gap-2 text-sm text-gray-600">
+            {{ form.is_active }}
+            <span>{{ form.is_active.label }}</span>
+          </label>
+        </div>
+      </section>
+
+      <div class="flex flex-wrap gap-3 border-t pt-6">
+        <button type="submit" class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+          {{ submit_label }}
+        </button>
+        <a href="{% url 'patients:index' %}" class="rounded-lg border px-4 py-2 text-sm hover:bg-gray-50">Cancelar</a>
+      </div>
+    </form>
+  </div>
+{% endblock %}

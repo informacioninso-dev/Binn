@@ -8,6 +8,7 @@ PUBLIC_PATHS = {
     '/accounts/password/reset/',
     '/accounts/password/reset/done/',
     '/accounts/reset/done/',
+    '/health/',
 }
 
 PUBLIC_PREFIXES = (

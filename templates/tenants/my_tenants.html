@@ -13,6 +13,7 @@
       <thead class="bg-gray-50 text-left text-gray-600">
         <tr>
           <th class="px-4 py-2">Clinica</th>
+          <th class="px-4 py-2">Plan</th>
           <th class="px-4 py-2">Schema</th>
           <th class="px-4 py-2">Rol</th>
           <th class="px-4 py-2">Dominio</th>
@@ -23,6 +24,13 @@
         {% for m in memberships %}
           <tr class="border-t hover:bg-gray-50">
             <td class="px-4 py-2 font-medium">{{ m.tenant.name }}</td>
+            <td class="px-4 py-2">
+              {% if m.tenant.plan == 'enterprise' %}
+                <span class="inline-flex items-center rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">Enterprise</span>
+              {% else %}
+                <span class="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">Shared</span>
+              {% endif %}
+            </td>
             <td class="px-4 py-2 font-mono text-xs text-gray-500">{{ m.tenant.schema_name }}</td>
             <td class="px-4 py-2">
               {% if m.is_admin %}
@@ -45,7 +53,7 @@
           </tr>
         {% empty %}
           <tr>
-            <td colspan="5" class="px-4 py-6 text-center text-gray-500">
+            <td colspan="6" class="px-4 py-6 text-center text-gray-500">
               No tienes clinicas activas asignadas.
             </td>
           </tr>

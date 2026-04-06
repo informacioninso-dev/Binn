@@ -47,10 +47,13 @@ class TenantAwareBackend(ModelBackend):
 
     def _get_user_by_login(self, UserModel, login_value):
         username_lookup = {f"{UserModel.USERNAME_FIELD}__iexact": login_value}
-        try:
-            return UserModel._default_manager.get(**username_lookup)
-        except UserModel.DoesNotExist:
-            pass
+        users = UserModel._default_manager.filter(**username_lookup).order_by("id")
+        user_count = users.count()
+        if user_count == 1:
+            return users.first()
+        if user_count > 1:
+            # Ambiguous global identities are safer to reject than to guess.
+            return None
 
         if "@" in login_value:
             users = UserModel._default_manager.filter(email__iexact=login_value).order_by("id")

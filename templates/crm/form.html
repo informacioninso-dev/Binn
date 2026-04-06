@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page_title }} | Onne{% endblock %}
+
+{% block content %}
+  <div class="mx-auto max-w-4xl rounded-2xl border bg-white p-6">
+    <div class="mb-6">
+      <h1 class="text-2xl font-bold">{{ page_title }}</h1>
+      <p class="mt-2 text-sm text-gray-600">Registra interes, fuente del lead y el siguiente paso comercial.</p>
+    </div>
+
+    <form method="post" class="space-y-6">
+      {% csrf_token %}
+      {% if form.non_field_errors %}
+        <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {{ form.non_field_errors }}
+        </div>
+      {% endif %}
+
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div>
+          <label class="mb-1 block text-xs text-gray-500">{{ form.full_name.label }}</label>
+          {{ form.full_name }}
+          {{ form.full_name.errors }}
+        </div>
+        <div>
+          <label class="mb-1 block text-xs text-gray-500">{{ form.interested_service.label }}</label>
+          {{ form.interested_service }}
+          {{ form.interested_service.errors }}
+        </div>
+        <div>
+          <label class="mb-1 block text-xs text-gray-500">{{ form.phone.label }}</label>
+          {{ form.phone }}
+          {{ form.phone.errors }}
+        </div>
+        <div>
+          <label class="mb-1 block text-xs text-gray-500">{{ form.email.label }}</label>
+          {{ form.email }}
+          {{ form.email.errors }}
+        </div>
+        <div>
+          <label class="mb-1 block text-xs text-gray-500">{{ form.source.label }}</label>
+          {{ form.source }}
+          {{ form.source.errors }}
+        </div>
+        <div>
+          <label class="mb-1 block text-xs text-gray-500">{{ form.stage.label }}</label>
+          {{ form.stage }}
+          {{ form.stage.errors }}
+        </div>
+        <div>
+          <label class="mb-1 block text-xs text-gray-500">{{ form.assigned_to.label }}</label>
+          {{ form.assigned_to }}
+          {{ form.assigned_to.errors }}
+        </div>
+        <div>
+          <label class="mb-1 block text-xs text-gray-500">{{ form.next_contact_at.label }}</label>
+          {{ form.next_contact_at }}
+          {{ form.next_contact_at.errors }}
+        </div>
+        <div class="md:col-span-2">
+          <label class="mb-1 block text-xs text-gray-500">{{ form.notes.label }}</label>
+          {{ form.notes }}
+          {{ form.notes.errors }}
+        </div>
+        <label class="flex items-center gap-2 text-sm text-gray-600">
+          {{ form.is_active }}
+          <span>{{ form.is_active.label }}</span>
+        </label>
+      </div>
+
+      <div class="flex flex-wrap gap-3 border-t pt-6">
+        <button type="submit" class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+          {{ submit_label }}
+        </button>
+        <a href="{% url 'crm:index' %}" class="rounded-lg border px-4 py-2 text-sm hover:bg-gray-50">Cancelar</a>
+      </div>
+    </form>
+  </div>
+{% endblock %}

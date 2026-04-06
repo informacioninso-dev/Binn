@@ -3,79 +3,154 @@
 {% block title %}Clinicas{% endblock %}
 
 {% block content %}
-  <div class="mb-4 flex items-center justify-between">
-    <h1 class="text-2xl font-bold">Clinicas</h1>
-    <a href="{% url 'tenants:create' %}"
-       class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
-      + Nueva Clinica
-    </a>
+  <div class="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <div>
+      <h1 class="text-2xl font-bold">Clinicas</h1>
+      <p class="text-sm text-gray-600">Consola de superadmin para operacion, soporte y seguimiento de clientes.</p>
+    </div>
+    <div class="flex gap-2">
+      <a href="{% url 'health' %}"
+         class="rounded-lg border px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+        Health API
+      </a>
+      <a href="{% url 'tenants:create' %}"
+         class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+        + Nueva Clinica
+      </a>
+    </div>
   </div>
 
-  <div class="mb-3 text-sm text-gray-600">
-    Panel de configuracion multitenant. Solo super admin.
+  <div class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <div class="rounded-xl border bg-white p-4">
+      <p class="text-xs uppercase tracking-wide text-gray-500">Clinicas filtradas</p>
+      <p class="mt-2 text-2xl font-semibold">{{ summary.total }}</p>
+    </div>
+    <div class="rounded-xl border bg-white p-4">
+      <p class="text-xs uppercase tracking-wide text-gray-500">Activas</p>
+      <p class="mt-2 text-2xl font-semibold text-green-700">{{ summary.active }}</p>
+    </div>
+    <div class="rounded-xl border bg-white p-4">
+      <p class="text-xs uppercase tracking-wide text-gray-500">Con alertas</p>
+      <p class="mt-2 text-2xl font-semibold text-amber-700">{{ summary.with_alerts }}</p>
+    </div>
+    <div class="rounded-xl border bg-white p-4">
+      <p class="text-xs uppercase tracking-wide text-gray-500">Enterprise</p>
+      <p class="mt-2 text-2xl font-semibold text-purple-700">{{ summary.enterprise }}</p>
+    </div>
   </div>
+
+  <form method="get" class="mb-4 rounded-xl border bg-white p-4">
+    <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <div>
+        <label class="mb-1 block text-xs text-gray-500">Buscar</label>
+        {{ filter_form.q }}
+      </div>
+      <div>
+        <label class="mb-1 block text-xs text-gray-500">Plan</label>
+        {{ filter_form.plan }}
+      </div>
+      <div>
+        <label class="mb-1 block text-xs text-gray-500">Estado</label>
+        {{ filter_form.status }}
+      </div>
+      <div>
+        <label class="mb-1 block text-xs text-gray-500">Alertas</label>
+        {{ filter_form.alert_state }}
+      </div>
+    </div>
+    <div class="mt-3 flex gap-2">
+      <button type="submit" class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+        Filtrar
+      </button>
+      <a href="{% url 'tenants:list' %}" class="rounded-lg border px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+        Limpiar
+      </a>
+    </div>
+  </form>
 
   <div class="overflow-x-auto rounded-xl border bg-white">
     <table class="min-w-full text-sm">
       <thead class="bg-gray-50 text-left text-gray-600">
         <tr>
-          <th class="px-4 py-2">Nombre</th>
-          <th class="px-4 py-2">Schema</th>
+          <th class="px-4 py-2">Clinica</th>
           <th class="px-4 py-2">Plan</th>
           <th class="px-4 py-2">Estado</th>
-          <th class="px-4 py-2">Dominios</th>
-          <th class="px-4 py-2">Miembros</th>
+          <th class="px-4 py-2">Dominio principal</th>
+          <th class="px-4 py-2">Uso</th>
+          <th class="px-4 py-2">Alertas</th>
           <th class="px-4 py-2">Creado</th>
           <th class="px-4 py-2 text-right">Acciones</th>
         </tr>
       </thead>
       <tbody>
         {% for t in tenants %}
-          <tr class="border-t hover:bg-gray-50">
-            <td class="px-4 py-2 font-medium">
-              <a href="{% url 'tenants:detail' t.pk %}" class="text-blue-600 hover:underline">
+          <tr class="border-t align-top hover:bg-gray-50">
+            <td class="px-4 py-3">
+              <a href="{% url 'tenants:detail' t.pk %}" class="font-medium text-blue-600 hover:underline">
                 {{ t.name }}
               </a>
+              <div class="mt-1 font-mono text-xs text-gray-500">{{ t.schema_name }}</div>
             </td>
-            <td class="px-4 py-2 font-mono text-xs text-gray-500">{{ t.schema_name }}</td>
-            <td class="px-4 py-2">
+            <td class="px-4 py-3">
               {% if t.plan == 'enterprise' %}
                 <span class="inline-flex items-center rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">Enterprise</span>
               {% else %}
                 <span class="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">Shared</span>
               {% endif %}
+              <div class="mt-1 text-xs text-gray-500">{{ t.plan_definition.support_tier }}</div>
             </td>
-            <td class="px-4 py-2">
+            <td class="px-4 py-3">
               {% if t.is_active %}
-                <span class="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">Activo</span>
+                <span class="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">Activa</span>
               {% else %}
-                <span class="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">Inactivo</span>
+                <span class="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">Inactiva</span>
+              {% endif %}
+              <div class="mt-1 text-xs text-gray-500">Admins: {{ t.diagnostics.active_admins }}</div>
+            </td>
+            <td class="px-4 py-3 text-xs text-gray-600">
+              {% if t.primary_domain_value %}
+                {{ t.primary_domain_value }}
+              {% else %}
+                <span class="text-red-600">Sin dominio</span>
               {% endif %}
             </td>
-            <td class="px-4 py-2 text-xs">
-              {% for d in t.domains.all %}
-                <div>{{ d.domain }}</div>
-              {% empty %}
-                <span class="text-gray-400">Sin dominio</span>
-              {% endfor %}
+            <td class="px-4 py-3 text-xs text-gray-600">
+              <div>Miembros activos: {{ t.diagnostics.active_members }} / {{ t.plan_definition.max_users_display }}</div>
+              <div>Admins activos: {{ t.diagnostics.active_admins }} / {{ t.plan_definition.max_admins_display }}</div>
             </td>
-            <td class="px-4 py-2 text-center">{{ t.memberships.count }}</td>
-            <td class="px-4 py-2 text-xs text-gray-500">{{ t.created_on }}</td>
-            <td class="px-4 py-2 text-right">
-              <div class="flex items-center justify-end gap-2">
+            <td class="px-4 py-3">
+              {% if t.diagnostics.alerts %}
+                <div class="space-y-1">
+                  {% for alert in t.diagnostics.alerts|slice:":2" %}
+                    <div class="rounded border px-2 py-1 text-xs {% if alert.severity == 'error' %}border-red-200 bg-red-50 text-red-700{% else %}border-amber-200 bg-amber-50 text-amber-700{% endif %}">
+                      {{ alert.title }}
+                    </div>
+                  {% endfor %}
+                  {% if t.diagnostics.alerts|length > 2 %}
+                    <div class="text-xs text-gray-500">+{{ t.diagnostics.alerts|length|add:"-2" }} mas</div>
+                  {% endif %}
+                </div>
+              {% else %}
+                <span class="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">Sin alertas</span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-3 text-xs text-gray-500">{{ t.created_on }}</td>
+            <td class="px-4 py-3 text-right">
+              <div class="flex flex-wrap items-center justify-end gap-2">
                 <a href="{% url 'tenants:detail' t.pk %}"
-                   class="rounded border px-2 py-1 text-xs text-gray-600 hover:bg-gray-100"
-                   title="Detalle">
+                   class="rounded border px-2 py-1 text-xs text-gray-600 hover:bg-gray-100">
                   Ver
                 </a>
                 <a href="{% url 'tenants:edit' t.pk %}"
-                   class="rounded border px-2 py-1 text-xs text-gray-600 hover:bg-gray-100"
-                   title="Editar">
+                   class="rounded border px-2 py-1 text-xs text-gray-600 hover:bg-gray-100">
                   Editar
                 </a>
+                <a href="{% url 'tenants:health' t.pk %}"
+                   class="rounded border px-2 py-1 text-xs text-blue-700 hover:bg-blue-50">
+                  Health
+                </a>
                 <a href="{% url 'tenants:switch' t.pk %}"
-                   class="rounded bg-blue-50 px-2 py-1 text-xs text-blue-600 hover:bg-blue-100"
-                   title="Entrar al tenant">
+                   class="rounded bg-blue-50 px-2 py-1 text-xs text-blue-600 hover:bg-blue-100">
                   Entrar
                 </a>
               </div>
@@ -84,12 +159,31 @@
         {% empty %}
           <tr>
             <td colspan="8" class="px-4 py-6 text-center text-gray-500">
-              No hay Clinicas registradas.
+              No hay clinicas que coincidan con los filtros.
             </td>
           </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
-{% endblock %}
 
+  {% if is_paginated %}
+    <div class="mt-4 flex items-center justify-between text-sm text-gray-600">
+      <p>Pagina {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</p>
+      <div class="flex gap-2">
+        {% if page_obj.has_previous %}
+          <a href="?{% if request.GET.q %}q={{ request.GET.q|urlencode }}&{% endif %}{% if request.GET.plan %}plan={{ request.GET.plan|urlencode }}&{% endif %}{% if request.GET.status %}status={{ request.GET.status|urlencode }}&{% endif %}{% if request.GET.alert_state %}alert_state={{ request.GET.alert_state|urlencode }}&{% endif %}page={{ page_obj.previous_page_number }}"
+             class="rounded border px-3 py-1 hover:bg-gray-50">
+            Anterior
+          </a>
+        {% endif %}
+        {% if page_obj.has_next %}
+          <a href="?{% if request.GET.q %}q={{ request.GET.q|urlencode }}&{% endif %}{% if request.GET.plan %}plan={{ request.GET.plan|urlencode }}&{% endif %}{% if request.GET.status %}status={{ request.GET.status|urlencode }}&{% endif %}{% if request.GET.alert_state %}alert_state={{ request.GET.alert_state|urlencode }}&{% endif %}page={{ page_obj.next_page_number }}"
+             class="rounded border px-3 py-1 hover:bg-gray-50">
+            Siguiente
+          </a>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+{% endblock %}

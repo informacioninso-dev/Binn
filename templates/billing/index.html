@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+
+{% block title %}Caja y cartera | Onne{% endblock %}
+
+{% block content %}
+  <div class="space-y-6">
+    <section class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <div>
+        <h1 class="text-2xl font-bold">Caja y cartera</h1>
+        <p class="mt-2 text-sm text-gray-600">Cobros, reembolsos, facturacion y convenios en una sola vista operativa.</p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <a href="{% url 'billing:create' %}" class="rounded-lg border px-4 py-2 text-sm hover:bg-gray-50">Nuevo movimiento</a>
+        <a href="{% url 'billing:invoice_create' %}" class="rounded-lg border px-4 py-2 text-sm hover:bg-gray-50">Nueva factura</a>
+        <a href="{% url 'billing:agreement_create' %}" class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">Nuevo convenio</a>
+      </div>
+    </section>
+
+    <section class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-6">
+      <article class="rounded-2xl border bg-white p-5">
+        <p class="text-xs uppercase tracking-wide text-gray-500">Cobros de hoy</p>
+        <p class="mt-3 text-3xl font-bold">{{ summary.today_total }}</p>
+      </article>
+      <article class="rounded-2xl border bg-white p-5">
+        <p class="text-xs uppercase tracking-wide text-gray-500">Cobros acumulados</p>
+        <p class="mt-3 text-3xl font-bold">{{ summary.payments }}</p>
+      </article>
+      <article class="rounded-2xl border bg-white p-5">
+        <p class="text-xs uppercase tracking-wide text-gray-500">Reembolsos</p>
+        <p class="mt-3 text-3xl font-bold">{{ summary.refunds }}</p>
+      </article>
+      <article class="rounded-2xl border bg-white p-5">
+        <p class="text-xs uppercase tracking-wide text-gray-500">Egresos</p>
+        <p class="mt-3 text-3xl font-bold">{{ summary.expenses }}</p>
+      </article>
+      <article class="rounded-2xl border bg-white p-5">
+        <p class="text-xs uppercase tracking-wide text-gray-500">Cartera</p>
+        <p class="mt-3 text-3xl font-bold">{{ summary.receivable }}</p>
+      </article>
+      <article class="rounded-2xl border bg-white p-5">
+        <p class="text-xs uppercase tracking-wide text-gray-500">Facturas abiertas</p>
+        <p class="mt-3 text-3xl font-bold">{{ summary.open_invoices }}</p>
+      </article>
+    </section>
+
+    <section class="rounded-2xl border bg-white p-6">
+      <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <form method="get" class="grid flex-1 grid-cols-1 gap-3 lg:grid-cols-4">
+          <div class="lg:col-span-3">
+            <label class="mb-1 block text-xs text-gray-500">Buscar movimiento</label>
+            <input
+              type="text"
+              name="q"
+              value="{{ q }}"
+              placeholder="Concepto, referencia, paciente o factura..."
+              class="w-full rounded-lg border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label class="mb-1 block text-xs text-gray-500">Tipo</label>
+            <select name="transaction_type" class="w-full rounded-lg border px-3 py-2">
+              <option value="">Todos</option>
+              {% for value, label in type_choices %}
+                <option value="{{ value }}" {% if transaction_type == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </form>
+        <div class="flex gap-2 text-sm">
+          <a href="{% url 'billing:invoices' %}" class="rounded border px-3 py-2 hover:bg-gray-50">Ver facturas</a>
+          <a href="{% url 'billing:agreements' %}" class="rounded border px-3 py-2 hover:bg-gray-50">Ver convenios</a>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="bg-gray-50 text-left text-gray-600">
+            <tr>
+              <th class="px-4 py-2">Fecha</th>
+              <th class="px-4 py-2">Tipo</th>
+              <th class="px-4 py-2">Paciente</th>
+              <th class="px-4 py-2">Factura</th>
+              <th class="px-4 py-2">Metodo</th>
+              <th class="px-4 py-2">Concepto</th>
+              <th class="px-4 py-2 text-right">Monto</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for transaction in transactions %}
+              <tr class="border-t">
+                <td class="px-4 py-2">{{ transaction.posted_at|date:"d/m/Y H:i" }}</td>
+                <td class="px-4 py-2">{{ transaction.get_transaction_type_display }}</td>
+                <td class="px-4 py-2">{{ transaction.patient.full_name|default:"-" }}</td>
+                <td class="px-4 py-2">
+                  {% if transaction.invoice %}
+                    <a href="{% url 'billing:invoice_detail' transaction.invoice.pk %}" class="text-blue-600 hover:underline">{{ transaction.invoice.invoice_number }}</a>
+                  {% else %}
+                    -
+                  {% endif %}
+                </td>
+                <td class="px-4 py-2">{{ transaction.get_payment_method_display }}</td>
+                <td class="px-4 py-2">{{ transaction.concept }}</td>
+                <td class="px-4 py-2 text-right font-medium">{{ transaction.amount }}</td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="7" class="px-4 py-6 text-center text-gray-500">Todavia no hay movimientos de caja.</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="grid grid-cols-1 gap-6 xl:grid-cols-2">
+      <div class="rounded-2xl border bg-white p-6">
+        <div class="mb-4 flex items-center justify-between">
+          <h2 class="text-lg font-semibold">Facturacion reciente</h2>
+          <a href="{% url 'billing:invoices' %}" class="text-sm text-blue-600 hover:underline">Abrir lista</a>
+        </div>
+        <div class="space-y-3">
+          {% for invoice in recent_invoices %}
+            <div class="rounded-xl border px-4 py-3">
+              <p class="font-medium">{{ invoice.invoice_number }} | {{ invoice.patient.full_name }}</p>
+              <p class="mt-1 text-xs text-gray-500">{{ invoice.location.name|default:"Principal" }} | {{ invoice.get_status_display }} | Total {{ invoice.total_amount }} | Saldo {{ invoice.balance_amount }}</p>
+            </div>
+          {% empty %}
+            <div class="rounded-xl border border-dashed px-4 py-6 text-sm text-gray-500">
+              Sin facturas registradas.
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="rounded-2xl border bg-white p-6">
+        <div class="mb-4 flex items-center justify-between">
+          <h2 class="text-lg font-semibold">Convenios recientes</h2>
+          <a href="{% url 'billing:agreements' %}" class="text-sm text-blue-600 hover:underline">Abrir lista</a>
+        </div>
+        <div class="space-y-3">
+          {% for agreement in recent_agreements %}
+            <div class="rounded-xl border px-4 py-3">
+              <p class="font-medium">{{ agreement.name }}</p>
+              <p class="mt-1 text-xs text-gray-500">{{ agreement.get_payer_type_display }} | {{ agreement.default_credit_days }} dias de credito</p>
+            </div>
+          {% empty %}
+            <div class="rounded-xl border border-dashed px-4 py-6 text-sm text-gray-500">
+              Sin convenios registrados.
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </section>
+  </div>
+{% endblock %}

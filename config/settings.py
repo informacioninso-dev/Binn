@@ -17,12 +17,20 @@ from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Cargar variables de entorno desde .env
-load_dotenv(BASE_DIR / '.env')
+
+def _env_bool(name: str, default: bool = False) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+# Cargar variables de entorno desde .env priorizando el proyecto actual.
+load_dotenv(BASE_DIR / '.env', override=True)
 
 # ---- Seguridad ----
 SECRET_KEY = os.getenv('SECRET_KEY', 'dev-key-CHANGE-IN-PRODUCTION-d8f9a7b6c5e4f3a2b1')
-DEBUG = os.getenv('DEBUG', 'False') == 'True'
+DEBUG = _env_bool('DEBUG', default=False)
 
 # Validar SECRET_KEY en producciÃ³n
 if not DEBUG and SECRET_KEY == 'dev-key-CHANGE-IN-PRODUCTION-d8f9a7b6c5e4f3a2b1':
@@ -49,8 +57,13 @@ SHARED_APPS = [
 
 TENANT_APPS = [
     'core',
+    'crm',
     'patients',
     'appointments',
+    'billing',
+    'clinical',
+    'inventory',
+    'operations',
 ]
 
 INSTALLED_APPS = SHARED_APPS + [app for app in TENANT_APPS if app not in SHARED_APPS]
@@ -62,6 +75,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'tenants.middleware.RequestContextMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'tenants.middleware.TenantAccessMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -107,7 +121,7 @@ if _db_engine != 'postgresql':
 DATABASES = {
     'default': {
         'ENGINE': 'django_tenants.postgresql_backend',
-        'NAME': os.getenv('DB_NAME', 'mediecua'),
+        'NAME': os.getenv('DB_NAME', 'Onne'),
         'USER': os.getenv('DB_USER', 'postgres'),
         'PASSWORD': os.getenv('DB_PASSWORD', ''),
         'HOST': os.getenv('DB_HOST', 'localhost'),
@@ -184,7 +198,7 @@ CSRF_TRUSTED_ORIGINS = os.getenv(
 
 # Seguridad adicional en producciÃ³n
 if not DEBUG:
-    ENABLE_SSL = os.getenv('ENABLE_SSL', 'False') == 'True'
+    ENABLE_SSL = _env_bool('ENABLE_SSL', default=False)
     SESSION_COOKIE_SECURE = ENABLE_SSL
     CSRF_COOKIE_SECURE = ENABLE_SSL
     SECURE_SSL_REDIRECT = ENABLE_SSL
@@ -200,9 +214,14 @@ if not DEBUG:
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
+    'filters': {
+        'request_context': {
+            '()': 'tenants.logging.RequestContextFilter',
+        },
+    },
     'formatters': {
         'verbose': {
-            'format': '{levelname} {asctime} {module} {message}',
+            'format': '{levelname} {asctime} request={request_id} tenant={tenant_schema} actor={actor_id} {module} {message}',
             'style': '{',
         },
     },
@@ -210,11 +229,13 @@ LOGGING = {
         'console': {
             'class': 'logging.StreamHandler',
             'formatter': 'verbose',
+            'filters': ['request_context'],
         },
         'file': {
             'class': 'logging.FileHandler',
-            'filename': BASE_DIR / 'logs' / 'mediecua.log',
+            'filename': BASE_DIR / 'logs' / 'onne.log',
             'formatter': 'verbose',
+            'filters': ['request_context'],
         },
     },
     'root': {
@@ -230,6 +251,11 @@ LOGGING = {
         'django.request': {
             'handlers': ['console', 'file'] if not DEBUG else ['console'],
             'level': 'ERROR',
+            'propagate': False,
+        },
+        'tenants': {
+            'handlers': ['console', 'file'] if not DEBUG else ['console'],
+            'level': 'INFO',
             'propagate': False,
         },
     },

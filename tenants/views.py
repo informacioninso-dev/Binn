@@ -1,22 +1,104 @@
+import logging
+
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.auth.views import LoginView
-from django.core.management import call_command
-from django.db import IntegrityError
+from django.db.models import Q
+from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.generic import ListView, UpdateView, View
-from django_tenants.utils import schema_context
 
-from .forms import AddMemberForm, TenantAuthenticationForm, TenantCreateForm, TenantEditForm
-from .models import Client, Domain, TenantMembership
+from .forms import (
+    AddMemberForm,
+    TenantAuthenticationForm,
+    TenantCreateForm,
+    TenantEditForm,
+    TenantListFilterForm,
+)
+from .models import Client, Domain, TenantMembership, TenantOperationalEvent
+from .observability import (
+    build_system_health_payload,
+    build_tenant_diagnostics,
+    diagnostics_to_payload,
+    record_tenant_event,
+)
+from .services import TenantProvisionError, assign_tenant_membership, create_tenant
+
+
+logger = logging.getLogger(__name__)
+
+
+def _tenant_queryset():
+    return Client.objects.prefetch_related("domains", "memberships__user")
+
+
+def _load_tenant(pk):
+    tenant = _tenant_queryset().filter(pk=pk).first()
+    if tenant:
+        _attach_tenant_operational_context(tenant)
+    return tenant
+
+
+def _attach_tenant_operational_context(tenant: Client) -> Client:
+    domains = list(tenant.domains.all())
+    memberships = list(tenant.memberships.all())
+    diagnostics = build_tenant_diagnostics(tenant, domains=domains, memberships=memberships)
+    tenant.diagnostics = diagnostics
+    tenant.primary_domain_value = diagnostics.primary_domain
+    return tenant
+
+
+def _build_tenant_detail_context(tenant: Client, form: AddMemberForm) -> dict:
+    recent_events = list(tenant.operational_events.select_related("actor")[:10])
+    return {
+        "tenant": tenant,
+        "form": form,
+        "diagnostics": tenant.diagnostics,
+        "plan_definition": tenant.plan_definition,
+        "recent_events": recent_events,
+    }
 
 
 class SuperAdminRequiredMixin(UserPassesTestMixin):
     def test_func(self):
         return self.request.user.is_superuser
+
+
+class SystemHealthView(View):
+    def get(self, request):
+        tenant = getattr(request, "tenant", None)
+        current_tenant = None
+        if tenant and tenant.schema_name != settings.PUBLIC_SCHEMA_NAME:
+            current_tenant = tenant
+
+        payload, status_code = build_system_health_payload(tenant=current_tenant)
+        return JsonResponse(payload, status=status_code)
+
+
+class TenantHealthView(LoginRequiredMixin, SuperAdminRequiredMixin, View):
+    def get(self, request, pk):
+        tenant = _load_tenant(pk)
+        if not tenant:
+            return JsonResponse({"status": "error", "message": "Clinica no encontrada."}, status=404)
+
+        payload = diagnostics_to_payload(tenant.diagnostics)
+        payload["recent_events"] = [
+            {
+                "kind": event.kind,
+                "severity": event.severity,
+                "status": event.status,
+                "code": event.code,
+                "title": event.title,
+                "message": event.message,
+                "actor": getattr(event.actor, "username", ""),
+                "created_at": event.created_at.isoformat(),
+            }
+            for event in tenant.operational_events.select_related("actor")[:10]
+        ]
+        status_code = 503 if tenant.diagnostics.status == TenantOperationalEvent.SEVERITY_ERROR else 200
+        return JsonResponse(payload, status=status_code)
 
 
 class TenantLoginView(LoginView):
@@ -79,10 +161,55 @@ class TenantListView(LoginRequiredMixin, SuperAdminRequiredMixin, ListView):
     model = Client
     template_name = "tenants/tenant_list.html"
     context_object_name = "tenants"
-    paginate_by = 50
+    paginate_by = 20
 
     def get_queryset(self):
-        return Client.objects.prefetch_related("domains", "memberships").order_by("name")
+        self.filter_form = TenantListFilterForm(self.request.GET or None)
+        qs = _tenant_queryset().order_by("name")
+
+        if self.filter_form.is_valid():
+            q = (self.filter_form.cleaned_data.get("q") or "").strip()
+            if q:
+                qs = qs.filter(
+                    Q(name__icontains=q)
+                    | Q(schema_name__icontains=q)
+                    | Q(domains__domain__icontains=q)
+                ).distinct()
+
+            plan = self.filter_form.cleaned_data.get("plan")
+            if plan:
+                qs = qs.filter(plan=plan)
+
+            status = self.filter_form.cleaned_data.get("status")
+            if status == TenantListFilterForm.STATUS_ACTIVE:
+                qs = qs.filter(is_active=True)
+            elif status == TenantListFilterForm.STATUS_INACTIVE:
+                qs = qs.filter(is_active=False)
+
+        tenants = [_attach_tenant_operational_context(tenant) for tenant in qs]
+
+        alert_state = ""
+        if self.filter_form.is_valid():
+            alert_state = self.filter_form.cleaned_data.get("alert_state") or ""
+
+        if alert_state == TenantListFilterForm.ALERT_OK:
+            tenants = [tenant for tenant in tenants if not tenant.diagnostics.alerts]
+        elif alert_state == TenantListFilterForm.ALERT_NEEDS_ATTENTION:
+            tenants = [tenant for tenant in tenants if tenant.diagnostics.alerts]
+
+        self.summary = {
+            "total": len(tenants),
+            "active": sum(1 for tenant in tenants if tenant.is_active),
+            "with_alerts": sum(1 for tenant in tenants if tenant.diagnostics.alerts),
+            "enterprise": sum(1 for tenant in tenants if tenant.plan == Client.PLAN_ENTERPRISE),
+        }
+        return tenants
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["filter_form"] = getattr(self, "filter_form", TenantListFilterForm())
+        ctx["summary"] = getattr(self, "summary", {"total": 0, "active": 0, "with_alerts": 0, "enterprise": 0})
+        return ctx
 
 
 class TenantCreateView(LoginRequiredMixin, SuperAdminRequiredMixin, View):
@@ -96,60 +223,33 @@ class TenantCreateView(LoginRequiredMixin, SuperAdminRequiredMixin, View):
         if not form.is_valid():
             return render(request, self.template_name, {"form": form})
 
-        client = None
         try:
-            client = Client(
+            result = create_tenant(
                 schema_name=form.cleaned_data["schema_name"],
                 name=form.cleaned_data["name"],
-                plan=form.cleaned_data["plan"],
-                is_active=True,
-            )
-            client.save()
-            Domain.objects.create(
                 domain=form.cleaned_data["subdomain"],
-                tenant=client,
-                is_primary=True,
+                plan=form.cleaned_data["plan"],
+                admin_username=form.cleaned_data.get("admin_username", ""),
+                admin_email=form.cleaned_data.get("admin_email", ""),
+                admin_password=form.cleaned_data.get("admin_password", ""),
             )
-        except IntegrityError as e:
-            if client and getattr(client, "pk", None):
-                client.delete(force_drop=True)
-            messages.error(request, f"El schema o dominio ya existe: {e}")
-            return render(request, self.template_name, {"form": form})
-        except Exception as e:
-            if client and getattr(client, "pk", None):
-                client.delete(force_drop=True)
-            messages.error(request, f"Error al crear clinica: {e}")
+        except TenantProvisionError as exc:
+            logger.warning("Fallo al crear clinica.", extra={"tenant_schema": form.cleaned_data.get("schema_name", "public")})
+            messages.error(request, str(exc))
             return render(request, self.template_name, {"form": form})
 
-        try:
-            with schema_context(client.schema_name):
-                call_command("seed_data", verbosity=0)
-        except Exception as e:
-            messages.warning(request, f"Clinica creada pero seed_data fallo: {e}")
+        for notice in result.notices:
+            messages.info(request, notice)
 
-        username = (form.cleaned_data.get("admin_username") or "").strip()
-        email = (form.cleaned_data.get("admin_email") or "").strip()
-        password = (form.cleaned_data.get("admin_password") or "").strip()
-        if username:
-            User = get_user_model()
-            user, created = User.objects.get_or_create(
-                username=username,
-                defaults={"email": email, "is_staff": True},
-            )
-            if created or password:
-                if email and not user.email:
-                    user.email = email
-                user.is_staff = True
-                user.set_password(password)
-                user.save()
-
-            TenantMembership.objects.get_or_create(
-                tenant=client,
-                user=user,
-                defaults={"is_admin": True, "is_active": True},
-            )
-
-        messages.success(request, f"Clinica '{client.name}' creada correctamente.")
+        record_tenant_event(
+            tenant=result.client,
+            actor=request.user,
+            title="Clinica creada",
+            message=f"Se creo la clinica '{result.client.name}' con plan {result.client.get_plan_display()}.",
+            code="tenant_created",
+            metadata={"plan": result.client.plan},
+        )
+        messages.success(request, f"Clinica '{result.client.name}' creada correctamente.")
         return redirect("tenants:list")
 
 
@@ -158,6 +258,29 @@ class TenantEditView(LoginRequiredMixin, SuperAdminRequiredMixin, UpdateView):
     form_class = TenantEditForm
     template_name = "tenants/tenant_edit.html"
 
+    def form_valid(self, form):
+        previous_values = {field: getattr(self.object, field) for field in form.changed_data}
+        response = super().form_valid(form)
+
+        if form.changed_data:
+            changes = {
+                field: {
+                    "before": str(previous_values[field]),
+                    "after": str(getattr(self.object, field)),
+                }
+                for field in form.changed_data
+            }
+            record_tenant_event(
+                tenant=self.object,
+                actor=self.request.user,
+                title="Clinica actualizada",
+                message=f"Se actualizaron {len(form.changed_data)} campos de configuracion.",
+                code="tenant_updated",
+                metadata={"changes": changes},
+            )
+
+        return response
+
     def get_success_url(self):
         messages.success(self.request, f"Clinica '{self.object.name}' actualizada.")
         return self.object.get_absolute_url()
@@ -165,44 +288,80 @@ class TenantEditView(LoginRequiredMixin, SuperAdminRequiredMixin, UpdateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["domains"] = self.object.domains.all()
+        diagnostics = build_tenant_diagnostics(
+            self.object,
+            domains=self.object.domains.all(),
+            memberships=self.object.memberships.all(),
+        )
+        ctx["diagnostics"] = diagnostics
+        ctx["plan_definition"] = diagnostics.plan_definition
         return ctx
 
 
 class TenantDetailView(LoginRequiredMixin, SuperAdminRequiredMixin, View):
     def get(self, request, pk):
-        tenant = Client.objects.filter(pk=pk).prefetch_related("domains", "memberships__user").first()
+        tenant = _load_tenant(pk)
         if not tenant:
             messages.error(request, "Clinica no encontrada.")
             return redirect("tenants:list")
-        return render(request, "tenants/tenant_detail.html", {"tenant": tenant, "form": AddMemberForm()})
+        return render(
+            request,
+            "tenants/tenant_detail.html",
+            _build_tenant_detail_context(tenant, AddMemberForm()),
+        )
 
     def post(self, request, pk):
-        tenant = Client.objects.filter(pk=pk).prefetch_related("domains", "memberships__user").first()
+        tenant = _load_tenant(pk)
         if not tenant:
             messages.error(request, "Clinica no encontrada.")
             return redirect("tenants:list")
 
         form = AddMemberForm(request.POST)
         if form.is_valid():
-            User = get_user_model()
             try:
-                user = User.objects.get(username=form.cleaned_data["username"])
-            except User.DoesNotExist:
-                messages.error(request, "Usuario no encontrado.")
-                return render(request, "tenants/tenant_detail.html", {"tenant": tenant, "form": form})
+                result = assign_tenant_membership(
+                    tenant=tenant,
+                    username=form.cleaned_data["username"],
+                    role=form.cleaned_data["role"],
+                )
+            except TenantProvisionError as exc:
+                form.add_error(None, str(exc))
+                return render(
+                    request,
+                    "tenants/tenant_detail.html",
+                    _build_tenant_detail_context(tenant, form),
+                )
 
-            _, created = TenantMembership.objects.get_or_create(
+            title = "Miembro agregado" if result.membership_created else "Membresia actualizada"
+            record_tenant_event(
                 tenant=tenant,
-                user=user,
-                defaults={"is_admin": form.cleaned_data["is_admin"], "is_active": True},
+                actor=request.user,
+                title=title,
+                message=(
+                    f"Se asigno el usuario '{result.user.username}' a la clinica."
+                    if result.membership_created
+                    else f"Se actualizaron permisos locales de '{result.user.username}'."
+                ),
+                code="membership_upserted",
+                metadata={
+                    "username": result.user.username,
+                    "role": result.membership.role,
+                    "is_admin": result.membership.is_admin,
+                    "is_active": result.membership.is_active,
+                },
             )
-            if created:
-                messages.success(request, f"Usuario '{user.username}' agregado.")
+
+            if result.membership_created:
+                messages.success(request, f"Usuario '{result.user.username}' agregado.")
             else:
-                messages.info(request, f"'{user.username}' ya es miembro de esta clinica.")
+                messages.success(request, f"Acceso de '{result.user.username}' actualizado.")
             return redirect("tenants:detail", pk=tenant.pk)
 
-        return render(request, "tenants/tenant_detail.html", {"tenant": tenant, "form": form})
+        return render(
+            request,
+            "tenants/tenant_detail.html",
+            _build_tenant_detail_context(tenant, form),
+        )
 
 
 class TenantToggleActiveView(LoginRequiredMixin, SuperAdminRequiredMixin, View):
@@ -214,6 +373,19 @@ class TenantToggleActiveView(LoginRequiredMixin, SuperAdminRequiredMixin, View):
         tenant.is_active = not tenant.is_active
         tenant.save(update_fields=["is_active"])
         estado = "activada" if tenant.is_active else "desactivada"
+        record_tenant_event(
+            tenant=tenant,
+            actor=request.user,
+            title=f"Clinica {estado}",
+            message=f"El superadmin dejo la clinica en estado {estado}.",
+            code="tenant_toggled",
+            severity=(
+                TenantOperationalEvent.SEVERITY_INFO
+                if tenant.is_active
+                else TenantOperationalEvent.SEVERITY_WARNING
+            ),
+            metadata={"is_active": tenant.is_active},
+        )
         messages.success(request, f"Clinica '{tenant.name}' {estado}.")
         return redirect("tenants:detail", pk=tenant.pk)
 
@@ -227,6 +399,19 @@ class MembershipToggleView(LoginRequiredMixin, SuperAdminRequiredMixin, View):
         membership.is_active = not membership.is_active
         membership.save(update_fields=["is_active"])
         estado = "activado" if membership.is_active else "desactivado"
+        record_tenant_event(
+            tenant=membership.tenant,
+            actor=request.user,
+            title="Estado de miembro actualizado",
+            message=f"El usuario '{membership.user.username}' quedo {estado} en la clinica.",
+            code="membership_toggled",
+            severity=(
+                TenantOperationalEvent.SEVERITY_INFO
+                if membership.is_active
+                else TenantOperationalEvent.SEVERITY_WARNING
+            ),
+            metadata={"username": membership.user.username, "is_active": membership.is_active},
+        )
         messages.success(request, f"Usuario '{membership.user.username}' {estado}.")
         return redirect("tenants:detail", pk=membership.tenant.pk)
 
@@ -239,7 +424,17 @@ class MembershipDeleteView(LoginRequiredMixin, SuperAdminRequiredMixin, View):
             return redirect("tenants:list")
         tenant_pk = membership.tenant.pk
         username = membership.user.username
+        tenant = membership.tenant
         membership.delete()
+        record_tenant_event(
+            tenant=tenant,
+            actor=request.user,
+            title="Miembro removido",
+            message=f"Se removio al usuario '{username}' de la clinica.",
+            code="membership_removed",
+            severity=TenantOperationalEvent.SEVERITY_WARNING,
+            metadata={"username": username},
+        )
         messages.success(request, f"Usuario '{username}' removido de la clinica.")
         return redirect("tenants:detail", pk=tenant_pk)
 
@@ -263,6 +458,10 @@ class TenantSwitchView(LoginRequiredMixin, View):
 
         domain = tenant.domains.filter(is_primary=True).first() or tenant.domains.first()
         if not domain:
+            logger.error(
+                "Clinica sin dominio configurado intento ser abierta.",
+                extra={"tenant_schema": tenant.schema_name, "actor_id": getattr(request.user, "pk", "-") or "-"},
+            )
             messages.error(request, "La clinica no tiene dominio configurado.")
             return redirect("dashboard")
 

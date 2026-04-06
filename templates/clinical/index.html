@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}Clinica | Onne{% endblock %}
+
+{% block content %}
+  <div class="space-y-6">
+    <section class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <div>
+        <h1 class="text-2xl font-bold">Modulo clinico</h1>
+        <p class="mt-2 text-sm text-gray-600">Historia clinica, diagnosticos, ordenes, recetas y documentos por paciente.</p>
+      </div>
+      <a href="{% url 'clinical:create' %}" class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+        Nueva evolucion
+      </a>
+    </section>
+
+    <section class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <article class="rounded-2xl border bg-white p-5">
+        <p class="text-xs uppercase tracking-wide text-gray-500">Evoluciones hoy</p>
+        <p class="mt-3 text-3xl font-bold">{{ summary.encounters_today }}</p>
+      </article>
+      <article class="rounded-2xl border bg-white p-5">
+        <p class="text-xs uppercase tracking-wide text-gray-500">Ordenes abiertas</p>
+        <p class="mt-3 text-3xl font-bold">{{ summary.open_orders }}</p>
+      </article>
+      <article class="rounded-2xl border bg-white p-5">
+        <p class="text-xs uppercase tracking-wide text-gray-500">Documentos</p>
+        <p class="mt-3 text-3xl font-bold">{{ summary.documents }}</p>
+      </article>
+      <article class="rounded-2xl border bg-white p-5">
+        <p class="text-xs uppercase tracking-wide text-gray-500">Notas firmadas</p>
+        <p class="mt-3 text-3xl font-bold">{{ summary.signed_notes }}</p>
+      </article>
+    </section>
+
+    <section class="grid grid-cols-1 gap-6 xl:grid-cols-3">
+      <div class="rounded-2xl border bg-white p-6 xl:col-span-2">
+        <form method="get">
+          <label class="mb-1 block text-xs text-gray-500">Buscar</label>
+          <input
+            type="text"
+            name="q"
+            value="{{ q }}"
+            placeholder="Paciente, historia o motivo de consulta..."
+            class="w-full rounded-lg border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </form>
+
+        <div class="mt-6 overflow-x-auto">
+          <table class="min-w-full text-sm">
+            <thead class="bg-gray-50 text-left text-gray-600">
+              <tr>
+                <th class="px-4 py-2">Fecha</th>
+                <th class="px-4 py-2">Paciente</th>
+                <th class="px-4 py-2">Profesional</th>
+                <th class="px-4 py-2">Tipo</th>
+                <th class="px-4 py-2">Estado</th>
+                <th class="px-4 py-2 text-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for encounter in encounters %}
+                <tr class="border-t">
+                  <td class="px-4 py-2">{{ encounter.encounter_date|date:"d/m/Y H:i" }}</td>
+                  <td class="px-4 py-2">
+                    <p class="font-medium">{{ encounter.patient.full_name }}</p>
+                    <p class="text-xs text-gray-500">{{ encounter.chief_complaint }}</p>
+                  </td>
+                  <td class="px-4 py-2">{{ encounter.provider.username|default:"Sin asignar" }}</td>
+                  <td class="px-4 py-2">{{ encounter.get_encounter_type_display }}</td>
+                  <td class="px-4 py-2">{{ encounter.get_status_display }}</td>
+                  <td class="px-4 py-2 text-right">
+                    <div class="flex items-center justify-end gap-2">
+                      <a href="{% url 'clinical:detail' encounter.pk %}" class="rounded border px-3 py-1.5 text-xs hover:bg-gray-50">Ver</a>
+                      <a href="{% url 'clinical:edit' encounter.pk %}" class="rounded border px-3 py-1.5 text-xs hover:bg-gray-50">Editar</a>
+                    </div>
+                  </td>
+                </tr>
+              {% empty %}
+                <tr>
+                  <td colspan="6" class="px-4 py-6 text-center text-gray-500">Todavia no hay evoluciones clinicas registradas.</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="rounded-2xl border bg-white p-6">
+        <div class="mb-4 flex items-center justify-between">
+          <h2 class="text-lg font-semibold">Ordenes pendientes</h2>
+          <span class="text-xs text-gray-500">{{ pending_orders|length }} visibles</span>
+        </div>
+        <div class="space-y-3">
+          {% for order in pending_orders %}
+            <div class="rounded-xl border px-4 py-3">
+              <p class="font-medium">{{ order.description }}</p>
+              <p class="mt-1 text-xs text-gray-500">{{ order.encounter.patient.full_name }} | {{ order.get_order_type_display }}</p>
+              <p class="mt-1 text-xs text-gray-500">{{ order.get_status_display }}</p>
+            </div>
+          {% empty %}
+            <div class="rounded-xl border border-dashed px-4 py-6 text-sm text-gray-500">
+              Sin ordenes pendientes.
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </section>
+  </div>
+{% endblock %}

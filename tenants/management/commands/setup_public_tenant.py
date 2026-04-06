@@ -14,7 +14,7 @@ class Command(BaseCommand):
         )
         parser.add_argument(
             "--name",
-            default="MediEcua Public",
+            default="Onne Public",
             help="Nombre del tenant publico.",
         )
 

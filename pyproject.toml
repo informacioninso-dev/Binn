@@ -1,5 +1,5 @@
 [project]
-name = "mediecua360"
+name = "onne"
 version = "0.1.0"
 description = ""
 authors = [
@@ -7,7 +7,7 @@ authors = [
 ]
 license = {text = "MIT"}
 readme = "README.md"
-requires-python = ">=3.13,<4"
+requires-python = ">=3.12,<4"
 dependencies = [
     "django (>=5.2.7,<6.0.0)",
     "django-tenants (>=3.6,<4.0.0)",

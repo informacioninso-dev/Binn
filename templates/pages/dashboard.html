@@ -1,18 +1,261 @@
 {% extends "base.html" %}
 
-{% block title %}Inicio · MediEcua{% endblock %}
+{% block title %}Inicio | Onne{% endblock %}
 
 {% block content %}
-  <div class="rounded-2xl border bg-white p-6">
-    <h1 class="text-2xl font-bold">MediEcua 360</h1>
-    <p class="mt-2 text-sm text-gray-600">
-      Lienzo limpio preparado para construir el sistema gestor clínico.
-    </p>
-    {% if tenant_schema and tenant_schema != "public" %}
-      <div class="mt-6 rounded-lg bg-blue-50 p-4 text-sm text-blue-800">
-        <p><strong>Clínica:</strong> {{ tenant_name|default:"-" }}</p>
-        <p><strong>Schema:</strong> {{ tenant_schema }}</p>
+  <div class="space-y-6">
+    <section class="rounded-2xl border bg-white p-6">
+      <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <h1 class="text-2xl font-bold">Centro de operacion</h1>
+          <p class="mt-2 text-sm text-gray-600">
+            {% if tenant_schema and tenant_schema != "public" %}
+              Onne centraliza CRM, pacientes, agenda y caja para {{ tenant_name }}.
+            {% else %}
+              Selecciona una clinica para empezar a operar.
+            {% endif %}
+          </p>
+        </div>
+        {% if tenant_schema and tenant_schema != "public" %}
+          <div class="rounded-xl bg-blue-50 px-4 py-3 text-sm text-blue-800">
+            <p><strong>Clinica:</strong> {{ tenant_name|default:"-" }}</p>
+            <p><strong>Schema:</strong> {{ tenant_schema }}</p>
+          </div>
+        {% endif %}
       </div>
+    </section>
+
+    {% if tenant_schema and tenant_schema != "public" %}
+      <section class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <article class="rounded-2xl border bg-white p-5">
+          <p class="text-xs uppercase tracking-wide text-gray-500">Pacientes activos</p>
+          <p class="mt-3 text-3xl font-bold">{{ summary.patients }}</p>
+          <a href="{% url 'patients:index' %}" class="mt-4 inline-block text-sm text-blue-600 hover:underline">Abrir pacientes</a>
+        </article>
+        <article class="rounded-2xl border bg-white p-5">
+          <p class="text-xs uppercase tracking-wide text-gray-500">Citas de hoy</p>
+          <p class="mt-3 text-3xl font-bold">{{ summary.appointments_today }}</p>
+          <a href="{% url 'appointments:index' %}" class="mt-4 inline-block text-sm text-blue-600 hover:underline">Abrir agenda</a>
+        </article>
+        <article class="rounded-2xl border bg-white p-5">
+          <p class="text-xs uppercase tracking-wide text-gray-500">Leads abiertos</p>
+          <p class="mt-3 text-3xl font-bold">{{ summary.leads_open }}</p>
+          <a href="{% url 'crm:index' %}" class="mt-4 inline-block text-sm text-blue-600 hover:underline">Abrir CRM</a>
+        </article>
+        <article class="rounded-2xl border bg-white p-5">
+          <p class="text-xs uppercase tracking-wide text-gray-500">Cobros de hoy</p>
+          <p class="mt-3 text-3xl font-bold">{{ summary.cash_today }}</p>
+          <a href="{% url 'billing:index' %}" class="mt-4 inline-block text-sm text-blue-600 hover:underline">Abrir caja</a>
+        </article>
+        <article class="rounded-2xl border bg-white p-5">
+          <p class="text-xs uppercase tracking-wide text-gray-500">Cartera</p>
+          <p class="mt-3 text-3xl font-bold">{{ summary.receivable }}</p>
+          <a href="{% url 'billing:invoices' %}" class="mt-4 inline-block text-sm text-blue-600 hover:underline">Abrir facturas</a>
+        </article>
+        {% if request.user.is_superuser or request.tenant_membership.is_admin or request.tenant_membership.role == 'doctor' or request.tenant_membership.role == 'assistant' %}
+          <article class="rounded-2xl border bg-white p-5">
+            <p class="text-xs uppercase tracking-wide text-gray-500">Evoluciones de hoy</p>
+            <p class="mt-3 text-3xl font-bold">{{ summary.encounters_today }}</p>
+            <a href="{% url 'clinical:index' %}" class="mt-4 inline-block text-sm text-blue-600 hover:underline">Abrir clinica</a>
+          </article>
+        {% endif %}
+        {% if 'inventory.basic' in request.tenant.plan_definition.capabilities %}
+          {% if request.user.is_superuser or request.tenant_membership.is_admin or request.tenant_membership.role == 'assistant' or request.tenant_membership.role == 'cashier' %}
+            <article class="rounded-2xl border bg-white p-5">
+              <p class="text-xs uppercase tracking-wide text-gray-500">Stock critico</p>
+              <p class="mt-3 text-3xl font-bold">{{ summary.low_stock }}</p>
+              <a href="{% url 'inventory:index' %}" class="mt-4 inline-block text-sm text-blue-600 hover:underline">Abrir inventario</a>
+            </article>
+          {% endif %}
+        {% endif %}
+        {% if 'commissions.basic' in request.tenant.plan_definition.capabilities %}
+          {% if request.user.is_superuser or request.tenant_membership.is_admin or request.tenant_membership.role == 'assistant' or request.tenant_membership.role == 'cashier' %}
+            <article class="rounded-2xl border bg-white p-5">
+              <p class="text-xs uppercase tracking-wide text-gray-500">Comisiones pendientes</p>
+              <p class="mt-3 text-3xl font-bold">{{ summary.pending_commissions }}</p>
+              <a href="{% url 'operations:commissions' %}" class="mt-4 inline-block text-sm text-blue-600 hover:underline">Abrir operaciones</a>
+            </article>
+          {% endif %}
+        {% endif %}
+      </section>
+
+      <section class="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <div class="rounded-2xl border bg-white p-6 xl:col-span-2">
+          <div class="mb-4 flex items-center justify-between">
+            <h2 class="text-lg font-semibold">Agenda de hoy</h2>
+            <a href="{% url 'appointments:create' %}" class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700">Nueva cita</a>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="min-w-full text-sm">
+              <thead class="bg-gray-50 text-left text-gray-600">
+                <tr>
+                  <th class="px-4 py-2">Hora</th>
+                  <th class="px-4 py-2">Paciente</th>
+                  <th class="px-4 py-2">Profesional</th>
+                  <th class="px-4 py-2">Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for appointment in appointments_today %}
+                  <tr class="border-t">
+                    <td class="px-4 py-2">{{ appointment.scheduled_at|date:"H:i" }}</td>
+                    <td class="px-4 py-2">{{ appointment.patient.full_name }}</td>
+                    <td class="px-4 py-2">{{ appointment.provider.username|default:"Sin asignar" }}</td>
+                    <td class="px-4 py-2">{{ appointment.get_status_display }}</td>
+                  </tr>
+                {% empty %}
+                  <tr>
+                    <td colspan="4" class="px-4 py-6 text-center text-gray-500">No hay citas programadas para hoy.</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="space-y-6">
+          <div class="rounded-2xl border bg-white p-6">
+            <h2 class="text-lg font-semibold">Alertas operativas</h2>
+            <div class="mt-4 space-y-3 text-sm">
+              <div class="rounded-xl bg-amber-50 px-4 py-3 text-amber-800">
+                <strong>{{ alerts.pending_appointments }}</strong> citas pendientes de confirmar
+              </div>
+              <div class="rounded-xl bg-blue-50 px-4 py-3 text-blue-800">
+                <strong>{{ alerts.checked_in }}</strong> pacientes en sala de espera
+              </div>
+              <div class="rounded-xl bg-rose-50 px-4 py-3 text-rose-800">
+                <strong>{{ alerts.no_show }}</strong> no-shows registrados
+              </div>
+              <div class="rounded-xl bg-orange-50 px-4 py-3 text-orange-800">
+                <strong>{{ alerts.open_invoices }}</strong> facturas con saldo pendiente
+              </div>
+              {% if request.user.is_superuser or request.tenant_membership.is_admin or request.tenant_membership.role == 'doctor' or request.tenant_membership.role == 'assistant' %}
+                <div class="rounded-xl bg-emerald-50 px-4 py-3 text-emerald-800">
+                  <strong>{{ alerts.open_orders }}</strong> ordenes clinicas pendientes
+                </div>
+              {% endif %}
+              {% if 'inventory.basic' in request.tenant.plan_definition.capabilities %}
+                {% if request.user.is_superuser or request.tenant_membership.is_admin or request.tenant_membership.role == 'assistant' or request.tenant_membership.role == 'cashier' %}
+                  <div class="rounded-xl bg-fuchsia-50 px-4 py-3 text-fuchsia-800">
+                    <strong>{{ alerts.open_purchase_orders }}</strong> ordenes de compra abiertas
+                  </div>
+                {% endif %}
+              {% endif %}
+              {% if 'commissions.basic' in request.tenant.plan_definition.capabilities %}
+                {% if request.user.is_superuser or request.tenant_membership.is_admin or request.tenant_membership.role == 'assistant' or request.tenant_membership.role == 'cashier' %}
+                  <div class="rounded-xl bg-sky-50 px-4 py-3 text-sky-800">
+                    <strong>{{ alerts.pending_commissions }}</strong> comisiones pendientes por revisar
+                  </div>
+                {% endif %}
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="rounded-2xl border bg-white p-6">
+            <div class="mb-4 flex items-center justify-between">
+              <h2 class="text-lg font-semibold">CRM reciente</h2>
+              <a href="{% url 'crm:create' %}" class="text-sm text-blue-600 hover:underline">Nuevo lead</a>
+            </div>
+            <div class="space-y-3">
+              {% for lead in recent_leads %}
+                <div class="rounded-xl border px-4 py-3">
+                  <p class="font-medium">{{ lead.full_name }}</p>
+                  <p class="mt-1 text-xs text-gray-500">{{ lead.get_stage_display }} | {{ lead.get_source_display }}</p>
+                </div>
+              {% empty %}
+                <div class="rounded-xl border border-dashed px-4 py-6 text-sm text-gray-500">
+                  Todavia no hay leads recientes.
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+
+          <div class="rounded-2xl border bg-white p-6">
+            <div class="mb-4 flex items-center justify-between">
+              <h2 class="text-lg font-semibold">Facturacion reciente</h2>
+              <a href="{% url 'billing:invoice_create' %}" class="text-sm text-blue-600 hover:underline">Nueva factura</a>
+            </div>
+            <div class="space-y-3">
+              {% for invoice in recent_invoices %}
+                <div class="rounded-xl border px-4 py-3">
+                  <p class="font-medium">{{ invoice.invoice_number }} | {{ invoice.patient.full_name }}</p>
+                  <p class="mt-1 text-xs text-gray-500">{{ invoice.get_status_display }} | Total {{ invoice.total_amount }}</p>
+                </div>
+              {% empty %}
+                <div class="rounded-xl border border-dashed px-4 py-6 text-sm text-gray-500">
+                  Todavia no hay facturas recientes.
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+
+          {% if request.user.is_superuser or request.tenant_membership.is_admin or request.tenant_membership.role == 'doctor' or request.tenant_membership.role == 'assistant' %}
+            <div class="rounded-2xl border bg-white p-6">
+              <div class="mb-4 flex items-center justify-between">
+                <h2 class="text-lg font-semibold">Actividad clinica</h2>
+                <a href="{% url 'clinical:create' %}" class="text-sm text-blue-600 hover:underline">Nueva evolucion</a>
+              </div>
+              <div class="space-y-3">
+                {% for encounter in recent_encounters %}
+                  <div class="rounded-xl border px-4 py-3">
+                    <p class="font-medium">{{ encounter.patient.full_name }}</p>
+                    <p class="mt-1 text-xs text-gray-500">{{ encounter.get_encounter_type_display }} | {{ encounter.encounter_date|date:"d/m/Y H:i" }}</p>
+                  </div>
+                {% empty %}
+                  <div class="rounded-xl border border-dashed px-4 py-6 text-sm text-gray-500">
+                    Todavia no hay actividad clinica reciente.
+                  </div>
+                {% endfor %}
+              </div>
+            </div>
+          {% endif %}
+
+          {% if 'inventory.basic' in request.tenant.plan_definition.capabilities %}
+            {% if request.user.is_superuser or request.tenant_membership.is_admin or request.tenant_membership.role == 'assistant' or request.tenant_membership.role == 'cashier' %}
+              <div class="rounded-2xl border bg-white p-6">
+                <div class="mb-4 flex items-center justify-between">
+                  <h2 class="text-lg font-semibold">Compras recientes</h2>
+                  <a href="{% url 'inventory:purchase_create' %}" class="text-sm text-blue-600 hover:underline">Nueva orden</a>
+                </div>
+                <div class="space-y-3">
+                  {% for purchase in recent_purchase_orders %}
+                    <div class="rounded-xl border px-4 py-3">
+                      <p class="font-medium">{{ purchase.supplier.name }}</p>
+                      <p class="mt-1 text-xs text-gray-500">{{ purchase.get_status_display }} | {{ purchase.total_amount }}</p>
+                    </div>
+                  {% empty %}
+                    <div class="rounded-xl border border-dashed px-4 py-6 text-sm text-gray-500">
+                      Todavia no hay ordenes de compra recientes.
+                    </div>
+                  {% endfor %}
+                </div>
+              </div>
+            {% endif %}
+          {% endif %}
+          {% if 'automation.basic' in request.tenant.plan_definition.capabilities %}
+            {% if request.user.is_superuser or request.tenant_membership.is_admin or request.tenant_membership.role == 'assistant' or request.tenant_membership.role == 'cashier' %}
+              <div class="rounded-2xl border bg-white p-6">
+                <div class="mb-4 flex items-center justify-between">
+                  <h2 class="text-lg font-semibold">Automatizaciones</h2>
+                  <a href="{% url 'operations:index' %}" class="text-sm text-blue-600 hover:underline">Abrir operaciones</a>
+                </div>
+                <div class="space-y-3">
+                  {% for run in recent_automation_runs %}
+                    <div class="rounded-xl border px-4 py-3">
+                      <p class="font-medium">{{ run.rule.name }}</p>
+                      <p class="mt-1 text-xs text-gray-500">{{ run.get_status_display }} | {{ run.executed_at|date:"d/m/Y H:i" }}</p>
+                    </div>
+                  {% empty %}
+                    <div class="rounded-xl border border-dashed px-4 py-6 text-sm text-gray-500">
+                      Todavia no hay ejecuciones de automatizacion.
+                    </div>
+                  {% endfor %}
+                </div>
+              </div>
+            {% endif %}
+          {% endif %}
+        </div>
+      </section>
     {% endif %}
   </div>
 {% endblock %}

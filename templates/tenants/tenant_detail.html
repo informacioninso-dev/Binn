@@ -3,15 +3,14 @@
 {% block title %}{{ tenant.name }}{% endblock %}
 
 {% block content %}
-  <!-- Header -->
-  <div class="mb-6 flex items-start justify-between">
+  <div class="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
     <div>
-      <div class="flex items-center gap-3">
+      <div class="flex flex-wrap items-center gap-3">
         <h1 class="text-2xl font-bold">{{ tenant.name }}</h1>
         {% if tenant.is_active %}
-          <span class="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">Activo</span>
+          <span class="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">Activa</span>
         {% else %}
-          <span class="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">Inactivo</span>
+          <span class="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">Inactiva</span>
         {% endif %}
         {% if tenant.plan == 'enterprise' %}
           <span class="inline-flex items-center rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">Enterprise</span>
@@ -21,7 +20,11 @@
       </div>
       <p class="mt-1 text-sm text-gray-500">Schema: <span class="font-mono">{{ tenant.schema_name }}</span> &middot; Creado: {{ tenant.created_on }}</p>
     </div>
-    <div class="flex items-center gap-2">
+    <div class="flex flex-wrap items-center gap-2">
+      <a href="{% url 'tenants:health' tenant.pk %}"
+         class="rounded-lg border px-3 py-2 text-sm hover:bg-gray-50">
+        Health JSON
+      </a>
       <a href="{% url 'tenants:edit' tenant.pk %}"
          class="rounded-lg border px-3 py-2 text-sm hover:bg-gray-50">
         Editar
@@ -48,11 +51,82 @@
     </div>
   </div>
 
-  <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
-    <!-- Info -->
+  <div class="mb-6 grid grid-cols-1 gap-4 xl:grid-cols-3">
     <div class="rounded-xl border bg-white p-4">
-      <h2 class="mb-3 text-sm font-semibold text-gray-700">Informacion</h2>
-      <dl class="space-y-2 text-sm">
+      <p class="text-xs uppercase tracking-wide text-gray-500">Plan</p>
+      <h2 class="mt-2 text-lg font-semibold">{{ plan_definition.label }}</h2>
+      <p class="mt-2 text-sm text-gray-600">{{ plan_definition.description }}</p>
+      <dl class="mt-4 space-y-2 text-sm">
+        <div class="flex items-center justify-between gap-3">
+          <dt class="text-gray-500">Soporte</dt>
+          <dd class="font-medium">{{ plan_definition.support_tier }}</dd>
+        </div>
+        <div class="flex items-center justify-between gap-3">
+          <dt class="text-gray-500">Usuarios</dt>
+          <dd class="font-medium">{{ plan_definition.max_users_display }}</dd>
+        </div>
+        <div class="flex items-center justify-between gap-3">
+          <dt class="text-gray-500">Admins</dt>
+          <dd class="font-medium">{{ plan_definition.max_admins_display }}</dd>
+        </div>
+        <div class="flex items-center justify-between gap-3">
+          <dt class="text-gray-500">Almacenamiento</dt>
+          <dd class="font-medium">{{ plan_definition.storage_display }}</dd>
+        </div>
+      </dl>
+      <div class="mt-4 space-y-2">
+        {% for feature in plan_definition.features %}
+          <div class="rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-700">{{ feature }}</div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="rounded-xl border bg-white p-4">
+      <p class="text-xs uppercase tracking-wide text-gray-500">Diagnostico</p>
+      <div class="mt-2 flex items-center gap-2">
+        {% if diagnostics.status == 'error' %}
+          <span class="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">Error</span>
+        {% elif diagnostics.status == 'warning' %}
+          <span class="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">Atencion</span>
+        {% else %}
+          <span class="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">Saludable</span>
+        {% endif %}
+      </div>
+      <dl class="mt-4 space-y-2 text-sm">
+        <div class="flex items-center justify-between gap-3">
+          <dt class="text-gray-500">Dominio principal</dt>
+          <dd class="font-medium">{{ diagnostics.primary_domain|default:"Sin dominio" }}</dd>
+        </div>
+        <div class="flex items-center justify-between gap-3">
+          <dt class="text-gray-500">Dominios</dt>
+          <dd class="font-medium">{{ diagnostics.domain_count }}</dd>
+        </div>
+        <div class="flex items-center justify-between gap-3">
+          <dt class="text-gray-500">Miembros activos</dt>
+          <dd class="font-medium">{{ diagnostics.active_members }}</dd>
+        </div>
+        <div class="flex items-center justify-between gap-3">
+          <dt class="text-gray-500">Admins activos</dt>
+          <dd class="font-medium">{{ diagnostics.active_admins }}</dd>
+        </div>
+      </dl>
+      <div class="mt-4 space-y-2">
+        {% for alert in diagnostics.alerts %}
+          <div class="rounded-lg border px-3 py-2 text-sm {% if alert.severity == 'error' %}border-red-200 bg-red-50 text-red-700{% else %}border-amber-200 bg-amber-50 text-amber-700{% endif %}">
+            <p class="font-medium">{{ alert.title }}</p>
+            <p class="mt-1 text-xs">{{ alert.message }}</p>
+          </div>
+        {% empty %}
+          <div class="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
+            Sin alertas operativas detectadas.
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="rounded-xl border bg-white p-4">
+      <p class="text-xs uppercase tracking-wide text-gray-500">Configuracion</p>
+      <dl class="mt-4 space-y-2 text-sm">
         <div>
           <dt class="text-gray-500">Nombre</dt>
           <dd class="font-medium">{{ tenant.name }}</dd>
@@ -67,7 +141,7 @@
         </div>
         <div>
           <dt class="text-gray-500">Dominios</dt>
-          <dd>
+          <dd class="space-y-1">
             {% for d in tenant.domains.all %}
               <div>{{ d.domain }}{% if d.is_primary %} <span class="text-xs text-blue-500">(primario)</span>{% endif %}</div>
             {% empty %}
@@ -77,9 +151,10 @@
         </div>
       </dl>
     </div>
+  </div>
 
-    <!-- Miembros -->
-    <div class="lg:col-span-2 rounded-xl border bg-white p-4">
+  <div class="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
+    <div class="rounded-xl border bg-white p-4 xl:col-span-2">
       <div class="mb-3 flex items-center justify-between">
         <h2 class="text-sm font-semibold text-gray-700">Miembros ({{ tenant.memberships.count }})</h2>
       </div>
@@ -102,9 +177,15 @@
                 <td class="px-3 py-2 text-gray-500">{{ m.user.email|default:"-" }}</td>
                 <td class="px-3 py-2">
                   {% if m.is_admin %}
-                    <span class="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">Admin</span>
+                    <span class="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">{{ m.role_label }}</span>
+                  {% elif m.role == 'doctor' %}
+                    <span class="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">{{ m.role_label }}</span>
+                  {% elif m.role == 'reception' %}
+                    <span class="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">{{ m.role_label }}</span>
+                  {% elif m.role == 'cashier' %}
+                    <span class="inline-flex items-center rounded-full bg-fuchsia-100 px-2 py-0.5 text-xs font-medium text-fuchsia-700">{{ m.role_label }}</span>
                   {% else %}
-                    <span class="text-xs text-gray-500">Usuario</span>
+                    <span class="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">{{ m.role_label }}</span>
                   {% endif %}
                 </td>
                 <td class="px-3 py-2">
@@ -144,24 +225,65 @@
         </table>
       </div>
 
-      <!-- Agregar miembro -->
       <div class="mt-4 border-t pt-4">
         <h3 class="mb-2 text-sm font-semibold text-gray-700">Agregar miembro</h3>
-        <form method="post" class="flex items-end gap-3">
+        <p class="mb-3 text-xs text-gray-500">
+          Aqui solo gestionas membresias y roles de la clinica. Los usuarios y sus contrasenas se administran de forma global.
+        </p>
+        {% if form.non_field_errors %}
+          <div class="mb-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {{ form.non_field_errors }}
+          </div>
+        {% endif %}
+        <form method="post" class="grid grid-cols-1 gap-3 md:grid-cols-2">
           {% csrf_token %}
           <div>
             <label class="mb-1 block text-xs text-gray-500">Usuario</label>
             {{ form.username }}
+            {{ form.username.errors }}
           </div>
-          <div class="flex items-center gap-2 pb-1">
-            {{ form.is_admin }}
-            <label class="text-sm text-gray-600">Admin</label>
+          <div>
+            <label class="mb-1 block text-xs text-gray-500">Rol local</label>
+            {{ form.role }}
+            {{ form.role.errors }}
           </div>
-          <button type="submit"
-                  class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
-            Agregar
-          </button>
+          <div class="md:col-span-2">
+            <button type="submit"
+                    class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+              Agregar miembro
+            </button>
+          </div>
         </form>
+      </div>
+    </div>
+
+    <div class="rounded-xl border bg-white p-4">
+      <div class="mb-3 flex items-center justify-between">
+        <h2 class="text-sm font-semibold text-gray-700">Eventos recientes</h2>
+        <span class="text-xs text-gray-500">{{ recent_events|length }} visibles</span>
+      </div>
+      <div class="space-y-3">
+        {% for event in recent_events %}
+          <div class="rounded-lg border px-3 py-3">
+            <div class="flex items-center justify-between gap-3">
+              <span class="text-xs uppercase tracking-wide text-gray-500">{{ event.kind }}</span>
+              <span class="text-xs {% if event.severity == 'error' %}text-red-600{% elif event.severity == 'warning' %}text-amber-600{% else %}text-gray-500{% endif %}">
+                {{ event.get_severity_display }}
+              </span>
+            </div>
+            <p class="mt-2 text-sm font-medium">{{ event.title }}</p>
+            {% if event.message %}
+              <p class="mt-1 text-xs text-gray-600">{{ event.message }}</p>
+            {% endif %}
+            <p class="mt-2 text-[11px] text-gray-500">
+              {% if event.actor %}{{ event.actor.username }}{% else %}sistema{% endif %} &middot; {{ event.created_at }}
+            </p>
+          </div>
+        {% empty %}
+          <div class="rounded-lg border border-dashed px-3 py-4 text-sm text-gray-500">
+            Aun no hay eventos operativos registrados para esta clinica.
+          </div>
+        {% endfor %}
       </div>
     </div>
   </div>
@@ -170,4 +292,3 @@
     <a href="{% url 'tenants:list' %}" class="text-sm text-gray-500 hover:underline">&larr; Volver a Clinicas</a>
   </div>
 {% endblock %}
-

@@ -18,6 +18,7 @@ from django.contrib import admin
 from django.urls import include, path
 from django.conf import settings
 from django.conf.urls.static import static
+from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from core import views
 from django.contrib.auth import views as auth_views
 from tenants import views as tenant_views
@@ -25,9 +26,15 @@ from tenants import views as tenant_views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('health/', tenant_views.SystemHealthView.as_view(), name='health'),
     path('', views.dashboard, name='dashboard'),
     path('patients/', include(('patients.urls', 'patients'), namespace='patients')),
     path('appointments/', include(('appointments.urls', 'appointments'), namespace='appointments')),
+    path('crm/', include(('crm.urls', 'crm'), namespace='crm')),
+    path('billing/', include(('billing.urls', 'billing'), namespace='billing')),
+    path('clinical/', include(('clinical.urls', 'clinical'), namespace='clinical')),
+    path('inventory/', include(('inventory.urls', 'inventory'), namespace='inventory')),
+    path('operations/', include(('operations.urls', 'operations'), namespace='operations')),
 
     # Auth (login/logout)
     path('accounts/login/', tenant_views.TenantLoginView.as_view(), name='login'),
@@ -62,5 +69,6 @@ urlpatterns = [
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    urlpatterns += staticfiles_urlpatterns()
 
 

@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Client, Domain, TenantMembership
+from .models import Client, Domain, TenantMembership, TenantOperationalEvent
 
 
 @admin.register(Client)
@@ -26,3 +26,11 @@ class TenantMembershipAdmin(admin.ModelAdmin):
     list_display = ("tenant", "user", "is_admin", "is_active")
     list_filter = ("is_admin", "is_active")
     search_fields = ("tenant__name", "tenant__schema_name", "user__username", "user__email")
+
+
+@admin.register(TenantOperationalEvent)
+class TenantOperationalEventAdmin(admin.ModelAdmin):
+    list_display = ("tenant", "kind", "severity", "status", "code", "title", "actor", "created_at")
+    list_filter = ("kind", "severity", "status")
+    search_fields = ("tenant__name", "tenant__schema_name", "code", "title", "message", "actor__username")
+    readonly_fields = ("created_at",)
