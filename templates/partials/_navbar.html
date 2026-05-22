@@ -1,74 +1,313 @@
-{% load static navigation %}
+{% load navigation %}
 {% app_navigation as nav %}
-<header class="border-b bg-white/90 backdrop-blur">
-  <div class="container mx-auto max-w-7xl px-4 py-3">
-    <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-      <a href="{% url 'dashboard' %}" class="flex items-center gap-3">
-        <img src="{% static 'img/logo.png' %}" alt="Logo de Onne" class="h-8 w-8" />
-        <div>
-          <span class="block font-semibold">Onne</span>
-          {% if request.user.is_authenticated and request.tenant and request.tenant.schema_name != 'public' %}
-            <span class="block text-xs text-gray-500">{{ request.tenant.name }}</span>
-          {% endif %}
-        </div>
-      </a>
 
-      <div class="flex flex-wrap items-center gap-3 lg:justify-end">
-        {% if nav.role_label %}
-          <span class="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">{{ nav.role_label }}</span>
-        {% endif %}
-        {% for item in nav.utility_items %}
-          <a
-            href="{% url item.route %}"
-            class="rounded-full px-3 py-1.5 text-sm {% if item.active %}bg-blue-50 text-blue-700{% else %}text-gray-700 hover:bg-gray-100{% endif %}"
-          >
-            {{ item.label }}
-          </a>
-        {% endfor %}
-        {% if request.user.is_authenticated %}
-          <form method="post" action="{% url 'logout' %}" class="inline">
-            {% csrf_token %}
-            <button type="submit" class="rounded-full px-3 py-1.5 text-sm text-red-600 hover:bg-red-50">Salir</button>
-          </form>
-        {% else %}
-          <a href="{% url 'login' %}" class="rounded-full bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700">Iniciar sesion</a>
-        {% endif %}
-      </div>
-    </div>
-
-    {% if nav.primary_items or nav.management_menu %}
-      <div class="mt-4 flex flex-col gap-3 border-t pt-4 lg:flex-row lg:items-center lg:justify-between">
-        <nav class="flex flex-wrap gap-2">
-          {% for item in nav.primary_items %}
-            <a
-              href="{% url item.route %}"
-              aria-current="{% if item.active %}page{% endif %}"
-              class="rounded-full px-4 py-2 text-sm font-medium {% if item.active %}bg-blue-600 text-white{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}"
-            >
-              {{ item.label }}
+{% if request.user.is_authenticated and request.tenant and request.tenant.schema_name != 'public' %}
+  <aside class="binn-sidebar binn-panel" aria-label="Navegacion principal">
+    <div class="binn-sidebar-expanded">
+      <div class="binn-sidebar-rail">
+        <section class="binn-sidebar-brand-card">
+          <div class="binn-sidebar-header">
+            <a href="{% url 'dashboard' %}" class="binn-brand-link" title="{{ request.tenant.name }}">
+              <span class="binn-mark" aria-hidden="true">Bn</span>
+              <span class="binn-brand-stack">
+                <span class="binn-brand-title">{{ request.tenant.name }}</span>
+                <span class="binn-brand-copy">{{ request.tenant.tenant_config.get_profile_display }}</span>
+              </span>
             </a>
-          {% endfor %}
-        </nav>
+            <button
+              type="button"
+              class="binn-sidebar-toggle"
+              data-sidebar-toggle
+              aria-label="Colapsar navegacion"
+              title="Colapsar navegacion"
+            >
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12.5 4.5 7 10l5.5 5.5" />
+              </svg>
+            </button>
+          </div>
+          <div class="binn-sidebar-workspace">
+            <div class="binn-sidebar-workspace-head">
+              <p class="binn-sidebar-eyebrow">Contexto</p>
+              {% if nav.role_label %}
+                <p class="binn-sidebar-workspace-meta">{{ nav.role_label }}</p>
+              {% endif %}
+            </div>
+            <p class="binn-sidebar-tenant">{{ request.tenant.tenant_config.labels.dashboard_title|default:"Centro de control" }}</p>
+          </div>
+        </section>
+
+        {% if nav.primary_items %}
+          <section class="binn-sidebar-section">
+            <div class="binn-sidebar-section-head">
+              <p class="binn-sidebar-label">Modulos</p>
+              <span class="binn-sidebar-section-copy">{{ nav.primary_items|length }}</span>
+            </div>
+            <nav class="binn-sidebar-nav binn-sidebar-accordion-body">
+              {% for item in nav.primary_items %}
+                <a
+                  href="{% url item.route %}"
+                  aria-current="{% if item.active %}page{% endif %}"
+                  class="binn-sidebar-link {% if item.active %}binn-sidebar-link-active{% endif %}"
+                  title="{{ item.label }}"
+                >
+                  <span class="binn-sidebar-icon">{% include "partials/_nav_icon.html" with icon=item.icon %}</span>
+                  <span class="binn-sidebar-link-copy">
+                    <span class="binn-sidebar-link-label">{{ item.label }}</span>
+                    <span class="binn-sidebar-link-help">{% if item.active %}Vista actual{% else %}Abrir modulo{% endif %}</span>
+                  </span>
+                </a>
+              {% endfor %}
+            </nav>
+          </section>
+        {% endif %}
 
         {% if nav.management_menu %}
-          <details class="group relative">
-            <summary class="flex cursor-pointer list-none items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-medium text-gray-700 ring-1 ring-gray-200 hover:bg-gray-50 {% if nav.management_menu.active %}text-blue-700 ring-blue-200{% endif %}">
-              {{ nav.management_menu.label }}
-              <span class="text-xs text-gray-400 group-open:rotate-180">▼</span>
-            </summary>
-            <div class="right-0 top-full z-20 mt-2 min-w-64 rounded-2xl border bg-white p-2 shadow-lg lg:absolute">
+          <section class="binn-sidebar-section">
+            <div class="binn-sidebar-section-head">
+              <p class="binn-sidebar-label">{{ nav.management_menu.label }}</p>
+            </div>
+            <nav class="binn-sidebar-nav binn-sidebar-accordion-body">
               {% for item in nav.management_menu.items %}
                 <a
                   href="{% url item.route %}"
-                  class="block rounded-xl px-3 py-2 text-sm {% if item.active %}bg-blue-50 text-blue-700{% else %}text-gray-700 hover:bg-gray-50{% endif %}"
+                  aria-current="{% if item.active %}page{% endif %}"
+                  class="binn-sidebar-link {% if item.active %}binn-sidebar-link-active{% endif %}"
+                  title="{{ item.label }}"
                 >
-                  {{ item.label }}
+                  <span class="binn-sidebar-icon">{% include "partials/_nav_icon.html" with icon=item.icon %}</span>
+                  <span class="binn-sidebar-link-copy">
+                    <span class="binn-sidebar-link-label">{{ item.label }}</span>
+                    <span class="binn-sidebar-link-help">Administrar</span>
+                  </span>
                 </a>
               {% endfor %}
-            </div>
-          </details>
+            </nav>
+          </section>
         {% endif %}
       </div>
-    {% endif %}
-  </div>
-</header>
+
+      <section class="binn-sidebar-footer">
+        <p class="binn-sidebar-footer-label">Acciones</p>
+        <button type="button" class="binn-btn-secondary binn-btn-compact" data-command-palette-toggle title="Buscar">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+            <circle cx="8.5" cy="8.5" r="4.5" />
+            <path stroke-linecap="round" d="m12 12 4 4" />
+          </svg>
+          <span>Buscar</span>
+        </button>
+        {% if collab_enabled %}
+          <a
+            href="{% url 'collab:notification_center' %}"
+            class="binn-btn-secondary binn-btn-compact binn-notif-bell"
+            title="Centro de alertas"
+            style="position:relative;"
+          >
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M10 2.5a5.5 5.5 0 0 1 5.5 5.5v2.5l1 2H3.5l1-2V8A5.5 5.5 0 0 1 10 2.5Z" />
+              <path stroke-linecap="round" d="M8.5 15.5a1.5 1.5 0 0 0 3 0" />
+            </svg>
+            <span>Alertas</span>
+            {% if collab_unread_total %}
+              <span
+                class="binn-notif-pill"
+                aria-label="{{ collab_unread_total }} alertas sin leer"
+                style="position:absolute;top:4px;right:4px;min-width:1.2rem;height:1.2rem;display:inline-flex;align-items:center;justify-content:center;border-radius:999px;background:#1d4ed8;color:#fff;font-size:0.62rem;font-weight:800;padding:0 0.32rem;"
+              >{{ collab_unread_total }}</span>
+            {% endif %}
+          </a>
+        {% endif %}
+        {% for item in nav.utility_items %}
+          <a href="{% url item.route %}" class="binn-btn-secondary binn-btn-compact" title="{{ item.label }}">
+            {% include "partials/_nav_icon.html" with icon=item.icon %}
+            <span>{{ item.label }}</span>
+          </a>
+        {% endfor %}
+        <form method="post" action="{% url 'logout' %}">
+          {% csrf_token %}
+          <button type="submit" class="binn-btn-danger binn-sidebar-signout w-full" title="Salir">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M7 4.5H5.5A1.5 1.5 0 0 0 4 6v8a1.5 1.5 0 0 0 1.5 1.5H7" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M11 7.5 14.5 10 11 12.5" />
+              <path stroke-linecap="round" d="M14 10H8" />
+            </svg>
+            <span>Salir</span>
+          </button>
+        </form>
+      </section>
+    </div>
+
+    <div class="binn-sidebar-collapsed" aria-hidden="true">
+      <div class="binn-sidebar-mini">
+        <a href="{% url 'dashboard' %}" class="binn-sidebar-mini-link" title="{{ request.tenant.name }}">
+          <span class="binn-mark" aria-hidden="true">Bn</span>
+        </a>
+        <button
+          type="button"
+          class="binn-sidebar-mini-button"
+          data-sidebar-toggle
+          aria-label="Expandir navegacion"
+          title="Expandir navegacion"
+        >
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12.5 4.5 7 10l5.5 5.5" />
+          </svg>
+        </button>
+        <div class="binn-sidebar-mini-separator" aria-hidden="true"></div>
+        {% for item in nav.primary_items %}
+          <a
+            href="{% url item.route %}"
+            aria-current="{% if item.active %}page{% endif %}"
+            class="binn-sidebar-mini-link {% if item.active %}binn-sidebar-mini-link-active{% endif %}"
+            title="{{ item.label }}"
+          >
+            <span class="binn-sidebar-icon">{% include "partials/_nav_icon.html" with icon=item.icon %}</span>
+          </a>
+        {% endfor %}
+        {% if nav.management_menu and nav.management_menu.items %}
+          <div class="binn-sidebar-mini-separator" aria-hidden="true"></div>
+          {% for item in nav.management_menu.items %}
+            <a
+              href="{% url item.route %}"
+              aria-current="{% if item.active %}page{% endif %}"
+              class="binn-sidebar-mini-link {% if item.active %}binn-sidebar-mini-link-active{% endif %}"
+              title="{{ item.label }}"
+            >
+              <span class="binn-sidebar-icon">{% include "partials/_nav_icon.html" with icon=item.icon %}</span>
+            </a>
+          {% endfor %}
+        {% endif %}
+        <div class="binn-sidebar-mini-separator" aria-hidden="true"></div>
+        <button type="button" class="binn-sidebar-mini-button" data-command-palette-toggle title="Buscar">
+          <span class="binn-sidebar-icon">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+              <circle cx="8.5" cy="8.5" r="4.5" />
+              <path stroke-linecap="round" d="m12 12 4 4" />
+            </svg>
+          </span>
+        </button>
+        {% if collab_enabled %}
+          <a
+            href="{% url 'collab:notification_center' %}"
+            class="binn-sidebar-mini-link"
+            title="Alertas{% if collab_unread_total %} ({{ collab_unread_total }}){% endif %}"
+            style="position:relative;"
+          >
+            <span class="binn-sidebar-icon">
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M10 2.5a5.5 5.5 0 0 1 5.5 5.5v2.5l1 2H3.5l1-2V8A5.5 5.5 0 0 1 10 2.5Z" />
+                <path stroke-linecap="round" d="M8.5 15.5a1.5 1.5 0 0 0 3 0" />
+              </svg>
+            </span>
+            {% if collab_unread_total %}
+              <span style="position:absolute;top:2px;right:2px;min-width:1.1rem;height:1.1rem;display:inline-flex;align-items:center;justify-content:center;border-radius:999px;background:#1d4ed8;color:#fff;font-size:0.58rem;font-weight:800;padding:0 0.28rem;">{{ collab_unread_total }}</span>
+            {% endif %}
+          </a>
+        {% endif %}
+        {% for item in nav.utility_items %}
+          <a href="{% url item.route %}" class="binn-sidebar-mini-link" title="{{ item.label }}">
+            <span class="binn-sidebar-icon">{% include "partials/_nav_icon.html" with icon=item.icon %}</span>
+          </a>
+        {% endfor %}
+        <form method="post" action="{% url 'logout' %}">
+          {% csrf_token %}
+          <button type="submit" class="binn-sidebar-mini-button" title="Salir">
+            <span class="binn-sidebar-icon">
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M7 4.5H5.5A1.5 1.5 0 0 0 4 6v8a1.5 1.5 0 0 0 1.5 1.5H7" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M11 7.5 14.5 10 11 12.5" />
+                <path stroke-linecap="round" d="M14 10H8" />
+              </svg>
+            </span>
+          </button>
+        </form>
+      </div>
+    </div>
+  </aside>
+{% else %}
+  <header class="binn-topbar">
+    <div class="container mx-auto max-w-7xl px-4 py-3">
+      {% if request.user.is_authenticated and request.tenant and request.tenant.schema_name == 'public' %}
+        <div class="binn-platform-shell">
+          <div class="binn-platform-row">
+            <a href="{% url 'dashboard' %}" class="binn-platform-brand">
+              <span class="binn-mark" aria-hidden="true">Bn</span>
+              <span class="binn-platform-meta">
+                <span class="binn-platform-title">Binn</span>
+                <span class="binn-platform-copy">Control plane para identidades, tenants y holdings.</span>
+              </span>
+            </a>
+
+            <div class="binn-platform-actions">
+              {% if nav.role_label %}
+                <span class="binn-chip px-3 py-1 text-xs font-medium">{{ nav.role_label }}</span>
+              {% endif %}
+              <button type="button" class="binn-btn-secondary binn-btn-compact" data-command-palette-toggle>Command K</button>
+              {% for item in nav.utility_items %}
+                <a href="{% url item.route %}" class="binn-btn-secondary binn-btn-compact">
+                  {% include "partials/_nav_icon.html" with icon=item.icon %}
+                  <span>{{ item.label }}</span>
+                </a>
+              {% endfor %}
+              <form method="post" action="{% url 'logout' %}" class="inline">
+                {% csrf_token %}
+                <button type="submit" class="binn-btn-danger binn-btn-compact">Salir</button>
+              </form>
+            </div>
+          </div>
+
+          {% if nav.primary_items %}
+            <div class="binn-platform-context">
+              <p class="binn-platform-help">Administra estructura, acceso y visibilidad sin entrar al trabajo operativo de cada empresa.</p>
+              <nav class="binn-segment-nav" aria-label="Navegacion principal">
+                {% for item in nav.primary_items %}
+                  <a
+                    href="{% url item.route %}"
+                    aria-current="{% if item.active %}page{% endif %}"
+                    class="binn-segment-link {% if item.active %}binn-segment-link-active{% endif %}"
+                  >
+                    {% include "partials/_nav_icon.html" with icon=item.icon %}
+                    <span>{{ item.label }}</span>
+                  </a>
+                {% endfor %}
+              </nav>
+            </div>
+          {% endif %}
+        </div>
+      {% else %}
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <a href="{% url 'dashboard' %}" class="binn-brand-link">
+            <span class="binn-mark" aria-hidden="true">Bn</span>
+            <span class="binn-brand-stack">
+              <span class="binn-brand-title">Binn</span>
+              <span class="binn-brand-copy">CRM y gobernanza multi-tenant.</span>
+            </span>
+          </a>
+
+          <div class="flex flex-wrap items-center gap-3">
+            {% if nav.role_label %}
+              <span class="binn-chip px-3 py-1 text-xs font-medium">{{ nav.role_label }}</span>
+            {% endif %}
+            {% if request.user.is_authenticated %}
+              <button type="button" class="binn-btn-secondary" data-command-palette-toggle>Command K</button>
+            {% endif %}
+            {% for item in nav.utility_items %}
+              <a href="{% url item.route %}" class="binn-btn-secondary">
+                {% include "partials/_nav_icon.html" with icon=item.icon %}
+                <span>{{ item.label }}</span>
+              </a>
+            {% endfor %}
+            {% if request.user.is_authenticated %}
+              <form method="post" action="{% url 'logout' %}" class="inline">
+                {% csrf_token %}
+                <button type="submit" class="binn-btn-danger">Salir</button>
+              </form>
+            {% else %}
+              <a href="{% url 'login' %}" class="binn-btn-primary">Iniciar sesion</a>
+            {% endif %}
+          </div>
+        </div>
+      {% endif %}
+    </div>
+  </header>
+{% endif %}

@@ -1,0 +1,353 @@
+<style>
+  .binn-channel-stack {
+    display: grid;
+    gap: 1rem;
+  }
+  .binn-channel-section {
+    display: grid;
+    gap: 0.45rem;
+  }
+  .binn-channel-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0 0.35rem;
+  }
+  .binn-channel-section-head h3 {
+    margin: 0;
+    font-size: 0.76rem;
+    line-height: 1;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #8693a8;
+  }
+  .binn-channel-count {
+    font-size: 0.74rem;
+    font-weight: 700;
+    color: #94a3b8;
+  }
+  .binn-channel-link {
+    display: grid;
+    gap: 0.45rem;
+    border-radius: 1rem;
+    border: 1px solid transparent;
+    padding: 0.78rem 0.82rem;
+    text-decoration: none;
+    transition: border-color 140ms ease, background-color 140ms ease, box-shadow 140ms ease;
+  }
+  .binn-channel-link:hover {
+    border-color: rgba(16, 24, 40, 0.08);
+    background: rgba(255, 255, 255, 0.9);
+  }
+  .binn-channel-link.is-active {
+    border-color: rgba(37, 99, 235, 0.18);
+    background: rgba(255, 255, 255, 0.97);
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+  }
+  .binn-channel-link.is-priority {
+    background: linear-gradient(180deg, rgba(239, 246, 255, 0.96), rgba(255, 255, 255, 0.98));
+    border-color: rgba(37, 99, 235, 0.1);
+  }
+  .binn-channel-link-shell {
+    display: grid;
+    gap: 0.45rem;
+    color: inherit;
+    text-decoration: none;
+  }
+  .binn-channel-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.7rem;
+  }
+  .binn-channel-main {
+    min-width: 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.7rem;
+  }
+  .binn-channel-mark {
+    display: inline-flex;
+    height: 1.95rem;
+    width: 1.95rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.75rem;
+    background: rgba(15, 23, 42, 0.06);
+    color: #334155;
+    font-size: 0.74rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+  .binn-channel-copy {
+    min-width: 0;
+  }
+  .binn-channel-copy strong {
+    display: block;
+    font-size: 0.92rem;
+    line-height: 1.35;
+    color: #122033;
+  }
+  .binn-channel-copy span {
+    display: block;
+    margin-top: 0.1rem;
+    font-size: 0.74rem;
+    color: #71839b;
+  }
+  .binn-channel-meta {
+    display: grid;
+    justify-items: end;
+    gap: 0.35rem;
+    text-align: right;
+  }
+  .binn-channel-time {
+    font-size: 0.72rem;
+    color: #94a3b8;
+  }
+  .binn-channel-badge {
+    display: inline-flex;
+    min-width: 1.45rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: rgba(37, 99, 235, 0.14);
+    padding: 0.16rem 0.5rem;
+    font-size: 0.72rem;
+    font-weight: 800;
+    color: #1d4ed8;
+  }
+  .binn-channel-status-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+  .binn-channel-status {
+    display: inline-flex;
+    align-items: center;
+    min-height: 1.55rem;
+    padding: 0.18rem 0.5rem;
+    border-radius: 999px;
+    border: 1px solid var(--binn-line);
+    background: rgba(255, 255, 255, 0.94);
+    color: #607287;
+    font-size: 0.68rem;
+    font-weight: 800;
+  }
+  .binn-channel-preview {
+    margin: 0;
+    font-size: 0.82rem;
+    line-height: 1.55;
+    color: #54657c;
+  }
+  .binn-channel-author {
+    font-size: 0.72rem;
+    color: #8693a8;
+  }
+  .binn-channel-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+  }
+  .binn-channel-actions form {
+    margin: 0;
+  }
+  .binn-channel-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 30px;
+    padding: 0.32rem 0.58rem;
+    border-radius: 999px;
+    border: 1px solid var(--binn-line);
+    background: rgba(255, 255, 255, 0.92);
+    color: #52647e;
+    font-size: 0.68rem;
+    font-weight: 800;
+  }
+  .binn-channel-action:hover {
+    border-color: rgba(37, 99, 235, 0.18);
+    color: #1d4ed8;
+  }
+</style>
+
+<div
+  id="collab-inbox-list"
+  data-collab-stream-path="/ws/collab/stream/?tenant={{ request.tenant.schema_name }}"
+  data-collab-current-user-id="{{ request.user.pk }}"
+  data-collab-list="true"
+  data-collab-refresh-url="{{ inbox_list_url }}"
+  class="binn-channel-stack"
+>
+  {% if conversation_summaries %}
+    {% if has_pinned_summaries and active_filter != "archived" %}
+      <section class="binn-channel-section">
+        <div class="binn-channel-section-head">
+          <h3>Priorizados</h3>
+          <span class="binn-channel-count">{{ pinned_total }}</span>
+        </div>
+        {% for summary in conversation_summaries %}
+          {% if summary.membership and summary.membership.is_pinned %}
+            <article class="binn-channel-link is-priority{% if active_conversation and active_conversation.pk == summary.conversation.pk %} is-active{% endif %}">
+              <a
+                href="{% url 'collab:conversation_detail' summary.conversation.pk %}?{% if search_query %}q={{ search_query|urlencode }}&{% endif %}{% if active_filter %}filter={{ active_filter|urlencode }}&{% endif %}conversation={{ summary.conversation.pk }}"
+                class="binn-channel-link-shell"
+              >
+              <div class="binn-channel-row">
+                <div class="binn-channel-main">
+                  <span class="binn-channel-mark">
+                    {% if summary.conversation.kind == "team" %}#{% elif summary.conversation.kind == "entity" %}@{% else %}${% endif %}
+                  </span>
+                  <div class="binn-channel-copy">
+                    <strong>{{ summary.conversation.title }}</strong>
+                    <span>{{ summary.conversation.get_kind_display }} priorizado</span>
+                  </div>
+                </div>
+                <div class="binn-channel-meta">
+                  {% if summary.last_message %}
+                    <span class="binn-channel-time">{{ summary.last_message.created_at|date:"H:i" }}</span>
+                  {% endif %}
+                  {% if summary.unread_count %}
+                    <span class="binn-channel-badge">{{ summary.unread_count }}</span>
+                  {% endif %}
+                </div>
+              </div>
+              <div class="binn-channel-status-row">
+                <span class="binn-channel-status">Fijado</span>
+                {% if summary.membership.is_muted %}
+                  <span class="binn-channel-status">Silenciado</span>
+                {% endif %}
+              </div>
+              {% if summary.last_message %}
+                <p class="binn-channel-preview">
+                  {{ summary.last_message.metadata.kind_label|default:"Actualizacion" }} · {{ summary.last_message.body|truncatechars:84 }}
+                </p>
+                <span class="binn-channel-author">{{ summary.last_message.author.username }} - {{ summary.last_message.created_at|date:"d/m H:i" }}</span>
+              {% else %}
+                <p class="binn-channel-preview">Canal fijado para que no se pierda en medio del resto del inbox.</p>
+              {% endif %}
+              </a>
+              <div class="binn-channel-actions">
+                <form method="post" action="{% url 'collab:conversation_membership_update' summary.conversation.pk %}">
+                  {% csrf_token %}
+                  <input type="hidden" name="source" value="list" />
+                  <input type="hidden" name="action" value="unpin" />
+                  <input type="hidden" name="next" value="{{ inbox_url }}" />
+                  <button type="submit" class="binn-channel-action">Soltar</button>
+                </form>
+                <form method="post" action="{% url 'collab:conversation_membership_update' summary.conversation.pk %}">
+                  {% csrf_token %}
+                  <input type="hidden" name="source" value="list" />
+                  <input type="hidden" name="action" value="archive" />
+                  <input type="hidden" name="next" value="{{ inbox_url }}" />
+                  <button type="submit" class="binn-channel-action">Archivar</button>
+                </form>
+              </div>
+            </article>
+          {% endif %}
+        {% endfor %}
+      </section>
+    {% endif %}
+
+    <section class="binn-channel-section">
+      <div class="binn-channel-section-head">
+        <h3>{% if active_filter == "archived" %}Archivados{% else %}Bandeja{% endif %}</h3>
+        <span class="binn-channel-count">{{ conversation_summaries|length }}</span>
+      </div>
+      {% for summary in conversation_summaries %}
+        {% if not summary.membership.is_pinned or active_filter == "archived" %}
+          <article class="binn-channel-link{% if active_conversation and active_conversation.pk == summary.conversation.pk %} is-active{% endif %}">
+            <a
+              href="{% url 'collab:conversation_detail' summary.conversation.pk %}?{% if search_query %}q={{ search_query|urlencode }}&{% endif %}{% if active_filter %}filter={{ active_filter|urlencode }}&{% endif %}conversation={{ summary.conversation.pk }}"
+              class="binn-channel-link-shell"
+            >
+            <div class="binn-channel-row">
+              <div class="binn-channel-main">
+                <span class="binn-channel-mark">
+                  {% if summary.conversation.kind == "team" %}#{% elif summary.conversation.kind == "entity" %}@{% else %}${% endif %}
+                </span>
+                <div class="binn-channel-copy">
+                  <strong>{{ summary.conversation.title }}</strong>
+                  <span>
+                    {{ summary.conversation.get_kind_display }}
+                    {% if summary.conversation.kind == "deal" and summary.conversation.deal and summary.conversation.deal.entity %}
+                      · {{ summary.conversation.deal.entity.full_name }}
+                    {% elif summary.conversation.kind == "entity" and summary.conversation.entity %}
+                      · {{ summary.conversation.entity.full_name }}
+                    {% endif %}
+                  </span>
+                </div>
+              </div>
+              <div class="binn-channel-meta">
+                {% if summary.last_message %}
+                  <span class="binn-channel-time">{{ summary.last_message.created_at|date:"H:i" }}</span>
+                {% endif %}
+                {% if summary.unread_count %}
+                  <span class="binn-channel-badge">{{ summary.unread_count }}</span>
+                {% endif %}
+              </div>
+            </div>
+            <div class="binn-channel-status-row">
+              {% if summary.membership.is_muted %}
+                <span class="binn-channel-status">Silenciado</span>
+              {% endif %}
+              {% if summary.membership.is_archived %}
+                <span class="binn-channel-status">Archivado</span>
+              {% endif %}
+            </div>
+            {% if summary.last_message %}
+              <p class="binn-channel-preview">
+                {{ summary.last_message.metadata.kind_label|default:"Actualizacion" }} · {{ summary.last_message.body|truncatechars:84 }}
+              </p>
+              <span class="binn-channel-author">{{ summary.last_message.author.username }} - {{ summary.last_message.created_at|date:"d/m H:i" }}</span>
+            {% else %}
+              <p class="binn-channel-preview">Canal listo para mantener contexto, acuerdos y siguiente paso en un solo lugar.</p>
+            {% endif %}
+            </a>
+            <div class="binn-channel-actions">
+              {% if summary.membership.is_archived %}
+                <form method="post" action="{% url 'collab:conversation_membership_update' summary.conversation.pk %}">
+                  {% csrf_token %}
+                  <input type="hidden" name="source" value="list" />
+                  <input type="hidden" name="action" value="unarchive" />
+                  <input type="hidden" name="next" value="{{ inbox_url }}" />
+                  <button type="submit" class="binn-channel-action">Desarchivar</button>
+                </form>
+              {% else %}
+                <form method="post" action="{% url 'collab:conversation_membership_update' summary.conversation.pk %}">
+                  {% csrf_token %}
+                  <input type="hidden" name="source" value="list" />
+                  <input type="hidden" name="action" value="{% if summary.membership.is_pinned %}unpin{% else %}pin{% endif %}" />
+                  <input type="hidden" name="next" value="{{ inbox_url }}" />
+                  <button type="submit" class="binn-channel-action">
+                    {% if summary.membership.is_pinned %}Soltar{% else %}Fijar{% endif %}
+                  </button>
+                </form>
+                <form method="post" action="{% url 'collab:conversation_membership_update' summary.conversation.pk %}">
+                  {% csrf_token %}
+                  <input type="hidden" name="source" value="list" />
+                  <input type="hidden" name="action" value="archive" />
+                  <input type="hidden" name="next" value="{{ inbox_url }}" />
+                  <button type="submit" class="binn-channel-action">Archivar</button>
+                </form>
+              {% endif %}
+            </div>
+          </article>
+        {% endif %}
+      {% endfor %}
+    </section>
+  {% else %}
+    <div class="binn-empty text-sm">
+      {% if active_filter == "archived" %}
+        No hay canales archivados con este criterio.
+      {% elif search_query %}
+        No encontre canales que coincidan con "{{ search_query }}".
+      {% else %}
+        Todavia no hay canales visibles para tu usuario.
+      {% endif %}
+    </div>
+  {% endif %}
+</div>

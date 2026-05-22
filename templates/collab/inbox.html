@@ -1,0 +1,259 @@
+{% extends "base.html" %}
+
+{% block title %}Colaboracion | Binn{% endblock %}
+
+{% block head_extra %}
+<style>
+  .binn-collab-app {
+    display: grid;
+    gap: 0;
+    min-height: calc(100vh - 10.25rem);
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.96);
+  }
+  .binn-collab-shell {
+    display: grid;
+    min-height: 0;
+  }
+  .binn-collab-sidebar {
+    min-height: 0;
+    border-right: 1px solid var(--binn-line);
+    background:
+      linear-gradient(180deg, rgba(248, 250, 252, 0.98), rgba(244, 247, 251, 0.98));
+  }
+  .binn-collab-sidebar-head {
+    display: grid;
+    gap: 0.9rem;
+    padding: 1.1rem 1.1rem 1rem;
+    border-bottom: 1px solid var(--binn-line);
+  }
+  .binn-collab-team {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8rem;
+  }
+  .binn-collab-team-mark {
+    display: inline-flex;
+    height: 2.35rem;
+    width: 2.35rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.85rem;
+    background: #121a2f;
+    color: #fff;
+    font-size: 0.82rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .binn-collab-team-copy {
+    min-width: 0;
+    flex: 1;
+  }
+  .binn-collab-team-copy h1 {
+    margin: 0;
+    font-size: 1rem;
+    line-height: 1.1;
+    font-weight: 800;
+    color: var(--binn-ink);
+  }
+  .binn-collab-team-copy p {
+    margin: 0.28rem 0 0;
+    font-size: 0.82rem;
+    line-height: 1.45;
+    color: var(--binn-ink-soft);
+  }
+  .binn-collab-sidebar-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+  }
+  .binn-collab-sidebar-meta .binn-pill {
+    background: rgba(255, 255, 255, 0.92);
+  }
+  .binn-collab-filter-shell {
+    display: grid;
+    gap: 0.75rem;
+  }
+  .binn-collab-query-form {
+    display: grid;
+    gap: 0.55rem;
+  }
+  .binn-collab-query-form input[type="text"] {
+    min-height: 46px;
+  }
+  .binn-collab-filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+  }
+  .binn-collab-filter-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 34px;
+    padding: 0.45rem 0.72rem;
+    border-radius: 999px;
+    border: 1px solid var(--binn-line);
+    background: rgba(255, 255, 255, 0.92);
+    color: #52647e;
+    text-decoration: none;
+    font-size: 0.76rem;
+    font-weight: 800;
+  }
+  .binn-collab-filter-chip.is-active {
+    border-color: rgba(37, 99, 235, 0.18);
+    background: rgba(239, 246, 255, 0.98);
+    color: #1d4ed8;
+  }
+  .binn-collab-filter-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    color: #71839b;
+    font-size: 0.76rem;
+    font-weight: 700;
+  }
+  .binn-collab-sidebar-body {
+    min-height: 0;
+    overflow-y: auto;
+    padding: 0.65rem;
+  }
+  .binn-collab-main {
+    min-width: 0;
+    min-height: 0;
+    background:
+      radial-gradient(circle at top left, rgba(0, 123, 255, 0.05), transparent 22rem),
+      rgba(248, 250, 252, 0.98);
+  }
+  .binn-collab-empty {
+    display: grid;
+    place-items: center;
+    min-height: 34rem;
+    padding: 1.5rem;
+  }
+  .binn-collab-empty-card {
+    max-width: 30rem;
+    border: 1px dashed var(--binn-line);
+    border-radius: 1.4rem;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 1.4rem 1.45rem;
+    color: var(--binn-ink-soft);
+    font-size: 0.94rem;
+    line-height: 1.65;
+  }
+  .binn-collab-empty-card strong {
+    display: block;
+    margin-bottom: 0.45rem;
+    color: var(--binn-ink);
+    font-size: 1rem;
+  }
+  @media (min-width: 1180px) {
+    .binn-collab-shell {
+      grid-template-columns: 320px minmax(0, 1fr);
+    }
+  }
+  @media (max-width: 1179px) {
+    .binn-collab-app {
+      min-height: auto;
+    }
+    .binn-collab-shell {
+      grid-template-columns: 1fr;
+    }
+    .binn-collab-sidebar {
+      border-right: 0;
+      border-bottom: 1px solid var(--binn-line);
+    }
+    .binn-collab-empty {
+      min-height: 24rem;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+  <section class="binn-panel rounded-3xl binn-collab-app">
+    <div class="binn-collab-shell">
+      <aside class="binn-collab-sidebar">
+        <header class="binn-collab-sidebar-head">
+          <div class="binn-collab-team">
+            <span class="binn-collab-team-mark">{{ request.tenant.name|slice:":2" }}</span>
+            <div class="binn-collab-team-copy">
+              <h1>{{ request.tenant.name }}</h1>
+              <p>Canales internos con contexto operativo, no mensajes perdidos.</p>
+            </div>
+          </div>
+          <div class="binn-collab-sidebar-meta">
+            <span class="binn-pill">{{ conversation_summaries|length }} canales</span>
+            <span class="binn-pill">{{ unread_total }} sin leer</span>
+            <span class="binn-pill">{{ pinned_total }} fijados</span>
+          </div>
+          <div class="binn-collab-filter-shell">
+            <form method="get" action="{% url 'collab:inbox' %}" class="binn-collab-query-form">
+              <input type="hidden" name="filter" value="{{ active_filter }}" />
+              {% if selected_conversation_id %}
+                <input type="hidden" name="conversation" value="{{ selected_conversation_id }}" />
+              {% endif %}
+              <input
+                type="text"
+                name="q"
+                value="{{ search_query }}"
+                placeholder="Busca por canal, cliente, deal o autor"
+                class="binn-input"
+              />
+            </form>
+            <div class="binn-collab-filter-row">
+              {% for filter_option in filter_options %}
+                <a
+                  href="{{ filter_option.url }}"
+                  class="binn-collab-filter-chip{% if filter_option.is_active %} is-active{% endif %}"
+                >
+                  {{ filter_option.label }}
+                </a>
+              {% endfor %}
+            </div>
+            <div class="binn-collab-filter-meta">
+              <span>El inbox excluye archivados salvo que entres a ese filtro.</span>
+              {% if active_filter == "unread" %}
+                <span>Estas viendo solo pendientes de lectura.</span>
+              {% elif active_filter == "mine" %}
+                <span>Estas viendo los canales donde ya metiste mano.</span>
+              {% elif active_filter == "archived" %}
+                <span>Estas viendo el backlog archivado.</span>
+              {% endif %}
+            </div>
+          </div>
+        </header>
+        <div class="binn-collab-sidebar-body">
+          {% include "collab/_conversation_list.html" %}
+        </div>
+      </aside>
+
+      <main class="binn-collab-main">
+        {% if active_conversation %}
+          <div
+            id="collab-panel"
+            hx-get="{% url 'collab:conversation_panel' active_conversation.pk %}?layout=full"
+            hx-trigger="load"
+            hx-swap="outerHTML"
+          >
+            <section class="binn-collab-empty">
+              <div class="binn-collab-empty-card">
+                <strong>Cargando canal...</strong>
+                Estamos trayendo el thread, los detalles del canal y los participantes.
+              </div>
+            </section>
+          </div>
+        {% else %}
+          <section class="binn-collab-empty">
+            <div class="binn-collab-empty-card">
+              <strong>No hay un canal activo todavia.</strong>
+              Cuando abras una conversacion del equipo, de una ficha o de un deal, aparecera aqui con su historial y detalle.
+            </div>
+          </section>
+        {% endif %}
+      </main>
+    </div>
+  </section>
+{% endblock %}
