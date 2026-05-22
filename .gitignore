@@ -1,6 +1,12 @@
 # Environment
 .env
+.env.production
+.env.staging
 .tmp/
+backups/
+deploy/certs/*.pem
+deploy/certs/*.key
+deploy/certs/*.crt
 
 # Python
 __pycache__/

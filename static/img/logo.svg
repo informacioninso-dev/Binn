@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="logoTitle logoDesc">
+  <title id="logoTitle">Binn</title>
+  <desc id="logoDesc">Binn monogram mark</desc>
+  <defs>
+    <linearGradient id="binnGradient" x1="18" x2="110" y1="16" y2="112" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5fd7c4" />
+      <stop offset="0.58" stop-color="#ffd58a" />
+      <stop offset="1" stop-color="#ff845f" />
+    </linearGradient>
+    <radialGradient id="binnGlow" cx="0" cy="0" r="1" gradientTransform="translate(42 34) rotate(41.5) scale(34.0719)">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.92" />
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+  <rect width="128" height="128" rx="30" fill="url(#binnGradient)" />
+  <circle cx="42" cy="34" r="28" fill="url(#binnGlow)" />
+  <path
+    d="M42 31.5c0-4.142 3.358-7.5 7.5-7.5h16c8.56 0 15.5 6.94 15.5 15.5 0 3.913-1.45 7.486-3.841 10.214C82.485 52.348 86 57.874 86 64.2 86 73.478 78.478 81 69.2 81H49.5c-4.142 0-7.5-3.358-7.5-7.5v-42Zm15 4.5v10.5h8.8c3.7 0 6.7-2.999 6.7-6.7S69.5 33 65.8 33H57Zm0 22.5V72h12.2c4.197 0 7.6-3.403 7.6-7.6s-3.403-7.6-7.6-7.6H57Z"
+    fill="#10243d"
+  />
+  <path
+    d="M92.5 45c0-2.485 2.015-4.5 4.5-4.5s4.5 2.015 4.5 4.5-2.015 4.5-4.5 4.5-4.5-2.015-4.5-4.5Zm0 18c0-2.485 2.015-4.5 4.5-4.5s4.5 2.015 4.5 4.5-2.015 4.5-4.5 4.5-4.5-2.015-4.5-4.5Z"
+    fill="#10243d"
+    fill-opacity="0.74"
+  />
+</svg>

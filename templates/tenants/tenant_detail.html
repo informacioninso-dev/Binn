@@ -1,294 +1,400 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 
-{% block title %}{{ tenant.name }}{% endblock %}
+{% block title %}{{ tenant.name }} | Binn{% endblock %}
 
 {% block content %}
-  <div class="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-    <div>
-      <div class="flex flex-wrap items-center gap-3">
-        <h1 class="text-2xl font-bold">{{ tenant.name }}</h1>
-        {% if tenant.is_active %}
-          <span class="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">Activa</span>
-        {% else %}
-          <span class="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">Inactiva</span>
-        {% endif %}
-        {% if tenant.plan == 'enterprise' %}
-          <span class="inline-flex items-center rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">Enterprise</span>
-        {% else %}
-          <span class="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">Shared</span>
-        {% endif %}
+  <div class="space-y-6">
+    <section class="binn-panel rounded-3xl p-6">
+      <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <h1 class="text-3xl font-bold tracking-tight">{{ tenant.name }}</h1>
+          <p class="mt-2 text-sm text-gray-600">{{ tenant.tenant_config.get_profile_display }} | {% if tenant.is_active %}Empresa activa{% else %}Empresa inactiva{% endif %}</p>
+          <p class="mt-2 text-xs text-gray-500">ID tecnico: {{ tenant.schema_name }}</p>
+          <p class="mt-2 text-xs {% if tenant.allow_consolidation %}text-emerald-700{% else %}text-amber-700{% endif %}">
+            {% if tenant.allow_consolidation %}
+              Consolidacion corporativa habilitada.
+            {% else %}
+              Consolidacion corporativa bloqueada por Binn.
+            {% endif %}
+          </p>
+        </div>
+        <div class="flex flex-wrap gap-3">
+          <a href="{% url 'tenants:switch' tenant.pk %}" class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">Entrar a la empresa</a>
+          <a href="{% url 'tenants:edit' tenant.pk %}" class="rounded-xl border px-4 py-2 text-sm hover:bg-gray-50">Ajustar configuracion</a>
+          <form method="post" action="{% url 'tenants:toggle_active' tenant.pk %}">
+            {% csrf_token %}
+            <button type="submit" class="rounded-xl {% if tenant.is_active %}bg-red-600 hover:bg-red-700{% else %}bg-green-600 hover:bg-green-700{% endif %} px-4 py-2 text-sm font-medium text-white">
+              {% if tenant.is_active %}Desactivar empresa{% else %}Activar empresa{% endif %}
+            </button>
+          </form>
+        </div>
       </div>
-      <p class="mt-1 text-sm text-gray-500">Schema: <span class="font-mono">{{ tenant.schema_name }}</span> &middot; Creado: {{ tenant.created_on }}</p>
-    </div>
-    <div class="flex flex-wrap items-center gap-2">
-      <a href="{% url 'tenants:health' tenant.pk %}"
-         class="rounded-lg border px-3 py-2 text-sm hover:bg-gray-50">
-        Health JSON
-      </a>
-      <a href="{% url 'tenants:edit' tenant.pk %}"
-         class="rounded-lg border px-3 py-2 text-sm hover:bg-gray-50">
-        Editar
-      </a>
-      <a href="{% url 'tenants:switch' tenant.pk %}"
-         class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700">
-        Entrar
-      </a>
-      <form method="post" action="{% url 'tenants:toggle_active' tenant.pk %}" class="inline">
-        {% csrf_token %}
-        {% if tenant.is_active %}
-          <button type="submit"
-                  class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600 hover:bg-red-100"
-                  onclick="return confirm('Desactivar Clinica {{ tenant.name }}?')">
-            Desactivar
-          </button>
-        {% else %}
-          <button type="submit"
-                  class="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-600 hover:bg-green-100">
-            Activar
-          </button>
-        {% endif %}
-      </form>
-    </div>
-  </div>
+    </section>
 
-  <div class="mb-6 grid grid-cols-1 gap-4 xl:grid-cols-3">
-    <div class="rounded-xl border bg-white p-4">
-      <p class="text-xs uppercase tracking-wide text-gray-500">Plan</p>
-      <h2 class="mt-2 text-lg font-semibold">{{ plan_definition.label }}</h2>
-      <p class="mt-2 text-sm text-gray-600">{{ plan_definition.description }}</p>
-      <dl class="mt-4 space-y-2 text-sm">
-        <div class="flex items-center justify-between gap-3">
-          <dt class="text-gray-500">Soporte</dt>
-          <dd class="font-medium">{{ plan_definition.support_tier }}</dd>
-        </div>
-        <div class="flex items-center justify-between gap-3">
-          <dt class="text-gray-500">Usuarios</dt>
-          <dd class="font-medium">{{ plan_definition.max_users_display }}</dd>
-        </div>
-        <div class="flex items-center justify-between gap-3">
-          <dt class="text-gray-500">Admins</dt>
-          <dd class="font-medium">{{ plan_definition.max_admins_display }}</dd>
-        </div>
-        <div class="flex items-center justify-between gap-3">
-          <dt class="text-gray-500">Almacenamiento</dt>
-          <dd class="font-medium">{{ plan_definition.storage_display }}</dd>
-        </div>
-      </dl>
-      <div class="mt-4 space-y-2">
-        {% for feature in plan_definition.features %}
-          <div class="rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-700">{{ feature }}</div>
-        {% endfor %}
-      </div>
-    </div>
+    <section class="binn-panel rounded-3xl p-5 text-sm text-gray-600">
+      <p><strong class="text-gray-900">Que ves aqui:</strong> este panel sirve para configurar una empresa de Binn. Desde aqui controlas modulos, nombres, accesos, flujos y tipos de documento.</p>
+    </section>
 
-    <div class="rounded-xl border bg-white p-4">
-      <p class="text-xs uppercase tracking-wide text-gray-500">Diagnostico</p>
-      <div class="mt-2 flex items-center gap-2">
-        {% if diagnostics.status == 'error' %}
-          <span class="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">Error</span>
-        {% elif diagnostics.status == 'warning' %}
-          <span class="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">Atencion</span>
-        {% else %}
-          <span class="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">Saludable</span>
-        {% endif %}
-      </div>
-      <dl class="mt-4 space-y-2 text-sm">
-        <div class="flex items-center justify-between gap-3">
-          <dt class="text-gray-500">Dominio principal</dt>
-          <dd class="font-medium">{{ diagnostics.primary_domain|default:"Sin dominio" }}</dd>
-        </div>
-        <div class="flex items-center justify-between gap-3">
-          <dt class="text-gray-500">Dominios</dt>
-          <dd class="font-medium">{{ diagnostics.domain_count }}</dd>
-        </div>
-        <div class="flex items-center justify-between gap-3">
-          <dt class="text-gray-500">Miembros activos</dt>
-          <dd class="font-medium">{{ diagnostics.active_members }}</dd>
-        </div>
-        <div class="flex items-center justify-between gap-3">
-          <dt class="text-gray-500">Admins activos</dt>
-          <dd class="font-medium">{{ diagnostics.active_admins }}</dd>
-        </div>
-      </dl>
-      <div class="mt-4 space-y-2">
-        {% for alert in diagnostics.alerts %}
-          <div class="rounded-lg border px-3 py-2 text-sm {% if alert.severity == 'error' %}border-red-200 bg-red-50 text-red-700{% else %}border-amber-200 bg-amber-50 text-amber-700{% endif %}">
-            <p class="font-medium">{{ alert.title }}</p>
-            <p class="mt-1 text-xs">{{ alert.message }}</p>
+    <section class="grid grid-cols-1 gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+      <div class="space-y-6">
+        <div class="binn-panel rounded-3xl p-6">
+          <h2 class="text-lg font-semibold">Resumen de esta empresa</h2>
+        <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div class="rounded-2xl bg-gray-50 p-4">
+              <p class="text-xs uppercase tracking-wide text-gray-500">Modulos</p>
+              <div class="mt-3 flex flex-wrap gap-2">
+                {% for key, value in tenant.tenant_config.feature_flags.items %}
+                  {% if value %}
+                    <span class="rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-green-700">{{ key }}</span>
+                  {% else %}
+                    <span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-500">{{ key }}</span>
+                  {% endif %}
+                {% endfor %}
+              </div>
+            </div>
+            <div class="rounded-2xl bg-gray-50 p-4">
+              <p class="text-xs uppercase tracking-wide text-gray-500">Nombres en pantalla</p>
+              <dl class="mt-3 space-y-2 text-sm">
+                {% for key, value in tenant.tenant_config.labels.items %}
+                  <div class="flex items-start justify-between gap-4">
+                    <dt class="text-gray-500">{{ key }}</dt>
+                    <dd class="font-medium text-right">{{ value }}</dd>
+                  </div>
+                {% endfor %}
+              </dl>
+            </div>
+            <div class="rounded-2xl bg-gray-50 p-4">
+              <p class="text-xs uppercase tracking-wide text-gray-500">Orden del menu</p>
+              <div class="mt-3 flex flex-wrap gap-2">
+                {% for module in launchpad.module_order %}
+                  <span class="rounded-full bg-white px-3 py-1 text-xs font-medium text-gray-700">{{ forloop.counter }}. {{ module.label }}</span>
+                {% endfor %}
+              </div>
+            </div>
+            <div class="rounded-2xl bg-gray-50 p-4">
+              <p class="text-xs uppercase tracking-wide text-gray-500">Bloques del inicio</p>
+              <div class="mt-3 flex flex-wrap gap-2">
+                {% for widget in launchpad.dashboard_widgets %}
+                  <span class="rounded-full bg-white px-3 py-1 text-xs font-medium text-gray-700">{{ widget.label }}</span>
+                {% endfor %}
+              </div>
+            </div>
           </div>
-        {% empty %}
-          <div class="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
-            Sin alertas operativas detectadas.
-          </div>
-        {% endfor %}
-      </div>
-    </div>
 
-    <div class="rounded-xl border bg-white p-4">
-      <p class="text-xs uppercase tracking-wide text-gray-500">Configuracion</p>
-      <dl class="mt-4 space-y-2 text-sm">
-        <div>
-          <dt class="text-gray-500">Nombre</dt>
-          <dd class="font-medium">{{ tenant.name }}</dd>
+          <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div class="rounded-2xl bg-gray-50 p-4">
+              <p class="text-xs uppercase tracking-wide text-gray-500">Usuarios activos</p>
+              <p class="mt-3 text-2xl font-bold tracking-tight">{{ usage_summary.active_users }}</p>
+              <p class="mt-2 text-xs text-gray-500">Limite: {{ usage_summary.user_limit }}</p>
+            </div>
+            <div class="rounded-2xl bg-gray-50 p-4">
+              <p class="text-xs uppercase tracking-wide text-gray-500">Storage operativo</p>
+              <p class="mt-3 text-2xl font-bold tracking-tight">{{ usage_summary.storage_label }}</p>
+              <p class="mt-2 text-xs text-gray-500">Quota: {{ usage_summary.storage_quota_mb }} MB</p>
+            </div>
+            <div class="rounded-2xl bg-gray-50 p-4">
+              <p class="text-xs uppercase tracking-wide text-gray-500">Documentos activos</p>
+              <p class="mt-3 text-2xl font-bold tracking-tight">{{ usage_summary.document_count }}</p>
+              <p class="mt-2 text-xs text-gray-500">Cuenta de soportes visibles</p>
+            </div>
+            <div class="rounded-2xl bg-gray-50 p-4">
+              <p class="text-xs uppercase tracking-wide text-gray-500">Objetos custom</p>
+              <p class="mt-3 text-2xl font-bold tracking-tight">{{ usage_summary.object_record_count }}</p>
+              <p class="mt-2 text-xs text-gray-500">Registros flexibles activos</p>
+            </div>
+          </div>
         </div>
-        <div>
-          <dt class="text-gray-500">Schema</dt>
-          <dd class="font-mono text-xs">{{ tenant.schema_name }}</dd>
+
+        <div class="binn-panel rounded-3xl p-6">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <h2 class="text-lg font-semibold">Pack operativo del vertical</h2>
+              <p class="mt-2 text-sm text-gray-600">{{ workspace_pack.subtitle }}</p>
+            </div>
+            <span class="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">{{ workspace_pack.title }}</span>
+          </div>
+
+          <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div class="rounded-2xl bg-gray-50 p-4">
+              <p class="text-xs uppercase tracking-wide text-gray-500">Pilares</p>
+              <div class="mt-3 flex flex-wrap gap-2">
+                {% for item in workspace_pack.pillars %}
+                  <span class="rounded-full bg-white px-3 py-1 text-xs font-medium text-gray-700">{{ item }}</span>
+                {% endfor %}
+              </div>
+            </div>
+            <div class="rounded-2xl bg-gray-50 p-4">
+              <p class="text-xs uppercase tracking-wide text-gray-500">Rituales</p>
+              <div class="mt-3 space-y-2">
+                {% for item in workspace_pack.rituals %}
+                  <div class="rounded-xl bg-white px-3 py-2 text-xs text-gray-700">{{ item }}</div>
+                {% endfor %}
+              </div>
+            </div>
+            <div class="rounded-2xl bg-gray-50 p-4">
+              <p class="text-xs uppercase tracking-wide text-gray-500">Foco en reportes</p>
+              <div class="mt-3 flex flex-wrap gap-2">
+                {% for item in workspace_pack.report_focus %}
+                  <span class="rounded-full bg-white px-3 py-1 text-xs font-medium text-gray-700">{{ item }}</span>
+                {% endfor %}
+              </div>
+              <p class="mt-4 text-xs text-gray-500">Colaboracion interna: {% if workspace_pack.collab_enabled %}activa{% else %}apagada{% endif %}</p>
+            </div>
+          </div>
         </div>
-        <div>
-          <dt class="text-gray-500">Plan</dt>
-          <dd>{{ tenant.get_plan_display }}</dd>
+
+        <div class="binn-panel rounded-3xl p-6">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <h2 class="text-lg font-semibold">Como saldra esta empresa al usuario</h2>
+              <p class="mt-2 text-sm text-gray-600">{{ launchpad.summary }}</p>
+            </div>
+            <span class="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">{{ launchpad.headline }}</span>
+          </div>
+
+          <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div class="rounded-2xl bg-gray-50 p-4">
+              <p class="text-xs uppercase tracking-wide text-gray-500">Lo que vera el usuario</p>
+              <div class="mt-3 flex flex-wrap gap-2">
+                {% for capability in launchpad.enabled_capabilities %}
+                  <span class="rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-green-700">{{ capability.label }}</span>
+                {% endfor %}
+              </div>
+            </div>
+            <div class="rounded-2xl bg-gray-50 p-4">
+              <p class="text-xs uppercase tracking-wide text-gray-500">Lo que no vera el usuario</p>
+              <div class="mt-3 flex flex-wrap gap-2">
+                {% for capability in launchpad.hidden_capabilities %}
+                  <span class="rounded-full bg-white px-3 py-1 text-xs font-medium text-gray-600">{{ capability.label }}</span>
+                {% empty %}
+                  <span class="rounded-full bg-white px-3 py-1 text-xs font-medium text-gray-600">Sin modulos ocultos</span>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-4">
+            <p class="text-xs uppercase tracking-wide text-gray-500">Permisos por rol</p>
+            <div class="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+              {% for policy in launchpad.role_policies %}
+                <div class="rounded-2xl border border-black/5 px-4 py-3">
+                  <div class="flex items-center justify-between gap-3">
+                    <p class="font-medium">{{ policy.role|title }}</p>
+                    {% if policy.is_full_access %}
+                      <span class="rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-green-700">Acceso total</span>
+                    {% endif %}
+                  </div>
+                  <div class="mt-3 flex flex-wrap gap-2">
+                    {% if policy.is_full_access %}
+                      <span class="rounded-full bg-white px-3 py-1 text-xs font-medium text-gray-700">Todas las acciones</span>
+                    {% else %}
+                      {% for permission in policy.permissions %}
+                        <span class="rounded-full bg-white px-3 py-1 text-xs font-medium text-gray-700">{{ permission }}</span>
+                      {% empty %}
+                        <span class="rounded-full bg-white px-3 py-1 text-xs font-medium text-gray-500">Sin permisos</span>
+                      {% endfor %}
+                    {% endif %}
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+
+          <div class="mt-4">
+            <p class="text-xs uppercase tracking-wide text-gray-500">Siguientes pasos sugeridos</p>
+            <div class="mt-3 space-y-2">
+              {% for step in launchpad.next_steps %}
+                <div class="rounded-2xl border border-black/5 px-4 py-3 text-sm text-gray-700">{{ step }}</div>
+              {% endfor %}
+            </div>
+          </div>
         </div>
-        <div>
-          <dt class="text-gray-500">Dominios</dt>
-          <dd class="space-y-1">
-            {% for d in tenant.domains.all %}
-              <div>{{ d.domain }}{% if d.is_primary %} <span class="text-xs text-blue-500">(primario)</span>{% endif %}</div>
-            {% empty %}
-              <span class="text-gray-400">Sin dominio</span>
+
+        <div class="binn-panel rounded-3xl p-6">
+          <h2 class="text-lg font-semibold">Flujos principales</h2>
+          <div class="mt-4 space-y-3">
+            {% for pipeline in tenant.tenant_config.pipeline_templates %}
+              <div class="rounded-2xl border border-black/5 px-4 py-3">
+                <p class="font-medium">{{ pipeline.label }}</p>
+                <p class="mt-1 text-xs text-gray-500">{{ pipeline.stages|join:" | " }}</p>
+              </div>
             {% endfor %}
-          </dd>
+          </div>
         </div>
-      </dl>
-    </div>
-  </div>
 
-  <div class="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
-    <div class="rounded-xl border bg-white p-4 xl:col-span-2">
-      <div class="mb-3 flex items-center justify-between">
-        <h2 class="text-sm font-semibold text-gray-700">Miembros ({{ tenant.memberships.count }})</h2>
+        <div class="binn-panel rounded-3xl p-6">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <h2 class="text-lg font-semibold">Tipos de documento</h2>
+              <p class="mt-2 text-sm text-gray-600">Vista real de los tipos de documento disponibles para esta empresa.</p>
+            </div>
+            <span class="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">{{ effective_document_blueprints|length }} tipos</span>
+          </div>
+
+          <div class="mt-4 space-y-3">
+            {% for blueprint in effective_document_blueprints %}
+              <div class="rounded-2xl border border-black/5 px-4 py-3">
+                <div class="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <p class="font-medium">{{ blueprint.label }}</p>
+                    <p class="mt-1 text-xs text-gray-500">{{ blueprint.key }}{% if blueprint.category %} | {{ blueprint.category }}{% endif %}</p>
+                    {% if blueprint.description %}
+                      <p class="mt-2 text-sm text-gray-600">{{ blueprint.description }}</p>
+                    {% endif %}
+                  </div>
+                  {% if blueprint.storage_hint %}
+                    <span class="rounded-full bg-gray-100 px-3 py-1 text-[11px] font-medium text-gray-600">{{ blueprint.storage_hint }}</span>
+                  {% endif %}
+                </div>
+                {% if blueprint.metadata_fields %}
+                  <div class="mt-3 flex flex-wrap gap-2">
+                    {% for field in blueprint.metadata_fields %}
+                      <span class="rounded-full bg-white px-3 py-1 text-xs font-medium text-gray-700">{{ field.label }} ({{ field.type }})</span>
+                    {% endfor %}
+                  </div>
+                {% endif %}
+              </div>
+            {% empty %}
+              <div class="rounded-2xl border border-dashed px-4 py-6 text-sm text-gray-500">Sin blueprints documentales configurados.</div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="binn-panel rounded-3xl p-6">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <h2 class="text-lg font-semibold">Motor flexible de objetos</h2>
+              <p class="mt-2 text-sm text-gray-600">Catalogo base del object engine que vive dentro del schema privado de esta empresa.</p>
+            </div>
+            <span class="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">{{ object_schema_catalog|length }} objetos</span>
+          </div>
+
+          <div class="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+            {% for object_schema in object_schema_catalog %}
+              <div class="rounded-2xl border border-black/5 px-4 py-3">
+                <div class="flex items-center justify-between gap-3">
+                  <p class="font-medium">{{ object_schema.label }}</p>
+                  <span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">{{ object_schema.key }}</span>
+                </div>
+                <p class="mt-2 text-sm text-gray-600">{{ object_schema.description|default:"Sin descripcion." }}</p>
+                <p class="mt-3 text-xs text-gray-500">Campos activos: {{ object_schema.field_count|default:"0" }} | Vistas: {{ object_schema.view_count|default:"0" }} | Registros: {{ object_schema.record_count|default:"0" }}</p>
+              </div>
+            {% empty %}
+              <div class="rounded-2xl border border-dashed px-4 py-6 text-sm text-gray-500">Sin objetos registrados aun.</div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="binn-panel rounded-3xl p-6">
+          <h2 class="text-lg font-semibold">Campos extra de clientes o contactos</h2>
+          <div class="mt-4 space-y-3">
+            {% for field in tenant.tenant_config.entity_fields %}
+              <div class="rounded-2xl border border-black/5 px-4 py-3">
+                <div class="flex items-start justify-between gap-4">
+                  <div>
+                    <p class="font-medium">{{ field.label }}</p>
+                    <p class="mt-1 text-xs text-gray-500">{{ field.key }} | {{ field.type }}</p>
+                  </div>
+                  {% if field.required %}
+                    <span class="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">Requerido</span>
+                  {% endif %}
+                </div>
+              </div>
+            {% empty %}
+              <div class="rounded-2xl border border-dashed px-4 py-6 text-sm text-gray-500">Sin campos extra configurados.</div>
+            {% endfor %}
+          </div>
+        </div>
       </div>
 
-      <div class="overflow-x-auto">
-        <table class="min-w-full text-sm">
-          <thead class="bg-gray-50 text-left text-gray-600">
-            <tr>
-              <th class="px-3 py-2">Usuario</th>
-              <th class="px-3 py-2">Email</th>
-              <th class="px-3 py-2">Rol</th>
-              <th class="px-3 py-2">Estado</th>
-              <th class="px-3 py-2 text-right">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for m in tenant.memberships.all %}
-              <tr class="border-t">
-                <td class="px-3 py-2 font-medium">{{ m.user.username }}</td>
-                <td class="px-3 py-2 text-gray-500">{{ m.user.email|default:"-" }}</td>
-                <td class="px-3 py-2">
-                  {% if m.is_admin %}
-                    <span class="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">{{ m.role_label }}</span>
-                  {% elif m.role == 'doctor' %}
-                    <span class="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">{{ m.role_label }}</span>
-                  {% elif m.role == 'reception' %}
-                    <span class="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">{{ m.role_label }}</span>
-                  {% elif m.role == 'cashier' %}
-                    <span class="inline-flex items-center rounded-full bg-fuchsia-100 px-2 py-0.5 text-xs font-medium text-fuchsia-700">{{ m.role_label }}</span>
-                  {% else %}
-                    <span class="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">{{ m.role_label }}</span>
+      <div class="space-y-6">
+        <div class="binn-panel rounded-3xl p-6">
+          <h2 class="text-lg font-semibold">Direcciones de acceso</h2>
+          <div class="mt-4 space-y-3 text-sm">
+            {% for domain in domains %}
+              <div class="rounded-2xl border border-black/5 px-4 py-3">
+                <p class="font-medium">{{ domain.domain }}</p>
+                <p class="mt-1 text-xs text-gray-500">{% if domain.is_primary %}Primario{% else %}Secundario{% endif %}</p>
+              </div>
+            {% empty %}
+              <div class="rounded-2xl border border-dashed px-4 py-6 text-sm text-gray-500">Sin dominios configurados.</div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="binn-panel rounded-3xl p-6">
+          <h2 class="text-lg font-semibold">Historial administrativo</h2>
+          <div class="mt-4 space-y-3">
+            {% for event in operational_events %}
+              <div class="rounded-2xl border border-black/5 px-4 py-3">
+                <div class="flex items-start justify-between gap-3">
+                  <div>
+                    <p class="font-medium">{{ event.title }}</p>
+                    <p class="mt-1 text-xs text-gray-500">
+                      {{ event.created_at|date:"d/m/Y H:i" }}
+                      {% if event.actor %}| {{ event.actor.username }}{% endif %}
+                    </p>
+                  </div>
+                  {% if event.code %}
+                    <span class="rounded-full bg-gray-100 px-3 py-1 text-[11px] font-medium text-gray-600">{{ event.code }}</span>
                   {% endif %}
-                </td>
-                <td class="px-3 py-2">
-                  {% if m.is_active %}
-                    <span class="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">Activo</span>
-                  {% else %}
-                    <span class="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">Inactivo</span>
-                  {% endif %}
-                </td>
-                <td class="px-3 py-2 text-right">
-                  <div class="flex items-center justify-end gap-1">
-                    <form method="post" action="{% url 'tenants:membership_toggle' m.pk %}" class="inline">
+                </div>
+                {% if event.message %}
+                  <p class="mt-3 text-sm text-gray-600">{{ event.message }}</p>
+                {% endif %}
+              </div>
+            {% empty %}
+              <div class="rounded-2xl border border-dashed px-4 py-6 text-sm text-gray-500">Sin eventos operativos registrados.</div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="binn-panel rounded-3xl p-6">
+          <div class="mb-4">
+            <h2 class="text-lg font-semibold">Usuarios con acceso</h2>
+            <p class="mt-1 text-sm text-gray-500">Gestiona quienes pueden entrar a esta empresa y con que rol lo haran.</p>
+          </div>
+
+          <form method="post" class="space-y-4">
+            {% csrf_token %}
+            {% for field in form %}
+              <div>
+                <label class="mb-1 block text-xs text-gray-500">{{ field.label }}</label>
+                {{ field }}
+                {% for error in field.errors %}
+                  <p class="mt-1 text-xs text-red-600">{{ error }}</p>
+                {% endfor %}
+              </div>
+            {% endfor %}
+            <button type="submit" class="w-full rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">Guardar acceso</button>
+          </form>
+
+          <div class="mt-6 space-y-3">
+            {% for membership in memberships %}
+              <div class="rounded-2xl border border-black/5 px-4 py-3">
+                <div class="flex items-start justify-between gap-3">
+                  <div>
+                    <p class="font-medium">{{ membership.user.username }}</p>
+                    <p class="mt-1 text-xs text-gray-500">{{ membership.role_label }}</p>
+                  </div>
+                  <div class="flex gap-2">
+                    <form method="post" action="{% url 'tenants:membership_toggle' membership.pk %}">
                       {% csrf_token %}
-                      {% if m.is_active %}
-                        <button type="submit" class="rounded border px-2 py-1 text-xs text-gray-600 hover:bg-gray-100">Desactivar</button>
-                      {% else %}
-                        <button type="submit" class="rounded border px-2 py-1 text-xs text-green-600 hover:bg-green-50">Activar</button>
-                      {% endif %}
+                      <button type="submit" class="rounded-lg border px-3 py-1 text-xs hover:bg-gray-50">{% if membership.is_active %}Desactivar{% else %}Activar{% endif %}</button>
                     </form>
-                    <form method="post" action="{% url 'tenants:membership_delete' m.pk %}" class="inline">
+                    <form method="post" action="{% url 'tenants:membership_delete' membership.pk %}">
                       {% csrf_token %}
-                      <button type="submit"
-                              class="rounded border border-red-200 px-2 py-1 text-xs text-red-600 hover:bg-red-50"
-                              onclick="return confirm('Remover {{ m.user.username }} de esta Clinica?')">
-                        Remover
-                      </button>
+                      <button type="submit" class="rounded-lg border border-red-200 px-3 py-1 text-xs text-red-600 hover:bg-red-50">Quitar</button>
                     </form>
                   </div>
-                </td>
-              </tr>
+                </div>
+              </div>
             {% empty %}
-              <tr>
-                <td colspan="5" class="px-3 py-4 text-center text-gray-500">Sin miembros</td>
-              </tr>
+              <div class="rounded-2xl border border-dashed px-4 py-6 text-sm text-gray-500">Aun no hay miembros asignados.</div>
             {% endfor %}
-          </tbody>
-        </table>
+          </div>
+        </div>
       </div>
-
-      <div class="mt-4 border-t pt-4">
-        <h3 class="mb-2 text-sm font-semibold text-gray-700">Agregar miembro</h3>
-        <p class="mb-3 text-xs text-gray-500">
-          Aqui solo gestionas membresias y roles de la clinica. Los usuarios y sus contrasenas se administran de forma global.
-        </p>
-        {% if form.non_field_errors %}
-          <div class="mb-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            {{ form.non_field_errors }}
-          </div>
-        {% endif %}
-        <form method="post" class="grid grid-cols-1 gap-3 md:grid-cols-2">
-          {% csrf_token %}
-          <div>
-            <label class="mb-1 block text-xs text-gray-500">Usuario</label>
-            {{ form.username }}
-            {{ form.username.errors }}
-          </div>
-          <div>
-            <label class="mb-1 block text-xs text-gray-500">Rol local</label>
-            {{ form.role }}
-            {{ form.role.errors }}
-          </div>
-          <div class="md:col-span-2">
-            <button type="submit"
-                    class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
-              Agregar miembro
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <div class="rounded-xl border bg-white p-4">
-      <div class="mb-3 flex items-center justify-between">
-        <h2 class="text-sm font-semibold text-gray-700">Eventos recientes</h2>
-        <span class="text-xs text-gray-500">{{ recent_events|length }} visibles</span>
-      </div>
-      <div class="space-y-3">
-        {% for event in recent_events %}
-          <div class="rounded-lg border px-3 py-3">
-            <div class="flex items-center justify-between gap-3">
-              <span class="text-xs uppercase tracking-wide text-gray-500">{{ event.kind }}</span>
-              <span class="text-xs {% if event.severity == 'error' %}text-red-600{% elif event.severity == 'warning' %}text-amber-600{% else %}text-gray-500{% endif %}">
-                {{ event.get_severity_display }}
-              </span>
-            </div>
-            <p class="mt-2 text-sm font-medium">{{ event.title }}</p>
-            {% if event.message %}
-              <p class="mt-1 text-xs text-gray-600">{{ event.message }}</p>
-            {% endif %}
-            <p class="mt-2 text-[11px] text-gray-500">
-              {% if event.actor %}{{ event.actor.username }}{% else %}sistema{% endif %} &middot; {{ event.created_at }}
-            </p>
-          </div>
-        {% empty %}
-          <div class="rounded-lg border border-dashed px-3 py-4 text-sm text-gray-500">
-            Aun no hay eventos operativos registrados para esta clinica.
-          </div>
-        {% endfor %}
-      </div>
-    </div>
-  </div>
-
-  <div class="mt-4">
-    <a href="{% url 'tenants:list' %}" class="text-sm text-gray-500 hover:underline">&larr; Volver a Clinicas</a>
+    </section>
   </div>
 {% endblock %}

@@ -1,0 +1,675 @@
+{% extends "base.html" %}
+
+{% block title %}{{ entity.full_name }} | Binn{% endblock %}
+
+{% block head_extra %}
+<style>
+  .binn-entity-shell {
+    display: grid;
+    gap: 1rem;
+  }
+  .binn-entity-hero,
+  .binn-entity-card {
+    border-radius: 1.2rem;
+    padding: 1.1rem;
+  }
+  .binn-entity-hero {
+    display: grid;
+    gap: 1rem;
+  }
+  .binn-entity-hero-head {
+    display: grid;
+    gap: 1rem;
+  }
+  .binn-entity-hero-copy {
+    min-width: 0;
+  }
+  .binn-entity-title {
+    margin: 0.55rem 0 0;
+    font-family: var(--binn-font-display);
+    font-size: clamp(1.7rem, 2.6vw, 2.35rem);
+    line-height: 0.98;
+    letter-spacing: -0.055em;
+    font-weight: 800;
+  }
+  .binn-entity-subline {
+    margin-top: 0.55rem;
+    color: var(--binn-ink-soft);
+    line-height: 1.55;
+    font-size: 0.94rem;
+  }
+  .binn-entity-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.95rem;
+  }
+  .binn-entity-meta .binn-pill {
+    background: rgba(255, 255, 255, 0.78);
+  }
+  .binn-entity-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+    align-content: start;
+  }
+  .binn-entity-stat-grid {
+    display: grid;
+    gap: 0.8rem;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
+  .binn-entity-stat {
+    border-radius: 1rem;
+    border: 1px solid var(--binn-line);
+    background: rgba(255, 255, 255, 0.74);
+    padding: 0.9rem 0.95rem;
+  }
+  .binn-entity-stat strong {
+    display: block;
+    margin-top: 0.42rem;
+    font-family: var(--binn-font-display);
+    font-size: 1.6rem;
+    line-height: 1;
+    letter-spacing: -0.05em;
+  }
+  .binn-entity-stat span {
+    display: block;
+    margin-top: 0.32rem;
+    font-size: 0.76rem;
+    line-height: 1.45;
+    color: var(--binn-ink-soft);
+  }
+  .binn-entity-grid {
+    display: grid;
+    gap: 1rem;
+  }
+  .binn-entity-stack {
+    display: grid;
+    gap: 1rem;
+    min-width: 0;
+  }
+  .binn-entity-section-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+  .binn-entity-section-copy {
+    margin-top: 0.35rem;
+    font-size: 0.88rem;
+    line-height: 1.55;
+    color: var(--binn-ink-soft);
+  }
+  .binn-entity-details {
+    display: grid;
+    gap: 0.7rem;
+  }
+  .binn-entity-detail-row {
+    display: grid;
+    gap: 0.3rem;
+    padding-bottom: 0.7rem;
+    border-bottom: 1px solid var(--binn-line);
+  }
+  .binn-entity-detail-row:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+  .binn-entity-detail-row dt {
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #8190a3;
+  }
+  .binn-entity-detail-row dd {
+    margin: 0;
+    font-size: 0.94rem;
+    line-height: 1.5;
+    color: var(--binn-ink);
+  }
+  .binn-entity-pending {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--binn-line);
+  }
+  .binn-entity-chip-row,
+  .binn-entity-inline-actions,
+  .binn-entity-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+  }
+  .binn-entity-chip-row .binn-pill,
+  .binn-entity-tags .binn-pill {
+    background: rgba(255, 255, 255, 0.82);
+  }
+  .binn-entity-inline-actions {
+    margin-top: 0.8rem;
+  }
+  .binn-entity-list {
+    display: grid;
+    gap: 0.8rem;
+  }
+  .binn-entity-item {
+    border-radius: 1rem;
+    border: 1px solid var(--binn-line);
+    background: rgba(255, 255, 255, 0.82);
+    padding: 0.95rem 1rem;
+  }
+  .binn-entity-item-head {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+  }
+  .binn-entity-item-title {
+    margin: 0;
+    font-size: 1rem;
+    line-height: 1.35;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+  .binn-entity-item-meta {
+    margin-top: 0.2rem;
+    font-size: 0.78rem;
+    line-height: 1.45;
+    color: var(--binn-ink-soft);
+  }
+  .binn-entity-item-copy {
+    margin-top: 0.65rem;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: #354962;
+  }
+  .binn-entity-item-side {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    align-items: center;
+    justify-content: flex-start;
+  }
+  .binn-entity-item-time {
+    font-size: 0.76rem;
+    line-height: 1.4;
+    color: var(--binn-ink-soft);
+    white-space: nowrap;
+  }
+  .binn-entity-muted-note {
+    border-radius: 0.95rem;
+    background: rgba(228, 236, 245, 0.62);
+    padding: 0.9rem 0.95rem;
+    color: #354962;
+    font-size: 0.9rem;
+    line-height: 1.6;
+  }
+  .binn-entity-link {
+    color: var(--binn-accent-deep);
+    text-decoration: none;
+    font-weight: 700;
+  }
+  .binn-entity-link:hover {
+    text-decoration: underline;
+  }
+  .binn-entity-placeholder {
+    min-height: 12rem;
+    display: grid;
+    place-items: center;
+  }
+  @media (min-width: 900px) {
+    .binn-entity-hero-head {
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: start;
+    }
+    .binn-entity-detail-row {
+      grid-template-columns: minmax(160px, 220px) minmax(0, 1fr);
+      align-items: start;
+      gap: 1rem;
+    }
+    .binn-entity-item-head {
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: start;
+    }
+    .binn-entity-item-side {
+      justify-content: flex-end;
+      text-align: right;
+    }
+  }
+  @media (min-width: 1220px) {
+    .binn-entity-grid {
+      grid-template-columns: minmax(0, 1.08fr) minmax(340px, 0.92fr);
+      align-items: start;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+  <div class="binn-entity-shell">
+    <section class="binn-panel binn-entity-hero">
+      <div class="binn-entity-hero-head">
+        <div class="binn-entity-hero-copy">
+          <span class="binn-kicker">{{ labels.entity_singular|default:"Ficha" }}</span>
+          <h1 class="binn-entity-title">{{ entity.full_name }}</h1>
+          <p class="binn-entity-subline">{{ entity.legal_id|default:"Sin identificación" }} · {{ entity.phone|default:"Sin teléfono" }}</p>
+          <div class="binn-entity-meta">
+            {% if entity.email %}
+              <span class="binn-pill">{{ entity.email }}</span>
+            {% endif %}
+            {% for item in filled_extra_values|slice:":4" %}
+              <span class="binn-pill">{{ item.label }} · {{ item.value }}</span>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="binn-entity-actions">
+          {% if entity.whatsapp_url %}
+            <a href="{{ entity.whatsapp_url }}" target="_blank" rel="noreferrer" class="binn-btn-primary binn-btn-compact">WhatsApp</a>
+          {% endif %}
+          {% if can_create_deal %}
+            <a href="{% url 'binncrm:deal_create' %}?entity={{ entity.pk }}" class="binn-btn-secondary binn-btn-compact">Nueva {{ labels.deal_singular|default:"oportunidad" }}</a>
+          {% endif %}
+          {% if can_create_proposal %}
+            <a href="{% url 'binncrm:proposal_create' %}?entity={{ entity.pk }}" class="binn-btn-secondary binn-btn-compact">Nueva {{ labels.proposal_singular|default:"propuesta" }}</a>
+          {% endif %}
+          {% if can_create_collection %}
+            <a href="{% url 'binncrm:collection_create' %}?entity={{ entity.pk }}" class="binn-btn-secondary binn-btn-compact">Nueva {{ labels.collection_singular|default:"cobranza" }}</a>
+          {% endif %}
+          {% if can_create_activity %}
+            <a href="{% url 'binncrm:activity_create' %}?entity={{ entity.pk }}" class="binn-btn-secondary binn-btn-compact">Nueva {{ labels.activity_singular|default:"actividad" }}</a>
+            <a href="{% url 'binncrm:activity_create' %}?entity={{ entity.pk }}&activity_type=task" class="binn-btn-secondary binn-btn-compact">Nueva tarea</a>
+          {% endif %}
+          {% if can_create_document and request.tenant.tenant_config.feature_flags.documents %}
+            <a href="{% url 'binncrm:document_create' %}?entity={{ entity.pk }}" class="binn-btn-secondary binn-btn-compact">Nuevo {{ labels.document_singular|default:"documento" }}</a>
+          {% endif %}
+          {% if can_edit_entity %}
+            <a href="{% url 'binncrm:entity_edit' entity.pk %}" class="binn-btn-secondary binn-btn-compact">Editar ficha</a>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="binn-entity-stat-grid">
+        {% if can_view_deals %}
+          <div class="binn-entity-stat">
+            <p class="binn-metric-label">{{ labels.deal_plural|default:"Oportunidades" }}</p>
+            <strong>{{ recent_deals|length }}</strong>
+            <span>Casos visibles para esta ficha.</span>
+          </div>
+        {% endif %}
+        {% if can_view_activities %}
+          <div class="binn-entity-stat">
+            <p class="binn-metric-label">Tareas abiertas</p>
+            <strong>{{ open_task_cards|length }}</strong>
+            <span>Seguimiento operativo pendiente.</span>
+          </div>
+        {% endif %}
+        {% if can_view_proposals %}
+          <div class="binn-entity-stat">
+            <p class="binn-metric-label">{{ labels.proposal_plural|default:"Propuestas" }}</p>
+            <strong>{{ recent_proposal_cards|length }}</strong>
+            <span>Ofertas activas o recientes.</span>
+          </div>
+        {% endif %}
+        {% if can_view_collections %}
+          <div class="binn-entity-stat">
+            <p class="binn-metric-label">{{ labels.collection_plural|default:"Cobranzas" }}</p>
+            <strong>{{ recent_collection_cards|length }}</strong>
+            <span>Saldo y presión financiera visible.</span>
+          </div>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="binn-entity-grid">
+      <div class="binn-entity-stack">
+        <article class="binn-panel binn-entity-card">
+          <div class="binn-entity-section-head">
+            <div>
+              <h2 class="binn-section-title">Ficha base</h2>
+              <p class="binn-entity-section-copy">Datos operativos y campos propios del tenant en un solo bloque.</p>
+            </div>
+          </div>
+
+          <dl class="binn-entity-details">
+            <div class="binn-entity-detail-row">
+              <dt>Correo</dt>
+              <dd>{{ entity.email|default:"-" }}</dd>
+            </div>
+            {% for item in filled_extra_values %}
+              <div class="binn-entity-detail-row">
+                <dt>{{ item.label }}</dt>
+                <dd>{{ item.value|default:"-" }}</dd>
+              </div>
+            {% endfor %}
+          </dl>
+
+          {% if empty_extra_values %}
+            <div class="binn-entity-pending">
+              <p class="binn-metric-label">Campos pendientes</p>
+              <div class="binn-entity-chip-row mt-3">
+                {% for item in empty_extra_values %}
+                  <span class="binn-pill">{{ item.label }}</span>
+                {% endfor %}
+              </div>
+            </div>
+          {% endif %}
+
+          {% if entity.notes %}
+            <div class="binn-entity-muted-note mt-4">
+              {{ entity.notes|linebreaksbr }}
+            </div>
+          {% endif %}
+        </article>
+
+        {% if broker_document_checklist %}
+          <article class="binn-panel binn-entity-card">
+            <div class="binn-entity-section-head">
+              <div>
+                <h2 class="binn-section-title">Checklist broker</h2>
+                <p class="binn-entity-section-copy">Documentos críticos para renovación, inspección y cobro.</p>
+              </div>
+            </div>
+            <div class="binn-entity-chip-row">
+              {% for item in broker_document_checklist %}
+                <span class="binn-pill {{ item.tone }}">{{ item.label }}: {{ item.status }}</span>
+              {% endfor %}
+            </div>
+          </article>
+        {% endif %}
+
+        {% if can_view_deals %}
+          <article class="binn-panel binn-entity-card">
+            <div class="binn-entity-section-head">
+              <div>
+                <h2 class="binn-section-title">{{ labels.deal_plural|default:"Oportunidades" }}</h2>
+                <p class="binn-entity-section-copy">Pipeline, monto y próximos movimientos de dinero.</p>
+              </div>
+              {% if can_create_deal %}
+                <a href="{% url 'binncrm:deal_create' %}?entity={{ entity.pk }}" class="binn-record-action binn-record-action-primary">Nueva</a>
+              {% endif %}
+            </div>
+            <div class="binn-entity-list">
+              {% for deal in recent_deals %}
+                <article class="binn-entity-item">
+                  <div class="binn-entity-item-head">
+                    <div>
+                      <p class="binn-entity-item-title">{{ deal.title }}</p>
+                      <p class="binn-entity-item-meta">{{ deal.pipeline.name }} · {{ deal.stage }} · {{ deal.currency }} {{ deal.amount }}</p>
+                    </div>
+                  </div>
+                  {% if can_create_deal %}
+                    <div class="binn-entity-inline-actions">
+                      <a href="{% url 'binncrm:deal_edit' deal.pk %}" class="binn-record-action">Abrir deal</a>
+                      {% if can_view_collab %}
+                        <a href="{% url 'binncrm:deal_edit' deal.pk %}#deal-collab-panel" class="binn-record-action">Canal</a>
+                      {% endif %}
+                    </div>
+                  {% endif %}
+                  {% if can_create_proposal or can_create_collection or can_create_activity or can_create_document %}
+                    <div class="binn-entity-inline-actions">
+                      {% if can_create_proposal %}
+                        <a href="{% url 'binncrm:proposal_create' %}?entity={{ entity.pk }}&deal={{ deal.pk }}" class="binn-record-action">Crear propuesta</a>
+                      {% endif %}
+                      {% if can_create_collection %}
+                        <a href="{% url 'binncrm:collection_create' %}?entity={{ entity.pk }}&deal={{ deal.pk }}" class="binn-record-action">Crear cobranza</a>
+                      {% endif %}
+                      {% if can_create_activity %}
+                        <a href="{% url 'binncrm:activity_create' %}?entity={{ entity.pk }}&deal={{ deal.pk }}" class="binn-record-action">Registrar actividad</a>
+                        <a href="{% url 'binncrm:activity_create' %}?entity={{ entity.pk }}&deal={{ deal.pk }}&activity_type=task" class="binn-record-action">Crear tarea</a>
+                      {% endif %}
+                      {% if request.tenant.tenant_config.feature_flags.documents and can_create_document %}
+                        <a href="{% url 'binncrm:document_create' %}?entity={{ entity.pk }}&deal={{ deal.pk }}" class="binn-record-action">Adjuntar documento</a>
+                      {% endif %}
+                    </div>
+                  {% endif %}
+                </article>
+              {% empty %}
+                <div class="binn-empty text-sm">Sin oportunidades vinculadas todavía.</div>
+              {% endfor %}
+            </div>
+          </article>
+        {% endif %}
+
+        {% if can_view_activities %}
+          <article class="binn-panel binn-entity-card">
+            <div class="binn-entity-section-head">
+              <div>
+                <h2 class="binn-section-title">Tareas pendientes</h2>
+                <p class="binn-entity-section-copy">Lo que todavía exige reacción o seguimiento manual.</p>
+              </div>
+              {% if can_create_activity %}
+                <a href="{% url 'binncrm:activity_create' %}?entity={{ entity.pk }}&activity_type=task" class="binn-record-action binn-record-action-primary">Nueva tarea</a>
+              {% endif %}
+            </div>
+            <div class="binn-entity-list">
+              {% for item in open_task_cards %}
+                <article class="binn-entity-item">
+                  <div class="binn-entity-item-head">
+                    <div>
+                      <p class="binn-entity-item-title">{{ item.activity.title }}</p>
+                      <p class="binn-entity-item-meta">{{ item.assignee_label }}{% if item.activity.deal %} · {{ item.activity.deal.title }}{% endif %}</p>
+                      {% if item.activity.description %}
+                        <p class="binn-entity-item-copy">{{ item.activity.description }}</p>
+                      {% endif %}
+                    </div>
+                    <div class="binn-entity-item-side">
+                      <span class="binn-pill {{ item.status.tone }}">{{ item.status.label }}</span>
+                      {% if can_complete_tasks %}
+                        <form method="post" action="{% url 'binncrm:activity_toggle_complete' item.activity.pk %}?next=entity">
+                          {% csrf_token %}
+                          <button type="submit" class="binn-record-action">Marcar hecha</button>
+                        </form>
+                      {% endif %}
+                    </div>
+                  </div>
+                </article>
+              {% empty %}
+                <div class="binn-empty text-sm">Sin tareas abiertas para esta ficha.</div>
+              {% endfor %}
+            </div>
+          </article>
+        {% endif %}
+
+        {% if can_view_proposals %}
+          <article class="binn-panel binn-entity-card">
+            <div class="binn-entity-section-head">
+              <div>
+                <h2 class="binn-section-title">{{ labels.proposal_plural|default:"Propuestas" }}</h2>
+                <p class="binn-entity-section-copy">Monto, vigencia y vínculo comercial sin salir de la ficha.</p>
+              </div>
+              {% if can_create_proposal %}
+                <a href="{% url 'binncrm:proposal_create' %}?entity={{ entity.pk }}" class="binn-record-action binn-record-action-primary">Nueva</a>
+              {% endif %}
+            </div>
+            <div class="binn-entity-list">
+              {% for item in recent_proposal_cards %}
+                <article class="binn-entity-item">
+                  <div class="binn-entity-item-head">
+                    <div>
+                      <p class="binn-entity-item-title">{{ item.proposal.title }}</p>
+                      <p class="binn-entity-item-meta">
+                        {{ item.amount_label }}
+                        {% if item.proposal.proposal_number %} · {{ item.proposal.proposal_number }}{% endif %}
+                        {% if item.proposal.deal %} · {{ item.proposal.deal.title }}{% endif %}
+                      </p>
+                    </div>
+                    <div class="binn-entity-item-side">
+                      <span class="binn-pill {{ item.status.tone }}">{{ item.status.label }}</span>
+                    </div>
+                  </div>
+                </article>
+              {% empty %}
+                <div class="binn-empty text-sm">Sin propuestas asociadas.</div>
+              {% endfor %}
+            </div>
+          </article>
+        {% endif %}
+      </div>
+
+      <div class="binn-entity-stack">
+        {% if can_view_collab %}
+          <div
+            id="entity-collab-panel"
+            hx-get="{% url 'collab:entity_panel' entity.pk %}?layout=compact"
+            hx-trigger="load"
+            hx-swap="outerHTML"
+            class="binn-entity-placeholder"
+          >
+            <section class="binn-panel binn-entity-card">
+              <div class="binn-empty text-sm">Cargando conversación contextual...</div>
+            </section>
+          </div>
+        {% endif %}
+
+        <article class="binn-panel binn-entity-card">
+          <div class="binn-entity-section-head">
+            <div>
+              <h2 class="binn-section-title">Timeline 360</h2>
+              <p class="binn-entity-section-copy">Eventos reales y recientes de esta ficha sin reconstrucción manual.</p>
+            </div>
+            {% if can_view_activities %}
+              <a href="{% url 'binncrm:activities' %}" class="binn-record-action">Ver todo</a>
+            {% endif %}
+          </div>
+          <div class="binn-entity-list">
+            {% for item in timeline_items %}
+              <article class="binn-entity-item">
+                <div class="binn-entity-item-head">
+                  <div>
+                    <div class="binn-entity-tags">
+                      <span class="binn-pill {{ item.accent }}">{{ item.kind_label }}</span>
+                      {% if item.meta %}
+                        <span class="binn-pill">{{ item.meta }}</span>
+                      {% endif %}
+                    </div>
+                    <p class="binn-entity-item-title mt-3">{{ item.title }}</p>
+                    {% if item.description %}
+                      <p class="binn-entity-item-copy">{{ item.description }}</p>
+                    {% endif %}
+                  </div>
+                  <div class="binn-entity-item-side">
+                    <span class="binn-entity-item-time">{{ item.timestamp|date:"d/m/Y H:i" }}</span>
+                  </div>
+                </div>
+              </article>
+            {% empty %}
+              <div class="binn-empty text-sm">Todavía no hay historial relevante para esta ficha.</div>
+            {% endfor %}
+          </div>
+        </article>
+
+        {% if can_view_collections %}
+          <article class="binn-panel binn-entity-card">
+            <div class="binn-entity-section-head">
+              <div>
+                <h2 class="binn-section-title">{{ labels.collection_plural|default:"Cobranzas" }}</h2>
+                <p class="binn-entity-section-copy">Saldo, referencia y presión financiera sin abrir otro módulo.</p>
+              </div>
+              {% if can_create_collection %}
+                <a href="{% url 'binncrm:collection_create' %}?entity={{ entity.pk }}" class="binn-record-action binn-record-action-primary">Nueva</a>
+              {% endif %}
+            </div>
+            <div class="binn-entity-list">
+              {% for item in recent_collection_cards %}
+                <article class="binn-entity-item">
+                  <div class="binn-entity-item-head">
+                    <div>
+                      <p class="binn-entity-item-title">{{ item.collection.title }}</p>
+                      <p class="binn-entity-item-meta">
+                        Saldo {{ item.balance_label }}
+                        {% if item.collection.reference %} · {{ item.collection.reference }}{% endif %}
+                        {% if item.collection.deal %} · {{ item.collection.deal.title }}{% endif %}
+                      </p>
+                    </div>
+                    <div class="binn-entity-item-side">
+                      <span class="binn-pill {{ item.status.tone }}">{{ item.status.label }}</span>
+                    </div>
+                  </div>
+                </article>
+              {% empty %}
+                <div class="binn-empty text-sm">Sin cobranzas asociadas.</div>
+              {% endfor %}
+            </div>
+          </article>
+        {% endif %}
+
+        {% if can_view_activities %}
+          <article class="binn-panel binn-entity-card">
+            <div class="binn-entity-section-head">
+              <div>
+                <h2 class="binn-section-title">{{ labels.activity_plural|default:"Actividades" }}</h2>
+                <p class="binn-entity-section-copy">Registro reciente de seguimiento operativo para el equipo.</p>
+              </div>
+              {% if can_create_activity and request.tenant.tenant_config.feature_flags.activities %}
+                <a href="{% url 'binncrm:activity_create' %}" class="binn-record-action binn-record-action-primary">Nueva</a>
+              {% endif %}
+            </div>
+            <div class="binn-entity-list">
+              {% for activity in recent_activities %}
+                <article class="binn-entity-item">
+                  <div class="binn-entity-item-head">
+                    <div>
+                      <p class="binn-entity-item-title">{{ activity.title }}</p>
+                      <p class="binn-entity-item-meta">
+                        {{ activity.get_activity_type_display }}
+                        {% if activity.assigned_to %} · {{ activity.assigned_to.username }}{% endif %}
+                        {% if activity.due_at %} · {{ activity.due_at|date:"d/m/Y H:i" }}{% endif %}
+                      </p>
+                    </div>
+                  </div>
+                </article>
+              {% empty %}
+                <div class="binn-empty text-sm">Sin actividad reciente.</div>
+              {% endfor %}
+            </div>
+          </article>
+        {% endif %}
+
+        {% if request.tenant.tenant_config.feature_flags.documents and can_view_documents %}
+          <article class="binn-panel binn-entity-card">
+            <div class="binn-entity-section-head">
+              <div>
+                <h2 class="binn-section-title">{{ labels.document_plural|default:"Documentos" }}</h2>
+                <p class="binn-entity-section-copy">Trazabilidad documental con vencimiento, categoría y storage visible.</p>
+              </div>
+              {% if can_create_document %}
+                <a href="{% url 'binncrm:document_create' %}?entity={{ entity.pk }}" class="binn-record-action binn-record-action-primary">Nuevo</a>
+              {% endif %}
+            </div>
+            <div class="binn-entity-list">
+              {% for item in recent_document_cards %}
+                <article class="binn-entity-item">
+                  <div class="binn-entity-tags">
+                    <span class="binn-pill">{{ item.type_label }}</span>
+                    <span class="binn-pill">{{ item.category }}</span>
+                    <span class="binn-pill {{ item.verification_tone }}">{{ item.verification_label }}</span>
+                    <span class="binn-pill {{ item.expiry_status.tone }}">{{ item.expiry_status.label }}</span>
+                    {% if item.document.deal %}
+                      <span class="binn-pill">{{ item.document.deal.title }}</span>
+                    {% endif %}
+                  </div>
+                  <p class="binn-entity-item-title mt-3">{{ item.document.title }}</p>
+                  <p class="binn-entity-item-meta">{{ item.storage_label }}</p>
+                  {% if item.metadata_items %}
+                    <div class="binn-entity-chip-row mt-3">
+                      {% for metadata in item.metadata_items %}
+                        <span class="binn-pill">{{ metadata.label }}: {{ metadata.value }}</span>
+                      {% endfor %}
+                    </div>
+                  {% endif %}
+                  {% if item.access_url %}
+                    <div class="binn-entity-inline-actions">
+                      <a href="{{ item.access_url }}" target="_blank" rel="noreferrer" class="binn-record-action">Abrir documento</a>
+                    </div>
+                  {% endif %}
+                </article>
+              {% empty %}
+                <div class="binn-empty text-sm">Sin documentos asociados.</div>
+              {% endfor %}
+            </div>
+          </article>
+        {% endif %}
+      </div>
+    </section>
+  </div>
+{% endblock %}

@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block title %}Usuarios | {{ tenant.name }}{% endblock %}
+{% block main_class %}container mx-auto w-full max-w-4xl flex-1 px-4 py-6{% endblock %}
+
+{% block content %}
+  <div class="space-y-6">
+    <section class="binn-panel rounded-3xl p-6 sm:p-8">
+      <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+        <div class="max-w-2xl">
+          <span class="binn-kicker">Acceso local</span>
+          <h1 class="binn-section-title mt-3">{{ tenant.name }}</h1>
+          <p class="binn-section-copy mt-2">Desde aqui el admin de la empresa da o quita accesos locales sin tocar otras empresas ni la gobernanza del holding.</p>
+        </div>
+        <div class="flex flex-wrap gap-3">
+          <a href="{% url 'tenants:switch' tenant.pk %}" class="binn-btn-primary">Entrar a la empresa</a>
+          <a href="{% url 'tenants:access_list' %}" class="binn-btn-secondary">Volver a accesos</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="binn-panel rounded-3xl p-6">
+      <h2 class="binn-section-title">Asignar o actualizar usuario</h2>
+      <form method="post" class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+        {% csrf_token %}
+        {% for field in form %}
+          <div>
+            <label for="{{ field.id_for_label }}" class="mb-2 block text-sm font-medium text-slate-700">{{ field.label }}</label>
+            {{ field }}
+            {% if field.errors %}
+              <p class="mt-2 text-xs text-red-600">{{ field.errors|join:", " }}</p>
+            {% endif %}
+          </div>
+        {% endfor %}
+        {% if form.non_field_errors %}
+          <div class="md:col-span-2">
+            <p class="text-sm text-red-600">{{ form.non_field_errors }}</p>
+          </div>
+        {% endif %}
+        <div class="md:col-span-2">
+          <button type="submit" class="binn-btn-primary">Guardar acceso</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="binn-panel rounded-3xl p-6">
+      <h2 class="binn-section-title">Usuarios con acceso</h2>
+      <div class="mt-4 space-y-3">
+        {% for membership in memberships %}
+          <article class="rounded-2xl border border-black/5 bg-white/70 px-4 py-3">
+            <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div>
+                <p class="font-semibold text-slate-900">{{ membership.user.username }}</p>
+                <p class="mt-1 text-sm text-slate-500">{{ membership.user.email|default:"Sin correo" }}</p>
+                <p class="mt-2 text-xs text-slate-500">Rol: {{ membership.role_label }} · {% if membership.is_active %}Activo{% else %}Inactivo{% endif %}</p>
+              </div>
+              <div class="flex gap-2">
+                <form method="post" action="{% url 'tenants:membership_toggle' membership.pk %}">
+                  {% csrf_token %}
+                  <button type="submit" class="binn-btn-secondary binn-btn-compact">{% if membership.is_active %}Desactivar{% else %}Activar{% endif %}</button>
+                </form>
+                <form method="post" action="{% url 'tenants:membership_delete' membership.pk %}">
+                  {% csrf_token %}
+                  <button type="submit" class="binn-btn-danger binn-btn-compact">Quitar</button>
+                </form>
+              </div>
+            </div>
+          </article>
+        {% empty %}
+          <div class="binn-empty">Aun no hay usuarios asignados a esta empresa.</div>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+{% endblock %}

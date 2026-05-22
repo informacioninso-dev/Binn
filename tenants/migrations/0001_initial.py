@@ -41,19 +41,4 @@ class Migration(migrations.Migration):
                 'abstract': False,
             },
         ),
-        migrations.CreateModel(
-            name='TenantMembership',
-            fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('is_admin', models.BooleanField(default=False)),
-                ('is_active', models.BooleanField(default=True)),
-                ('tenant', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='memberships', to='tenants.client')),
-                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='tenant_memberships', to=settings.AUTH_USER_MODEL)),
-            ],
-            options={
-                'verbose_name': 'Tenant membership',
-                'verbose_name_plural': 'Tenant memberships',
-                'unique_together': {('tenant', 'user')},
-            },
-        ),
     ]

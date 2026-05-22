@@ -1,0 +1,373 @@
+{% extends "base.html" %}
+
+{% block title %}{{ labels.collection_plural|default:"Cobranzas" }} | Binn{% endblock %}
+
+{% block head_extra %}
+<style>
+  .binn-collections-board-workspace {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+  .binn-collections-toolbar {
+    display: grid;
+    gap: 0.7rem;
+    border-radius: 1.15rem;
+    padding: 0.8rem;
+    background:
+      radial-gradient(circle at top right, rgba(0, 123, 255, 0.08), transparent 16rem),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.985) 0%, rgba(247, 250, 255, 0.985) 100%);
+  }
+  .binn-collections-toolbar-grid {
+    display: grid;
+    gap: 0.8rem;
+  }
+  .binn-collections-control-card,
+  .binn-collections-action-card {
+    display: grid;
+    gap: 0.6rem;
+    padding: 0.8rem 0.85rem;
+    border-radius: 1rem;
+    border: 1px solid rgba(15, 23, 42, 0.06);
+    background: rgba(255, 255, 255, 0.9);
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
+  }
+  .binn-collections-toolbar-copy {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    min-height: 42px;
+  }
+  .binn-collections-toolbar-copy .binn-kicker {
+    padding: 0.34rem 0.64rem;
+    font-size: 0.68rem;
+  }
+  .binn-collections-toolbar-actions {
+    display: grid;
+    gap: 0.45rem;
+    align-items: start;
+  }
+  .binn-collections-toolbar-actions > a,
+  .binn-collections-toolbar-actions > button {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+  }
+  .binn-collections-filter-row {
+    display: grid;
+    gap: 0.55rem;
+    margin: 0;
+  }
+  .binn-collections-headline-row,
+  .binn-collections-query-row {
+    display: grid;
+    gap: 0.55rem;
+  }
+  .binn-collections-view-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    justify-content: flex-end;
+  }
+  .binn-collections-view-row .binn-module-tools-label {
+    margin-right: 0.1rem;
+    margin-bottom: 0;
+    white-space: nowrap;
+  }
+  .binn-collections-view-row .binn-module-shortcuts {
+    margin-top: 0;
+    gap: 0.45rem;
+    flex-wrap: wrap;
+  }
+  .binn-collections-view-row .binn-module-shortcut {
+    min-height: 32px;
+    padding: 0.38rem 0.66rem;
+    border-radius: 999px;
+    font-size: 0.74rem;
+  }
+  .binn-collections-compact-field {
+    display: grid;
+    gap: 0.3rem;
+  }
+  .binn-collections-compact-field label {
+    font-size: 0.72rem;
+    line-height: 1;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #667085;
+  }
+  .binn-collections-compact-field .binn-input {
+    min-height: 48px;
+  }
+  .binn-collections-inline-note {
+    margin: 0;
+    font-size: 0.74rem;
+    line-height: 1.4;
+    color: var(--binn-ink-soft);
+  }
+  .binn-collections-board-shell {
+    border-radius: 1.2rem;
+    padding: 0.45rem 0 0;
+  }
+  .binn-board-scroll {
+    overflow-x: auto;
+  }
+  .binn-board-track {
+    display: flex;
+  }
+  .binn-collections-track {
+    gap: 0.8rem;
+    align-items: flex-start;
+    padding-bottom: 0.15rem;
+  }
+  .binn-collections-stage {
+    width: min(18.2rem, 84vw);
+    flex: 0 0 min(18.2rem, 84vw);
+    padding: 0.7rem;
+    border-radius: 1.15rem;
+    border: 1px solid var(--binn-line);
+    background: linear-gradient(180deg, #ffffff 0%, rgba(255, 255, 255, 0.95) 100%);
+    box-shadow: var(--binn-shadow-soft);
+  }
+  .binn-collections-stage-header { margin-bottom: 0.5rem; }
+  .binn-collections-stage-copy { display: grid; gap: 0.45rem; }
+  .binn-collections-stage-progress {
+    width: 100%;
+    height: 4px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.08);
+  }
+  .binn-collections-stage-progress span {
+    display: block;
+    width: 72%;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--stage-accent), var(--stage-accent-alt));
+  }
+  .binn-collections-stage-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+  }
+  .binn-collections-stage-title-row h2 {
+    margin: 0;
+    font-size: 0.96rem;
+    line-height: 1.2;
+    letter-spacing: -0.025em;
+    font-weight: 800;
+  }
+  .binn-collections-stage-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.65rem;
+    min-height: 1.65rem;
+    padding: 0.1rem 0.42rem;
+    border-radius: 999px;
+    background: var(--stage-soft);
+    color: var(--binn-ink);
+    font-size: 0.72rem;
+    font-weight: 800;
+  }
+  .binn-collections-stage-total {
+    margin: 0;
+    font-size: 0.78rem;
+    line-height: 1.3;
+    font-weight: 800;
+    color: var(--binn-ink-soft);
+  }
+  .binn-collections-drop {
+    display: grid;
+    align-content: start;
+    gap: 0.85rem;
+    min-height: 12rem;
+    padding: 0.45rem;
+    border-radius: 0.95rem;
+    border: 1px solid rgba(15, 23, 42, 0.04);
+    background: linear-gradient(180deg, var(--stage-soft) 0%, rgba(248, 250, 252, 0.65) 100%);
+  }
+  .binn-collection-board-card {
+    display: grid;
+    gap: 0.55rem;
+    border-radius: 0.92rem;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    background: #fff;
+    padding: 0.82rem 0.86rem;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+    transition: transform 0.14s ease, border-color 0.14s ease, box-shadow 0.14s ease;
+  }
+  .binn-collection-board-card:hover {
+    transform: translateY(-1px);
+    border-color: rgba(15, 23, 42, 0.16);
+    box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+  }
+  .binn-collection-board-card-head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.65rem;
+    align-items: start;
+  }
+  .binn-collection-board-card-title {
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.35;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+  .binn-collection-board-card-account {
+    margin: 0.18rem 0 0;
+    font-size: 0.76rem;
+    line-height: 1.35;
+    color: var(--binn-ink-soft);
+  }
+  .binn-collection-board-card-amount-block {
+    display: grid;
+    justify-items: end;
+    gap: 0.2rem;
+    text-align: right;
+  }
+  .binn-collection-board-card-amount {
+    margin: 0;
+    font-size: 0.84rem;
+    line-height: 1.2;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+  .binn-collection-board-card-link {
+    text-decoration: none;
+    font-size: 0.72rem;
+    line-height: 1.2;
+    font-weight: 800;
+    color: var(--binn-ink-soft);
+  }
+  .binn-collection-board-card-link:hover { color: var(--binn-ink); }
+  .binn-collection-board-card-summary {
+    margin: 0;
+    font-size: 0.76rem;
+    line-height: 1.45;
+    color: var(--binn-ink);
+    opacity: 0.86;
+  }
+  .binn-collection-board-card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.55rem;
+    font-size: 0.72rem;
+    color: var(--binn-ink-soft);
+  }
+  .binn-collection-board-card-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+  .binn-collection-chip {
+    display: inline-flex;
+    align-items: center;
+    min-height: 1.65rem;
+    padding: 0.15rem 0.52rem;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    line-height: 1;
+    font-weight: 800;
+  }
+  .binn-collection-chip-danger { background: #fef2f2; color: #b42318; }
+  .binn-collection-chip-info { background: #eff6ff; color: #1d4ed8; }
+  .binn-collection-chip-success { background: #ecfdf3; color: #047857; }
+  .binn-collection-chip-neutral { background: #f3f4f6; color: #475467; }
+  @media (min-width: 1200px) {
+    .binn-collections-toolbar-grid { grid-template-columns: minmax(0, 1fr) 248px; }
+    .binn-collections-headline-row { grid-template-columns: 210px minmax(0, 1fr); align-items: center; }
+    .binn-collections-query-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: end; }
+  }
+  @media (max-width: 1199px) {
+    .binn-collections-view-row { justify-content: flex-start; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+  <div class="binn-collections-board-workspace">
+    <section class="binn-panel binn-collections-toolbar">
+      <div class="binn-collections-toolbar-grid">
+        <div class="binn-collections-control-card">
+          <form method="get" class="binn-collections-filter-row">
+            <div class="binn-collections-headline-row">
+              <div class="binn-collections-toolbar-copy">
+                <span class="binn-kicker">{{ labels.collection_plural|default:"Cobranzas" }}</span>
+              </div>
+            </div>
+            <div class="binn-collections-query-row">
+              <div class="binn-collections-compact-field">
+                <label for="collection-search">Buscar</label>
+                <input id="collection-search" type="text" name="q" value="{{ q }}" class="binn-input w-full" placeholder="Titulo, referencia, cliente o deal" />
+              </div>
+              <div class="binn-collections-view-row">
+                <span class="binn-module-tools-label">Vistas</span>
+                <div class="binn-module-shortcuts">
+                  <a href="{% url 'binncrm:collections' %}{% if q %}?q={{ q|urlencode }}{% endif %}" class="binn-module-shortcut {% if not selected_status %}binn-record-action-primary{% endif %}">Todas</a>
+                  {% for key, label in collection_statuses %}
+                    <a href="{% url 'binncrm:collections' %}?status={{ key }}{% if q %}&q={{ q|urlencode }}{% endif %}" class="binn-module-shortcut {% if selected_status == key %}binn-record-action-primary{% endif %}">{{ label }}</a>
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
+          </form>
+        </div>
+        <div class="binn-collections-action-card">
+          <div class="binn-collections-toolbar-actions">
+            {% if can_create_collection %}
+              <a href="{% url 'binncrm:collection_create' %}" class="binn-btn-primary binn-btn-compact">+ Nueva {{ labels.collection_singular|default:"cobranza" }}</a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="binn-panel binn-collections-board-shell">
+      {% include "binncrm/_collections_board.html" %}
+    </section>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  <script>
+    function initBinnCollectionsKanban() {
+      const canEdit = {{ can_move_collections|yesno:"true,false" }};
+      if (!canEdit) {
+        return;
+      }
+      const moveUrlTemplate = "{% url 'binncrm:collection_move' 0 %}";
+      document.querySelectorAll("[data-collection-status]").forEach((column) => {
+        if (column.dataset.sortableReady === "true") {
+          return;
+        }
+        column.dataset.sortableReady = "true";
+        Sortable.create(column, {
+          group: "binn-collections",
+          animation: 150,
+          ghostClass: "kanban-ghost",
+          dragClass: "kanban-drag",
+          onEnd: function (event) {
+            const collectionId = event.item.dataset.collectionId;
+            const status = event.to.dataset.collectionStatus;
+            fetch(moveUrlTemplate.replace("/0/", `/${collectionId}/`), {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+                "X-CSRFToken": window.getCsrfToken(),
+              },
+              body: new URLSearchParams({ status, position: event.newIndex }),
+            });
+          },
+        });
+      });
+    }
+
+    document.addEventListener("DOMContentLoaded", initBinnCollectionsKanban);
+    document.body.addEventListener("htmx:afterSwap", initBinnCollectionsKanban);
+  </script>
+{% endblock %}

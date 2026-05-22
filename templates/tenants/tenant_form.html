@@ -1,80 +1,95 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 
-{% block title %}Nueva Clinica{% endblock %}
+{% block title %}Nueva empresa | Binn{% endblock %}
 
 {% block content %}
-  <div class="mb-4">
-    <h1 class="text-2xl font-bold">Nueva Clinica</h1>
-    <p class="text-sm text-gray-600">Crea un tenant en su propio schema y aplica seed basico.</p>
+  <div class="mx-auto max-w-6xl space-y-6">
+    <section class="grid grid-cols-1 gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+      <div class="binn-panel rounded-3xl p-6 sm:p-8">
+        <div class="mb-6">
+          <h1 class="text-3xl font-bold tracking-tight">Crear empresa</h1>
+          <p class="mt-2 text-sm text-gray-600">Crea una empresa nueva dentro de Binn. El sistema prepara su acceso, perfil inicial y usuario administrador.</p>
+        </div>
+
+        <form method="post" class="space-y-6">
+          {% csrf_token %}
+          <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {% for field in form %}
+              <div class="{% if field.name == 'admin_password' or field.name == 'admin_email' or field.name == 'admin_username' %}md:col-span-2{% endif %}">
+                <label class="mb-1 block text-xs text-gray-500">{{ field.label }}</label>
+                {{ field }}
+                {% if field.help_text %}
+                  <p class="mt-1 text-xs text-gray-400">{{ field.help_text }}</p>
+                {% endif %}
+                {% for error in field.errors %}
+                  <p class="mt-1 text-xs text-red-600">{{ error }}</p>
+                {% endfor %}
+              </div>
+            {% endfor %}
+          </div>
+
+          {% if form.non_field_errors %}
+            <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {{ form.non_field_errors }}
+            </div>
+          {% endif %}
+
+          <div class="flex flex-wrap gap-3 border-t border-black/5 pt-6">
+            <button type="submit" class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">Crear empresa</button>
+            <a href="{% url 'tenants:list' %}" class="rounded-xl border px-4 py-2 text-sm hover:bg-gray-50">Cancelar</a>
+          </div>
+        </form>
+      </div>
+
+      <aside class="space-y-6">
+        <section class="binn-panel rounded-3xl p-6">
+          <h2 class="text-lg font-semibold">Perfiles disponibles</h2>
+          <p class="mt-2 text-sm text-gray-600">Cada perfil prepara la empresa con modulos, campos y flujos distintos desde el primer guardado.</p>
+        </section>
+
+        {% for preview in profile_previews %}
+          <section class="binn-panel rounded-3xl p-6">
+            <div class="flex items-start justify-between gap-4">
+              <div>
+                <h3 class="text-lg font-semibold">{{ preview.label }}</h3>
+                <p class="mt-2 text-sm text-gray-600">{{ preview.summary }}</p>
+              </div>
+              <span class="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">{{ preview.headline }}</span>
+            </div>
+
+            <div class="mt-4">
+              <p class="text-xs uppercase tracking-wide text-gray-500">Modulos visibles</p>
+              <div class="mt-3 flex flex-wrap gap-2">
+                {% for capability in preview.enabled_capabilities %}
+                  <span class="rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-green-700">{{ capability.label }}</span>
+                {% endfor %}
+              </div>
+            </div>
+
+            <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div class="rounded-2xl bg-gray-50 p-4">
+                <p class="text-xs uppercase tracking-wide text-gray-500">Campos base</p>
+                <div class="mt-3 flex flex-wrap gap-2">
+                  {% for field in preview.entity_fields %}
+                    <span class="rounded-full bg-white px-3 py-1 text-xs font-medium text-gray-700 shadow-sm">{{ field.label }}</span>
+                  {% endfor %}
+                </div>
+              </div>
+              <div class="rounded-2xl bg-gray-50 p-4">
+                <p class="text-xs uppercase tracking-wide text-gray-500">Pipelines</p>
+                <div class="mt-3 space-y-2">
+                  {% for pipeline in preview.pipelines %}
+                    <div class="rounded-2xl bg-white px-3 py-2 text-xs text-gray-700 shadow-sm">
+                      <p class="font-medium">{{ pipeline.label }}</p>
+                      <p class="mt-1 text-gray-500">{{ pipeline.summary }}</p>
+                    </div>
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
+          </section>
+        {% endfor %}
+      </aside>
+    </section>
   </div>
-
-  <form method="post" class="space-y-4 max-w-xl">
-    {% csrf_token %}
-
-    {% if form.non_field_errors %}
-      <div class="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-        {{ form.non_field_errors }}
-      </div>
-    {% endif %}
-
-    <div>
-      <label class="mb-1 block text-sm font-medium">Nombre</label>
-      {{ form.name }}
-      {{ form.name.errors }}
-    </div>
-
-    <div>
-      <label class="mb-1 block text-sm font-medium">Schema</label>
-      {{ form.schema_name }}
-      <p class="text-xs text-gray-500">Solo letras, numeros y guion bajo. Si escribes espacios o guiones, se ajustan automaticamente.</p>
-      {{ form.schema_name.errors }}
-    </div>
-
-    <div>
-      <label class="mb-1 block text-sm font-medium">Subdominio</label>
-      {{ form.subdomain }}
-      {% if form.subdomain.help_text %}
-        <p class="text-xs text-gray-500">{{ form.subdomain.help_text }}</p>
-      {% endif %}
-      <p class="text-xs text-gray-500">El subdominio usa letras, numeros y guiones. Si escribes espacios o "_", se convertiran a "-".</p>
-      {{ form.subdomain.errors }}
-    </div>
-
-    <div>
-      <label class="mb-1 block text-sm font-medium">Plan</label>
-      {{ form.plan }}
-      {{ form.plan.errors }}
-    </div>
-
-    <div class="border-t pt-4">
-      <h2 class="text-sm font-semibold mb-2">Admin inicial (opcional)</h2>
-      <div class="grid grid-cols-1 gap-3">
-        <div>
-          <label class="mb-1 block text-sm font-medium">Usuario</label>
-          {{ form.admin_username }}
-          {{ form.admin_username.errors }}
-        </div>
-        <div>
-          <label class="mb-1 block text-sm font-medium">Email</label>
-          {{ form.admin_email }}
-          {{ form.admin_email.errors }}
-        </div>
-        <div>
-          <label class="mb-1 block text-sm font-medium">Password</label>
-          {{ form.admin_password }}
-          {{ form.admin_password.errors }}
-        </div>
-      </div>
-    </div>
-
-    <div class="flex gap-2">
-      <button class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
-        Crear Clinica
-      </button>
-      <a href="{% url 'tenants:list' %}" class="rounded-lg border px-4 py-2 text-sm">
-        Cancelar
-      </a>
-    </div>
-  </form>
 {% endblock %}
-

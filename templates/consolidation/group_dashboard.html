@@ -1,0 +1,240 @@
+{% extends "base.html" %}
+
+{% block title %}{{ group.name }} | Holding{% endblock %}
+
+{% block head_extra %}
+<style>
+  .binn-holding-grid {
+    display: grid;
+    gap: 1rem;
+  }
+  .binn-holding-summary {
+    display: grid;
+    gap: 0.85rem;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  }
+  .binn-holding-company-grid {
+    display: grid;
+    gap: 1rem;
+  }
+  .binn-holding-company-card {
+    display: grid;
+    gap: 1rem;
+    border-radius: 1.5rem;
+    padding: 1.2rem;
+  }
+  .binn-holding-company-metrics {
+    display: grid;
+    gap: 0.75rem;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  }
+  .binn-holding-company-metric {
+    border-radius: 1rem;
+    border: 1px solid rgba(17, 35, 59, 0.08);
+    background: rgba(255, 255, 255, 0.82);
+    padding: 0.85rem 0.9rem;
+  }
+  .binn-holding-summary-copy {
+    font-size: 0.84rem;
+    line-height: 1.55;
+    color: var(--binn-ink-soft);
+  }
+  .binn-holding-stack {
+    display: grid;
+    gap: 0.9rem;
+  }
+  .binn-holding-stack-card {
+    border-radius: 1rem;
+    border: 1px solid var(--binn-line);
+    background: rgba(255, 255, 255, 0.82);
+    padding: 0.95rem 1rem;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+  <div class="mx-auto max-w-6xl space-y-6">
+    <section class="binn-panel rounded-3xl p-6 sm:p-8">
+      <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+        <div class="max-w-3xl">
+          <span class="binn-kicker">Holding corporativo</span>
+          <h1 class="binn-title mt-4">{{ group.name }}</h1>
+          <p class="binn-subtitle mt-3">{{ group_mode_copy }}</p>
+        </div>
+        <div class="flex flex-wrap gap-3">
+          <a href="{% url 'governance:group_detail' group.pk %}" class="binn-btn-secondary">Abrir gobernanza</a>
+          <a href="{% url 'consolidation:group_reports' group.pk %}" class="binn-btn-secondary">Abrir reportes</a>
+          <a href="{% url 'consolidation:group_dashboard' group.pk %}?refresh=1" class="binn-btn-secondary">Actualizar consolidado</a>
+          <a href="{% url 'dashboard' %}" class="binn-btn-secondary">Volver a accesos</a>
+        </div>
+      </div>
+
+      <div class="mt-6 flex flex-wrap gap-3">
+        <span class="binn-pill">{{ group_mode_label }}</span>
+        <span class="binn-pill">Modelo: {{ group.get_operating_model_display }}</span>
+        <span class="binn-pill">Estado: {{ group.get_status_display }}</span>
+        {% if group_membership %}
+          <span class="binn-pill">Rol: {{ group_membership.get_role_display }}</span>
+        {% endif %}
+        <span class="binn-pill">Ultima sync: {{ snapshot.last_synced_at|date:"d/m/Y H:i" }}</span>
+      </div>
+
+      <div class="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5 text-sm text-slate-600">
+        <p><strong class="text-slate-900">Gobernanza efectiva:</strong> el holding puede administrar varias empresas sin forzar visibilidad operativa entre ellas.</p>
+      </div>
+    </section>
+
+    <section class="binn-holding-summary">
+      {% for card in summary_cards %}
+        <article class="binn-panel binn-metric-card rounded-3xl p-5">
+          <p class="binn-metric-label">{{ card.label }}</p>
+          <p class="binn-metric-value">{{ card.value }}</p>
+          <p class="binn-holding-summary-copy">{{ card.copy }}</p>
+        </article>
+      {% endfor %}
+    </section>
+
+    <section class="grid grid-cols-1 gap-6 xl:grid-cols-[0.98fr_1.02fr]">
+      <div class="space-y-6">
+        <section class="binn-panel rounded-3xl p-6">
+          <h2 class="binn-section-title">Montos consolidados</h2>
+          <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div class="binn-note">
+              <p class="text-xs uppercase tracking-wide text-gray-500">Deals abiertos</p>
+              <p class="mt-3 text-sm font-semibold text-slate-800">{{ open_deal_amounts_display }}</p>
+            </div>
+            <div class="binn-note">
+              <p class="text-xs uppercase tracking-wide text-gray-500">Saldo de cobranza</p>
+              <p class="mt-3 text-sm font-semibold text-slate-800">{{ outstanding_balance_amounts_display }}</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="binn-panel rounded-3xl p-6">
+          <h2 class="binn-section-title">Mix por vertical</h2>
+          <div class="mt-4 binn-holding-stack">
+            {% for item in profile_mix %}
+              <div class="binn-holding-stack-card">
+                <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <p class="font-medium">{{ item.profile_label }}</p>
+                    <p class="mt-1 text-xs text-slate-500">{{ item.tenant_count }} empresas | {{ item.visible_tenant_count }} con metricas visibles</p>
+                  </div>
+                  <div class="flex flex-wrap gap-2 text-xs">
+                    <span class="rounded-full bg-gray-100 px-3 py-1 font-medium text-slate-600">Contactos: {{ item.entity_count }}</span>
+                    <span class="rounded-full bg-gray-100 px-3 py-1 font-medium text-slate-600">Deals: {{ item.open_deals_count }}</span>
+                    <span class="rounded-full bg-gray-100 px-3 py-1 font-medium text-slate-600">Tareas vencidas: {{ item.overdue_activities_count }}</span>
+                  </div>
+                </div>
+              </div>
+            {% empty %}
+              <div class="binn-empty text-sm">Todavia no hay suficiente mezcla visible para comparar verticales.</div>
+            {% endfor %}
+          </div>
+        </section>
+
+        <section class="binn-panel rounded-3xl p-6">
+          <h2 class="binn-section-title">Balance de visibilidad</h2>
+          <div class="mt-4 space-y-3 text-sm text-slate-600">
+            <div class="binn-note">
+              <p><strong class="text-slate-900">{{ snapshot.full_detail_tenants_count }}</strong> empresas permiten drill-down completo desde el holding.</p>
+            </div>
+            <div class="binn-note">
+              <p><strong class="text-slate-900">{{ snapshot.aggregate_only_tenants_count }}</strong> empresas solo aportan KPIs agregados.</p>
+            </div>
+            <div class="binn-note">
+              <p><strong class="text-slate-900">{{ snapshot.blocked_tenants_count }}</strong> empresas quedaron bloqueadas por politica del tenant o del grupo.</p>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <section class="binn-panel rounded-3xl p-6">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <h2 class="binn-section-title">Empresas del holding</h2>
+            <p class="binn-section-copy mt-2">Cada empresa conserva su propia politica de visibilidad. El holding solo puede ver lo que Binn y el grupo permiten.</p>
+          </div>
+          <span class="binn-pill">{{ tenant_rows|length }} vinculadas</span>
+        </div>
+
+        <div class="binn-holding-company-grid mt-5">
+          {% for row in tenant_rows %}
+            <article class="binn-panel binn-holding-company-card">
+              <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <div class="flex flex-wrap items-center gap-3">
+                    <h3 class="text-xl font-semibold">{{ row.tenant.name }}</h3>
+                    <span class="rounded-full px-3 py-1 text-xs font-semibold {{ row.mode_tone }}">{{ row.mode_label }}</span>
+                    <span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-slate-600">{{ row.profile_label }}</span>
+                  </div>
+                  <p class="mt-2 text-sm text-slate-500">{{ row.tenant.schema_name }}{% if row.tenant.primary_domain %} | {{ row.tenant.primary_domain }}{% endif %}</p>
+                  <p class="mt-2 text-xs text-slate-500">{{ row.pack_title }}</p>
+                  <p class="mt-3 text-sm text-slate-600">{{ row.status_copy }}</p>
+                </div>
+
+                <div class="flex flex-wrap gap-3">
+                  {% if row.detail_allowed %}
+                    <a href="{% url 'consolidation:group_tenant_switch' group.pk row.tenant.pk %}" class="binn-btn-primary">Abrir empresa</a>
+                  {% elif row.detail_reason == "missing_group_tenant_access" %}
+                    <a href="{% url 'governance:group_detail' group.pk %}" class="binn-btn-primary">Gestionar accesos</a>
+                  {% elif row.metrics_visible %}
+                    <span class="binn-pill">Solo lectura agregada</span>
+                  {% else %}
+                    <span class="binn-pill">Sin visibilidad cruzada</span>
+                  {% endif %}
+                </div>
+              </div>
+
+              {% if row.metrics_visible %}
+                <div class="binn-holding-company-metrics">
+                  <div class="binn-holding-company-metric">
+                    <p class="text-xs uppercase tracking-wide text-gray-500">Contactos</p>
+                    <p class="mt-2 text-2xl font-extrabold tracking-tight">{{ row.entity_count }}</p>
+                  </div>
+                  <div class="binn-holding-company-metric">
+                    <p class="text-xs uppercase tracking-wide text-gray-500">Deals abiertos</p>
+                    <p class="mt-2 text-2xl font-extrabold tracking-tight">{{ row.open_deals_count }}</p>
+                  </div>
+                  <div class="binn-holding-company-metric">
+                    <p class="text-xs uppercase tracking-wide text-gray-500">Tareas pendientes</p>
+                    <p class="mt-2 text-2xl font-extrabold tracking-tight">{{ row.pending_activities_count }}</p>
+                  </div>
+                  <div class="binn-holding-company-metric">
+                    <p class="text-xs uppercase tracking-wide text-gray-500">Tareas vencidas</p>
+                    <p class="mt-2 text-2xl font-extrabold tracking-tight">{{ row.overdue_activities_count }}</p>
+                  </div>
+                  <div class="binn-holding-company-metric">
+                    <p class="text-xs uppercase tracking-wide text-gray-500">Propuestas abiertas</p>
+                    <p class="mt-2 text-2xl font-extrabold tracking-tight">{{ row.open_proposals_count }}</p>
+                  </div>
+                  <div class="binn-holding-company-metric">
+                    <p class="text-xs uppercase tracking-wide text-gray-500">Cobros abiertos</p>
+                    <p class="mt-2 text-2xl font-extrabold tracking-tight">{{ row.open_collections_count }}</p>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <div class="binn-note">
+                    <p class="text-xs uppercase tracking-wide text-gray-500">Monto de deals</p>
+                    <p class="mt-2 text-sm font-semibold text-slate-800">{{ row.open_deal_amounts_display|default:"Sin montos visibles" }}</p>
+                  </div>
+                  <div class="binn-note">
+                    <p class="text-xs uppercase tracking-wide text-gray-500">Saldo pendiente</p>
+                    <p class="mt-2 text-sm font-semibold text-slate-800">{{ row.outstanding_balance_amounts_display|default:"Sin saldos visibles" }}</p>
+                  </div>
+                </div>
+              {% else %}
+                <div class="binn-empty text-sm">
+                  Esta empresa sigue dentro del holding por gobernanza, pero su informacion operativa no participa del consolidado.
+                </div>
+              {% endif %}
+            </article>
+          {% empty %}
+            <div class="binn-empty">Este holding todavia no tiene empresas vinculadas.</div>
+          {% endfor %}
+        </div>
+      </section>
+    </section>
+  </div>
+{% endblock %}

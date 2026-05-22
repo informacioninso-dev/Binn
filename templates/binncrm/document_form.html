@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page_title|default:"Nuevo documento" }} | Binn{% endblock %}
+
+{% block content %}
+  <div class="mx-auto max-w-6xl">
+    <section class="grid grid-cols-1 gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+      <div class="binn-panel rounded-3xl p-6 sm:p-8">
+        <div class="mb-6">
+          <h1 class="text-3xl font-bold tracking-tight">{{ page_title|default:"Nuevo documento" }}</h1>
+          <p class="mt-2 text-sm text-gray-600">Guarda metadata de archivos pesados sin acoplar el storage al dominio del negocio. Cada tipo trae una guia para que el equipo suba documentos consistentes.</p>
+        </div>
+
+        <form method="post" class="space-y-6">
+          {% csrf_token %}
+          <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {% for field in form %}
+              <div class="{% if field.name == 'metadata_json' %}md:col-span-2{% endif %}">
+                <div class="flex items-center justify-between gap-3">
+                  <label class="mb-1 block text-xs text-gray-500">{{ field.label }}</label>
+                  {% if field.name == 'metadata_json' %}
+                    <button type="button" data-load-metadata-template class="text-xs font-medium text-blue-600 hover:underline">Cargar plantilla</button>
+                  {% endif %}
+                </div>
+                {{ field }}
+                {% if field.help_text %}
+                  <p class="mt-1 text-xs text-gray-400">{{ field.help_text }}</p>
+                {% endif %}
+                {% for error in field.errors %}
+                  <p class="mt-1 text-xs text-red-600">{{ error }}</p>
+                {% endfor %}
+              </div>
+            {% endfor %}
+          </div>
+
+          {% if form.non_field_errors %}
+            <div class="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {{ form.non_field_errors }}
+            </div>
+          {% endif %}
+
+          <div class="flex flex-wrap gap-3 border-t border-black/5 pt-6">
+            <button type="submit" class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">{{ submit_label|default:"Guardar" }}</button>
+            <a href="{% url 'binncrm:documents' %}" class="rounded-xl border px-4 py-2 text-sm hover:bg-gray-50">Cancelar</a>
+          </div>
+        </form>
+      </div>
+
+      <aside class="space-y-6">
+        <section class="binn-panel rounded-3xl p-6">
+          <p class="text-xs uppercase tracking-wide text-gray-500">Guia del tipo seleccionado</p>
+          <div class="mt-3">
+            <h2 class="text-lg font-semibold" data-blueprint-label>Documento general</h2>
+            <p class="mt-2 text-sm text-gray-600" data-blueprint-description>Selecciona un tipo para ver la estructura sugerida.</p>
+          </div>
+
+          <dl class="mt-4 space-y-3 text-sm">
+            <div class="rounded-2xl bg-gray-50 px-4 py-3">
+              <dt class="text-xs uppercase tracking-wide text-gray-500">Categoria</dt>
+              <dd class="mt-2 font-medium text-gray-800" data-blueprint-category>Soporte</dd>
+            </div>
+            <div class="rounded-2xl bg-gray-50 px-4 py-3">
+              <dt class="text-xs uppercase tracking-wide text-gray-500">Storage sugerido</dt>
+              <dd class="mt-2 font-medium text-gray-800" data-blueprint-storage>general/{entity}/{filename}</dd>
+            </div>
+          </dl>
+
+          <div class="mt-4">
+            <p class="text-xs uppercase tracking-wide text-gray-500">Metadata sugerida</p>
+            <div class="mt-3 flex flex-wrap gap-2" data-blueprint-fields>
+              <span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">Sin campos sugeridos</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="binn-panel rounded-3xl p-6">
+          <p class="text-xs uppercase tracking-wide text-gray-500">Biblioteca por perfil</p>
+          <div class="mt-4 space-y-3">
+            {% for blueprint in document_blueprints %}
+              <div class="rounded-2xl border border-black/5 px-4 py-3">
+                <div class="flex items-start justify-between gap-3">
+                  <div>
+                    <p class="font-medium">{{ blueprint.label }}</p>
+                    <p class="mt-1 text-xs text-gray-500">{{ blueprint.description }}</p>
+                  </div>
+                  <span class="rounded-full bg-gray-100 px-3 py-1 text-[11px] font-medium text-gray-600">{{ blueprint.category }}</span>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        </section>
+      </aside>
+    </section>
+  </div>
+
+  {{ document_blueprints|json_script:"document-blueprints-data" }}
+  <script>
+    (() => {
+      const blueprints = JSON.parse(document.getElementById("document-blueprints-data").textContent);
+      const typeField = document.getElementById("id_document_type");
+      const metadataField = document.getElementById("id_metadata_json");
+      const storageField = document.getElementById("id_storage_key");
+      const loadTemplateButton = document.querySelector("[data-load-metadata-template]");
+      const labelNode = document.querySelector("[data-blueprint-label]");
+      const descriptionNode = document.querySelector("[data-blueprint-description]");
+      const categoryNode = document.querySelector("[data-blueprint-category]");
+      const storageNode = document.querySelector("[data-blueprint-storage]");
+      const fieldsNode = document.querySelector("[data-blueprint-fields]");
+      if (!typeField || !metadataField) {
+        return;
+      }
+
+      const blueprintMap = Object.fromEntries(blueprints.map((blueprint) => [blueprint.key, blueprint]));
+
+      function renderBlueprint() {
+        const blueprint = blueprintMap[typeField.value] || blueprints[0] || null;
+        if (!blueprint) {
+          return;
+        }
+        labelNode.textContent = blueprint.label;
+        descriptionNode.textContent = blueprint.description || "Sin descripcion adicional.";
+        categoryNode.textContent = blueprint.category || "Soporte";
+        storageNode.textContent = blueprint.storage_hint || "general/{entity}/{filename}";
+        if (storageField && blueprint.storage_hint) {
+          storageField.placeholder = blueprint.storage_hint;
+        }
+
+        const fields = blueprint.metadata_fields || [];
+        if (!fields.length) {
+          fieldsNode.innerHTML = '<span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">Sin campos sugeridos</span>';
+          return;
+        }
+
+        fieldsNode.innerHTML = fields
+          .map((field) => `<span class="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">${field.label}</span>`)
+          .join("");
+      }
+
+      function loadTemplate() {
+        const blueprint = blueprintMap[typeField.value] || blueprints[0] || null;
+        if (!blueprint) {
+          return;
+        }
+        const template = Object.fromEntries((blueprint.metadata_fields || []).map((field) => [
+          field.key,
+          field.type === "boolean" ? false : "",
+        ]));
+        metadataField.value = JSON.stringify(template, null, 2);
+      }
+
+      typeField.addEventListener("change", renderBlueprint);
+      loadTemplateButton?.addEventListener("click", loadTemplate);
+      renderBlueprint();
+    })();
+  </script>
+{% endblock %}

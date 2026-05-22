@@ -3,10 +3,13 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from django.contrib.auth import get_user_model
-from django.core.management import call_command
-from django_tenants.utils import schema_context
+from django_tenants.utils import get_public_schema_name, schema_context
 
-from .models import Client, Domain, TenantMembership
+from access.models import TenantMembership
+
+from .defaults import PROFILE_GENERAL, build_profile_launchpad
+from .models import Client, Domain, TenantConfig
+from .observability import record_tenant_event
 
 
 class TenantProvisionError(Exception):
@@ -22,6 +25,7 @@ _VALID_PLANS = {choice[0] for choice in Client.PLAN_CHOICES}
 class TenantProvisionResult:
     client: Client
     notices: list[str] = field(default_factory=list)
+    launchpad: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -32,12 +36,78 @@ class TenantMembershipAssignmentResult:
     notices: list[str] = field(default_factory=list)
 
 
+def build_tenant_launchpad(tenant: Client) -> dict:
+    config = tenant.tenant_config
+    return build_profile_launchpad(
+        config.profile,
+        feature_flags=config.feature_flags,
+        labels=config.labels,
+        entity_fields=config.entity_fields,
+        custom_objects=config.custom_objects,
+        module_order=config.module_order,
+        dashboard_widgets=config.dashboard_widgets,
+        role_policies=config.role_policies,
+        document_blueprints=config.document_blueprints,
+        pipeline_templates=config.pipeline_templates,
+    )
+
+
+def sync_tenant_pipelines(tenant: Client) -> list[str]:
+    notices: list[str] = []
+    configured_keys = []
+
+    with schema_context(tenant.schema_name):
+        from binncrm.models import Pipeline
+
+        for position, pipeline_config in enumerate(tenant.pipeline_templates, start=1):
+            key = pipeline_config["key"]
+            configured_keys.append(key)
+            pipeline, created = Pipeline.objects.get_or_create(
+                key=key,
+                defaults={
+                    "name": pipeline_config["label"],
+                    "stages": pipeline_config["stages"],
+                    "position": position,
+                    "is_default": position == 1,
+                    "is_active": True,
+                },
+            )
+            if not created:
+                pipeline.name = pipeline_config["label"]
+                pipeline.stages = pipeline_config["stages"]
+                pipeline.position = position
+                pipeline.is_default = position == 1
+                pipeline.is_active = True
+                pipeline.save(update_fields=["name", "stages", "position", "is_default", "is_active"])
+
+        stale_pipelines = Pipeline.objects.exclude(key__in=configured_keys) if configured_keys else Pipeline.objects.all()
+        for pipeline in stale_pipelines.order_by("position", "name"):
+            if pipeline.deals.exists():
+                notices.append(
+                    f"El pipeline '{pipeline.name}' sigue activo porque tiene deals historicos vinculados."
+                )
+                continue
+            if pipeline.is_active or pipeline.is_default:
+                pipeline.is_active = False
+                pipeline.is_default = False
+                pipeline.save(update_fields=["is_active", "is_default"])
+
+    return notices
+
+
+def sync_tenant_object_schemas(tenant: Client) -> list[str]:
+    from binncrm.object_engine import sync_tenant_object_schemas as sync_object_engine
+
+    return sync_object_engine(tenant)
+
+
 def create_tenant(
     *,
     schema_name: str,
     name: str,
     domain: str,
     plan: str,
+    profile: str = PROFILE_GENERAL,
     admin_username: str = "",
     admin_email: str = "",
     admin_password: str = "",
@@ -53,50 +123,85 @@ def create_tenant(
     if any([admin_username, admin_email, admin_password]) and not admin_username:
         raise TenantProvisionError("Debes indicar el usuario del admin inicial.")
 
-    _validate_tenant_request(schema_name=schema_name, domain=domain, plan=plan)
-
-    existing_admin = _get_existing_user(admin_username)
-    if admin_username and existing_admin is None and not admin_password:
-        raise TenantProvisionError("Debes indicar una contrasena para crear el admin inicial.")
+    with schema_context(get_public_schema_name()):
+        _validate_tenant_request(schema_name=schema_name, domain=domain, plan=plan)
+        existing_admin = _get_existing_user(admin_username)
+        if admin_username and existing_admin is None and not admin_password:
+            raise TenantProvisionError("Debes indicar una contrasena para crear el admin inicial.")
 
     client = None
+    launchpad = {}
     try:
-        client = Client(
-            schema_name=schema_name,
-            name=name,
-            plan=plan,
-            is_active=True,
-        )
-        client.save()
-        Domain.objects.create(
-            domain=domain,
-            tenant=client,
-            is_primary=True,
-        )
+        with schema_context(get_public_schema_name()):
+            client = Client(
+                schema_name=schema_name,
+                name=name,
+                plan=plan,
+                is_active=True,
+            )
+            client.save()
+            Domain.objects.create(
+                domain=domain,
+                tenant=client,
+                is_primary=True,
+            )
+            config = TenantConfig.objects.filter(tenant=client).first() or TenantConfig(tenant=client)
+            config.profile = profile
+            config.apply_profile_defaults(overwrite=True)
+            config.save()
+            launchpad = build_tenant_launchpad(client)
+            record_tenant_event(
+                tenant=client,
+                title="Perfil aplicado",
+                message=f"Se cargaron labels, modulos y estructuras base del perfil {config.get_profile_display()}.",
+                code="tenant_profile_applied",
+                metadata={
+                    "profile": config.profile,
+                    "enabled_capabilities": [item["key"] for item in launchpad["enabled_capabilities"]],
+                    "hidden_capabilities": [item["key"] for item in launchpad["hidden_capabilities"]],
+                },
+            )
     except Exception as exc:
         if client and getattr(client, "pk", None):
             _safe_drop_client(client)
-        raise TenantProvisionError(f"No se pudo crear la clinica '{schema_name}': {exc}") from exc
+        raise TenantProvisionError(f"No se pudo crear el tenant '{schema_name}': {exc}") from exc
 
     try:
-        with schema_context(client.schema_name):
-            call_command("seed_data", verbosity=0)
+        notices = _build_launchpad_notices(launchpad)
+        notices.extend(sync_tenant_pipelines(client))
+        notices.extend(sync_tenant_object_schemas(client))
+        record_tenant_event(
+            tenant=client,
+            title="Pipelines iniciales listos",
+            message=f"Se sincronizaron {len(launchpad['pipelines'])} pipelines base para el tenant.",
+            code="tenant_pipelines_seeded",
+            metadata={"pipelines": [pipeline["key"] for pipeline in launchpad["pipelines"]]},
+        )
     except Exception as exc:
         _safe_drop_client(client)
         raise TenantProvisionError(
-            f"No se pudo inicializar la clinica '{client.schema_name}'. Se revirtio la creacion: {exc}"
+            f"No se pudo inicializar el tenant '{client.schema_name}'. Se revirtio la creacion: {exc}"
         ) from exc
 
-    notices: list[str] = []
     if admin_username:
         try:
-            notices = ensure_tenant_admin_membership(
-                tenant=client,
-                username=admin_username,
-                email=admin_email,
-                password=admin_password,
-                existing_user=existing_admin,
-            )
+            with schema_context(get_public_schema_name()):
+                notices.extend(
+                    ensure_tenant_admin_membership(
+                        tenant=client,
+                        username=admin_username,
+                        email=admin_email,
+                        password=admin_password,
+                        existing_user=existing_admin,
+                    )
+                )
+                record_tenant_event(
+                    tenant=client,
+                    title="Admin inicial listo",
+                    message=f"El usuario '{admin_username}' quedo asignado como owner del tenant.",
+                    code="tenant_initial_admin_ready",
+                    metadata={"username": admin_username},
+                )
         except Exception as exc:
             _safe_drop_client(client)
             if isinstance(exc, TenantProvisionError):
@@ -106,26 +211,50 @@ def create_tenant(
                 f"Se revirtio la creacion: {exc}"
             ) from exc
 
-    return TenantProvisionResult(client=client, notices=notices)
+    return TenantProvisionResult(client=client, notices=notices, launchpad=launchpad)
+
+
+def _build_launchpad_notices(launchpad: dict) -> list[str]:
+    if not launchpad:
+        return []
+
+    enabled_modules = ", ".join(item["label"] for item in launchpad["enabled_capabilities"][:4])
+    notices = [f"{launchpad['headline']}. Modulos visibles: {enabled_modules}."]
+
+    if launchpad["pipelines"]:
+        pipeline_summary = ", ".join(
+            f"{pipeline['label']} ({pipeline['summary']})" for pipeline in launchpad["pipelines"][:2]
+        )
+        notices.append(f"Pipelines iniciales: {pipeline_summary}.")
+
+    return notices
 
 
 def assign_tenant_membership(
     *,
     tenant: Client,
     username: str,
-    role: str = TenantMembership.ROLE_ASSISTANT,
+    role: str = TenantMembership.ROLE_OPERATOR,
 ) -> TenantMembershipAssignmentResult:
     username = (username or "").strip()
     if not username:
         raise TenantProvisionError("Debes indicar un usuario.")
     if role not in {choice[0] for choice in TenantMembership.ROLE_CHOICES}:
-        raise TenantProvisionError("Debes indicar un rol valido para la clinica.")
+        raise TenantProvisionError("Debes indicar un rol valido para este tenant.")
 
     user = _get_existing_user(username)
     if user is None:
         raise TenantProvisionError("El usuario no existe. Crealo desde la administracion global.")
 
-    is_admin = role == TenantMembership.ROLE_CLINIC_ADMIN
+    is_admin = role in {TenantMembership.ROLE_OWNER, TenantMembership.ROLE_MANAGER}
+    existing_membership = TenantMembership.objects.filter(tenant=tenant, user=user).first()
+    if (
+        (existing_membership is None or not existing_membership.is_active)
+        and tenant.memberships.filter(is_active=True).count() >= tenant.max_users
+    ):
+        raise TenantProvisionError(
+            f"El tenant '{tenant.name}' ya alcanzo su limite de {tenant.max_users} usuarios activos."
+        )
     membership, membership_created = TenantMembership.objects.get_or_create(
         tenant=tenant,
         user=user,
@@ -136,11 +265,8 @@ def assign_tenant_membership(
     if membership.role != role:
         membership.role = role
         membership_fields.append("role")
-    if is_admin and not membership.is_admin:
-        membership.is_admin = True
-        membership_fields.append("is_admin")
-    if not is_admin and membership.is_admin:
-        membership.is_admin = False
+    if is_admin != membership.is_admin:
+        membership.is_admin = is_admin
         membership_fields.append("is_admin")
     if not membership.is_active:
         membership.is_active = True
@@ -201,15 +327,15 @@ def ensure_tenant_admin_membership(
             tenant=tenant,
             user=user,
             defaults={
-                "role": TenantMembership.ROLE_CLINIC_ADMIN,
+                "role": TenantMembership.ROLE_OWNER,
                 "is_admin": True,
                 "is_active": True,
             },
         )
 
         changed_fields = []
-        if membership.role != TenantMembership.ROLE_CLINIC_ADMIN:
-            membership.role = TenantMembership.ROLE_CLINIC_ADMIN
+        if membership.role != TenantMembership.ROLE_OWNER:
+            membership.role = TenantMembership.ROLE_OWNER
             changed_fields.append("role")
         if not membership.is_admin:
             membership.is_admin = True
@@ -244,7 +370,7 @@ def _validate_tenant_request(*, schema_name: str, domain: str, plan: str) -> Non
     if plan not in _VALID_PLANS:
         raise TenantProvisionError(f"Plan invalido: '{plan}'.")
     if Client.objects.filter(schema_name=schema_name).exists():
-        raise TenantProvisionError(f"Ya existe una clinica con schema '{schema_name}'.")
+        raise TenantProvisionError(f"Ya existe un tenant con schema '{schema_name}'.")
     if Domain.objects.filter(domain=domain).exists():
         raise TenantProvisionError(f"Ya existe un dominio '{domain}'.")
 
@@ -292,5 +418,5 @@ def _safe_drop_client(client: Client) -> None:
         client.delete(force_drop=True)
     except Exception as exc:
         raise TenantProvisionError(
-            f"No se pudo eliminar completamente la clinica '{client.schema_name}': {exc}"
+            f"No se pudo eliminar completamente el tenant '{client.schema_name}': {exc}"
         ) from exc

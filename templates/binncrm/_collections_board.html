@@ -1,0 +1,68 @@
+<section id="collections-board" class="binn-board-scroll">
+  {% if grouped_collections %}
+    <div class="binn-board-track binn-collections-track">
+      {% for column in grouped_collections %}
+        <section
+          class="binn-collections-stage"
+          style="--stage-accent: {{ column.tone.accent }}; --stage-accent-alt: {{ column.tone.alt }}; --stage-soft: {{ column.tone.soft }};"
+        >
+          <header class="binn-collections-stage-header">
+            <div class="binn-collections-stage-copy">
+              <div class="binn-collections-stage-progress"><span></span></div>
+              <div class="binn-collections-stage-title-row">
+                <h2>{{ column.label }}</h2>
+                <span class="binn-collections-stage-count">{{ column.count }}</span>
+              </div>
+              <p class="binn-collections-stage-total">{{ column.total_balance_label }}</p>
+            </div>
+          </header>
+
+          <div data-collection-status="{{ column.status }}" class="kanban-stage binn-collections-drop">
+            {% for card in column.collections %}
+              <article data-collection-id="{{ card.collection.pk }}" class="binn-collection-board-card {% if can_move_collections %}cursor-move{% endif %}">
+                <div class="binn-collection-board-card-head">
+                  <div class="min-w-0">
+                    <p class="binn-collection-board-card-title">{{ card.collection.title }}</p>
+                    <p class="binn-collection-board-card-account">{{ card.collection.entity.full_name }}</p>
+                  </div>
+                  <div class="binn-collection-board-card-amount-block">
+                    <p class="binn-collection-board-card-amount">{{ card.balance_label }}</p>
+                    {% if can_edit_collection %}
+                      <a href="{% url 'binncrm:collection_edit' card.collection.pk %}" class="binn-collection-board-card-link">Abrir</a>
+                    {% endif %}
+                  </div>
+                </div>
+
+                {% if card.collection.notes %}
+                  <p class="binn-collection-board-card-summary">{{ card.collection.notes|truncatechars:140 }}</p>
+                {% endif %}
+
+                <div class="binn-collection-board-card-meta">
+                  {% if card.collection.reference %}<span>{{ card.collection.reference }}</span>{% endif %}
+                  <span>{{ card.last_touch_label }}</span>
+                </div>
+
+                <div class="binn-collection-board-card-chips">
+                  <span class="binn-collection-chip binn-collection-chip-{{ card.health_badge.tone }}">{{ card.health_badge.label }}</span>
+                  {% if card.due_label %}<span class="binn-collection-chip binn-collection-chip-neutral">Vence {{ card.due_label }}</span>{% endif %}
+                  {% if card.promise_label %}<span class="binn-collection-chip binn-collection-chip-info">Promesa {{ card.promise_label }}</span>{% endif %}
+                  {% if card.collection.amount_paid %}<span class="binn-collection-chip binn-collection-chip-success">Pagado {{ card.paid_label }}</span>{% endif %}
+                </div>
+              </article>
+            {% empty %}
+              <div class="binn-empty text-sm text-slate-500">
+                No hay items en este estado todavia.
+              </div>
+            {% endfor %}
+          </div>
+        </section>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="binn-panel p-6" style="border-radius: 1.2rem;">
+      <div class="binn-empty text-sm text-slate-500">
+        Todavia no existen cobranzas activas en este espacio.
+      </div>
+    </div>
+  {% endif %}
+</section>

@@ -1,0 +1,54 @@
+{% load navigation %}
+{% app_command_palette as command_palette %}
+
+{% if command_palette %}
+  <div id="binn-command-palette" class="binn-command-backdrop" hidden aria-hidden="true">
+    <div class="binn-command-shell" role="dialog" aria-modal="true" aria-labelledby="binn-command-title">
+      <div class="binn-command-panel binn-panel">
+        <div class="binn-command-head">
+          <div>
+            <p class="binn-command-kicker">Navegación rápida</p>
+            <h2 id="binn-command-title" class="binn-section-title">Buscar y ejecutar</h2>
+          </div>
+          <button type="button" class="binn-command-close" data-command-palette-close aria-label="Cerrar">
+            <span aria-hidden="true">Esc</span>
+          </button>
+        </div>
+
+        <label class="binn-command-search-shell">
+          <span class="sr-only">Buscar accion</span>
+          <input
+            id="binn-command-input"
+            type="text"
+            class="binn-input binn-command-input"
+            placeholder="Busca un módulo, acción o pantalla"
+            autocomplete="off"
+          />
+        </label>
+
+        <div class="binn-command-results">
+          {% for section in command_palette %}
+            <section class="binn-command-section" data-command-section>
+              <p class="binn-command-section-label">{{ section.label }}</p>
+              <div class="binn-command-item-grid">
+                {% for item in section.items %}
+                  <a
+                    href="{{ item.href }}"
+                    class="binn-command-item"
+                    data-command-item
+                    data-command-search="{{ item.label|lower }} {{ item.description|lower }}"
+                  >
+                    <strong>{{ item.label }}</strong>
+                    {% if item.description %}
+                      <span>{{ item.description }}</span>
+                    {% endif %}
+                  </a>
+                {% endfor %}
+              </div>
+            </section>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+{% endif %}

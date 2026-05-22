@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page_title }} | Binn{% endblock %}
+
+{% block content %}
+  <div class="mx-auto max-w-5xl">
+    <section class="binn-panel rounded-3xl p-6 sm:p-8">
+      <div class="mb-6">
+        <h1 class="text-3xl font-bold tracking-tight">{{ page_title }}</h1>
+        <p class="mt-2 text-sm text-gray-600">Los campos extra cambian segun el perfil del tenant sin tocar la base de datos.</p>
+      </div>
+
+      <form method="post" class="space-y-6">
+        {% csrf_token %}
+        <div class="grid grid-cols-1 gap-6 xl:grid-cols-[0.95fr_1.05fr]">
+          <div class="space-y-6">
+            <div class="rounded-3xl border border-black/5 bg-gray-50 p-5">
+              <h2 class="text-lg font-semibold">Ficha base</h2>
+              <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                  <label class="mb-1 block text-xs text-gray-500">{{ form.full_name.label }}</label>
+                  {{ form.full_name }}
+                  {% for error in form.full_name.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+                </div>
+                <div>
+                  <label class="mb-1 block text-xs text-gray-500">{{ form.legal_id.label }}</label>
+                  {{ form.legal_id }}
+                  {% for error in form.legal_id.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+                </div>
+                <div>
+                  <label class="mb-1 block text-xs text-gray-500">{{ form.phone.label }}</label>
+                  {{ form.phone }}
+                  {% for error in form.phone.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+                </div>
+                <div>
+                  <label class="mb-1 block text-xs text-gray-500">{{ form.email.label }}</label>
+                  {{ form.email }}
+                  {% for error in form.email.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+                </div>
+                <div class="md:col-span-2">
+                  <label class="mb-1 block text-xs text-gray-500">{{ form.notes.label }}</label>
+                  {{ form.notes }}
+                  {% for error in form.notes.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+                </div>
+                <label class="md:col-span-2 flex items-center gap-2 text-sm text-gray-600">
+                  {{ form.is_active }}
+                  <span>{{ form.is_active.label }}</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="rounded-3xl border border-black/5 bg-gray-50 p-5 text-sm text-gray-600">
+              <h2 class="text-lg font-semibold text-gray-900">Uso rapido</h2>
+              <div class="mt-3 space-y-2">
+                <p>Los campos de esta ficha cambian por tenant, no por despliegue.</p>
+                <p>Si el perfil es broker puedes guardar placa y poliza; si es servicios puedes guardar empresa y retainer; si es retail puedes guardar talla y recompra sin tocar la base.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="rounded-3xl border border-black/5 bg-gray-50 p-5">
+            <div class="flex items-center justify-between gap-4">
+              <div>
+                <h2 class="text-lg font-semibold">Campos del nicho</h2>
+                <p class="mt-1 text-sm text-gray-500">Definidos por el perfil y la configuracion del tenant.</p>
+              </div>
+            </div>
+            <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+              {% for field_name in form.extra_field_names %}
+                <div>
+                  <label class="mb-1 block text-xs text-gray-500">
+                    {{ form[field_name].label }}
+                    {% if form[field_name].field.required %}<span class="text-red-600">*</span>{% endif %}
+                  </label>
+                  {{ form[field_name] }}
+                  {% for error in form[field_name].errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+                </div>
+              {% empty %}
+                <div class="md:col-span-2 rounded-2xl border border-dashed px-4 py-6 text-sm text-gray-500">
+                  Este tenant no tiene campos flexibles extra configurados todavia.
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap gap-3 border-t border-black/5 pt-6">
+          <button type="submit" class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">{{ submit_label }}</button>
+          {% if entity %}
+            <a href="{% url 'binncrm:entity_detail' entity.pk %}" class="rounded-xl border px-4 py-2 text-sm hover:bg-gray-50">Cancelar</a>
+          {% else %}
+            <a href="{% url 'binncrm:entities' %}" class="rounded-xl border px-4 py-2 text-sm hover:bg-gray-50">Cancelar</a>
+          {% endif %}
+        </div>
+      </form>
+    </section>
+  </div>
+{% endblock %}

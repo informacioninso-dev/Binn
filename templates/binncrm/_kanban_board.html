@@ -1,0 +1,82 @@
+<section id="kanban-board" class="binn-board-scroll binn-sales-board">
+  {% if grouped_deals %}
+    <div class="binn-board-track binn-sales-track">
+      {% for column in grouped_deals %}
+        <section
+          class="binn-sales-stage"
+          style="--stage-accent: {{ column.tone.accent }}; --stage-accent-alt: {{ column.tone.alt }}; --stage-soft: {{ column.tone.soft }};"
+        >
+          <header class="binn-sales-stage-header">
+            <div class="binn-sales-stage-copy">
+              <div class="binn-sales-stage-progress"><span></span></div>
+              <div class="binn-sales-stage-title-row">
+                <h2>{{ column.stage }}</h2>
+                <span class="binn-sales-stage-count">{{ column.count }}</span>
+              </div>
+              <p class="binn-sales-stage-total">{{ column.total_amount_label }}</p>
+            </div>
+          </header>
+
+          <div data-kanban-stage="{{ column.stage }}" class="binn-stage-drop kanban-stage binn-sales-drop">
+            {% for card in column.deals %}
+              <article data-deal-id="{{ card.deal.pk }}" class="binn-sales-card {% if can_move_deals %}cursor-move{% endif %}">
+                <div class="binn-sales-card-head">
+                  <div class="min-w-0">
+                    <p class="binn-sales-card-title">{{ card.deal.title }}</p>
+                    <p class="binn-sales-card-account">{{ card.deal.entity.full_name }}</p>
+                  </div>
+                  <div class="binn-sales-card-amount-block">
+                    <p class="binn-sales-card-amount">{{ card.amount_label }}</p>
+                    <div class="binn-sales-card-actions">
+                      {% if can_edit_deal %}
+                        <a href="{% url 'binncrm:deal_edit' card.deal.pk %}" class="binn-sales-card-link">Abrir</a>
+                      {% endif %}
+                      {% if can_view_collab and can_edit_deal %}
+                        <a href="{% url 'binncrm:deal_edit' card.deal.pk %}#deal-collab-panel" class="binn-sales-card-link">Canal</a>
+                      {% endif %}
+                    </div>
+                  </div>
+                </div>
+
+                {% if card.summary %}
+                  <p class="binn-sales-card-summary">{{ card.summary }}</p>
+                {% endif %}
+
+                <div class="binn-sales-card-meta">
+                  <span>{{ card.contact_hint }}</span>
+                  <span>{{ card.last_touch_label }}</span>
+                </div>
+
+                <div class="binn-sales-card-chips">
+                  <span class="binn-sales-chip binn-sales-chip-{{ card.health_badge.tone }}">{{ card.health_badge.label }}</span>
+                  {% if card.close_label %}
+                    <span class="binn-sales-chip binn-sales-chip-neutral">Cierre {{ card.close_label }}</span>
+                  {% endif %}
+                  {% if card.activity_count %}
+                    <span class="binn-sales-chip binn-sales-chip-neutral">Act {{ card.activity_count }}</span>
+                  {% endif %}
+                  {% if card.proposal_count %}
+                    <span class="binn-sales-chip binn-sales-chip-info">Prop {{ card.proposal_count }}</span>
+                  {% endif %}
+                  {% if card.document_count %}
+                    <span class="binn-sales-chip binn-sales-chip-neutral">Doc {{ card.document_count }}</span>
+                  {% endif %}
+                </div>
+              </article>
+            {% empty %}
+              <div class="binn-empty text-sm text-slate-500">
+                No hay items en esta etapa todavia.
+              </div>
+            {% endfor %}
+          </div>
+        </section>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="binn-panel p-6" style="border-radius: 1.2rem;">
+      <div class="binn-empty text-sm text-slate-500">
+        Todavia no existen pipelines configurados para este espacio.
+      </div>
+    </div>
+  {% endif %}
+</section>

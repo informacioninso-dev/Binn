@@ -1,0 +1,280 @@
+{% extends "base.html" %}
+
+{% block title %}Pipelines | Binn{% endblock %}
+
+{% block head_extra %}
+<style>
+  .binn-pipeline-admin {
+    display: grid;
+    gap: 1rem;
+  }
+  .binn-pipeline-admin-shell {
+    display: grid;
+    gap: 1rem;
+  }
+  .binn-pipeline-list,
+  .binn-pipeline-editor {
+    border-radius: 1.2rem;
+    border: 1px solid var(--binn-line);
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: var(--binn-shadow-soft);
+  }
+  .binn-pipeline-list {
+    padding: 0.9rem;
+  }
+  .binn-pipeline-editor {
+    padding: 1rem;
+  }
+  .binn-pipeline-card {
+    display: grid;
+    gap: 0.65rem;
+    padding: 0.9rem;
+    border-radius: 1rem;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    background: #fff;
+  }
+  .binn-pipeline-card + .binn-pipeline-card {
+    margin-top: 0.75rem;
+  }
+  .binn-pipeline-card-active {
+    border-color: rgba(0, 123, 255, 0.28);
+    box-shadow: inset 0 0 0 1px rgba(0, 123, 255, 0.16);
+  }
+  .binn-pipeline-card-head {
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    gap: 0.8rem;
+  }
+  .binn-pipeline-stage-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.38rem;
+  }
+  .binn-pipeline-stage-pill {
+    display: inline-flex;
+    align-items: center;
+    min-height: 1.5rem;
+    padding: 0.14rem 0.48rem;
+    border-radius: 999px;
+    background: #f8fafc;
+    color: #42526b;
+    font-size: 0.72rem;
+    font-weight: 700;
+  }
+  .binn-pipeline-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+  .binn-pipeline-card-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+  }
+  .binn-pipeline-card-actions form {
+    margin: 0;
+  }
+  .binn-pipeline-inline-form {
+    display: inline;
+  }
+  .binn-pipeline-editor-grid {
+    display: grid;
+    gap: 0.85rem;
+  }
+  .binn-pipeline-editor-note {
+    border-radius: 1rem;
+    border: 1px dashed rgba(15, 23, 42, 0.12);
+    background: rgba(248, 250, 252, 0.85);
+    padding: 0.85rem 0.95rem;
+    font-size: 0.82rem;
+    line-height: 1.55;
+    color: var(--binn-ink-soft);
+  }
+  @media (min-width: 1080px) {
+    .binn-pipeline-admin-shell {
+      grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+      align-items: start;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+  <div class="binn-pipeline-admin">
+    <section class="binn-panel rounded-3xl p-6">
+      <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div class="max-w-3xl">
+          <span class="binn-kicker">Configuracion comercial</span>
+          <h1 class="mt-3 text-3xl font-bold tracking-tight">Pipelines de {{ labels.deal_plural|default:"Oportunidades" }}</h1>
+          <p class="mt-3 text-sm text-slate-600">
+            Aqui el admin de la empresa define sus flujos reales. Cada pipeline puede tener etapas distintas
+            segun el negocio: renovaciones, ventas B2B, recaudo o cualquier otro proceso.
+          </p>
+        </div>
+        <div class="flex flex-wrap gap-3">
+          <a href="{% url 'binncrm:index' %}" class="binn-btn-secondary binn-btn-compact">Volver a {{ labels.deal_plural|default:"Oportunidades" }}</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="binn-pipeline-admin-shell">
+      <aside class="binn-pipeline-list">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <p class="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">Pipelines activos</p>
+            <h2 class="mt-2 text-lg font-bold tracking-tight">Flujos de esta empresa</h2>
+          </div>
+          <a href="{% url 'binncrm:pipeline_settings' %}" class="binn-btn-secondary binn-btn-compact">Nuevo pipeline</a>
+        </div>
+
+        <div class="mt-4">
+          {% for pipeline in pipeline_rows %}
+            <article class="binn-pipeline-card {% if selected_pipeline and selected_pipeline.key == pipeline.key %}binn-pipeline-card-active{% endif %}">
+              <div class="binn-pipeline-card-head">
+                <div>
+                  <h3 class="text-base font-bold tracking-tight">{{ pipeline.label }}</h3>
+                  <p class="mt-1 text-xs text-slate-500">{{ pipeline.key }}</p>
+                </div>
+                <div class="binn-pipeline-meta">
+                  {% if pipeline.is_default %}
+                    <span class="binn-pill">Principal</span>
+                  {% endif %}
+                  <span class="binn-pill">{{ pipeline.deal_count }} deals</span>
+                </div>
+              </div>
+              <div class="binn-pipeline-stage-strip">
+                {% for stage in pipeline.stages %}
+                  <span class="binn-pipeline-stage-pill">{{ stage }}</span>
+                {% endfor %}
+              </div>
+              <div class="binn-pipeline-card-actions">
+                <a href="{% url 'binncrm:pipeline_settings' %}?pipeline={{ pipeline.key }}" class="binn-btn-secondary binn-btn-compact">Editar</a>
+                {% if not pipeline.is_default %}
+                  <form method="post" class="binn-pipeline-inline-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="set_default" />
+                    <input type="hidden" name="pipeline_key" value="{{ pipeline.key }}" />
+                    <button type="submit" class="binn-btn-secondary binn-btn-compact">Hacer principal</button>
+                  </form>
+                {% endif %}
+                {% if not forloop.first %}
+                  <form method="post" class="binn-pipeline-inline-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="move_up" />
+                    <input type="hidden" name="pipeline_key" value="{{ pipeline.key }}" />
+                    <button type="submit" class="binn-btn-secondary binn-btn-compact">Subir</button>
+                  </form>
+                {% endif %}
+                {% if not forloop.last %}
+                  <form method="post" class="binn-pipeline-inline-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="move_down" />
+                    <input type="hidden" name="pipeline_key" value="{{ pipeline.key }}" />
+                    <button type="submit" class="binn-btn-secondary binn-btn-compact">Bajar</button>
+                  </form>
+                {% endif %}
+                <form method="post" class="binn-pipeline-inline-form">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="remove" />
+                  <input type="hidden" name="pipeline_key" value="{{ pipeline.key }}" />
+                  <button type="submit" class="binn-btn-danger binn-btn-compact" onclick="return confirm('Esto sacara este pipeline de la configuracion activa. Si tiene deals historicos, Binn lo mantendra como legado.');">Quitar</button>
+                </form>
+              </div>
+            </article>
+          {% empty %}
+            <div class="rounded-2xl border border-dashed border-slate-200 px-4 py-6 text-sm text-slate-500">
+              Esta empresa todavia no tiene pipelines configurados.
+            </div>
+          {% endfor %}
+        </div>
+
+        {% if stale_pipeline_rows %}
+          <div class="mt-5">
+            <p class="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">Pipelines legado</p>
+            <div class="mt-3 space-y-3">
+              {% for pipeline in stale_pipeline_rows %}
+                <div class="rounded-2xl border border-dashed border-slate-200 bg-slate-50/75 px-4 py-3">
+                  <div class="flex items-center justify-between gap-3">
+                    <div>
+                      <p class="font-semibold">{{ pipeline.label }}</p>
+                      <p class="mt-1 text-xs text-slate-500">{{ pipeline.deal_count }} deals historicos vinculados</p>
+                    </div>
+                    <span class="binn-pill">Legado</span>
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        {% endif %}
+      </aside>
+
+      <section class="binn-pipeline-editor">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <p class="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">Editor</p>
+            <h2 class="mt-2 text-lg font-bold tracking-tight">
+              {% if selected_pipeline %}Editar {{ selected_pipeline.label }}{% else %}Crear pipeline{% endif %}
+            </h2>
+          </div>
+          {% if selected_pipeline %}
+            <span class="binn-pill">{{ selected_pipeline.stages|length }} etapas</span>
+          {% endif %}
+        </div>
+
+        <p class="mt-3 text-sm text-slate-600">
+          El orden de las etapas de abajo es el orden real del kanban. La primera columna sera la etapa de entrada.
+        </p>
+
+        <form method="post" class="mt-5 binn-pipeline-editor-grid">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="save" />
+          {{ form.pipeline_key }}
+
+          {% if form.non_field_errors %}
+            <div class="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {{ form.non_field_errors }}
+            </div>
+          {% endif %}
+
+          <div>
+            <label class="mb-1 block text-xs font-bold uppercase tracking-[0.1em] text-slate-500">{{ form.label.label }}</label>
+            {{ form.label }}
+            {% for error in form.label.errors %}
+              <p class="mt-1 text-xs text-red-600">{{ error }}</p>
+            {% endfor %}
+          </div>
+
+          <div>
+            <label class="mb-1 block text-xs font-bold uppercase tracking-[0.1em] text-slate-500">{{ form.stages_text.label }}</label>
+            {{ form.stages_text }}
+            <p class="mt-2 text-xs text-slate-500">{{ form.stages_text.help_text }}</p>
+            {% for error in form.stages_text.errors %}
+              <p class="mt-1 text-xs text-red-600">{{ error }}</p>
+            {% endfor %}
+          </div>
+
+          <label class="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50/75 px-4 py-3 text-sm text-slate-700">
+            {{ form.make_default }}
+            <span>
+              <span class="block font-medium">{{ form.make_default.label }}</span>
+              <span class="mt-1 block text-xs text-slate-500">Si lo activas, este flujo queda primero y sera el que abra Oportunidades por defecto.</span>
+            </span>
+          </label>
+
+          <div class="binn-pipeline-editor-note">
+            Usa esta pantalla por empresa. Un broker puede tener etapas como <strong>Por vencer -> Cotizado -> Emitido</strong>,
+            mientras otra empresa puede usar <strong>Lead -> Discovery -> Propuesta -> Ganado</strong>.
+          </div>
+
+          <div class="flex flex-wrap gap-3">
+            <button type="submit" class="binn-btn-primary binn-btn-compact">Guardar pipeline</button>
+            {% if selected_pipeline %}
+              <a href="{% url 'binncrm:pipeline_settings' %}" class="binn-btn-secondary binn-btn-compact">Crear otro</a>
+            {% endif %}
+          </div>
+        </form>
+      </section>
+    </section>
+  </div>
+{% endblock %}

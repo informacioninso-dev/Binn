@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page_title }} | Binn{% endblock %}
+
+{% block content %}
+  <div class="mx-auto max-w-5xl">
+    <section class="binn-panel rounded-3xl p-6 sm:p-8">
+      <div class="mb-6">
+        <h1 class="text-3xl font-bold tracking-tight">{{ page_title }}</h1>
+        <p class="mt-2 text-sm text-gray-600">Deja trazable que se ofrecio, por cuanto y hasta cuando se mantiene vigente.</p>
+      </div>
+
+      <form method="post" class="space-y-6">
+        {% csrf_token %}
+        <div class="grid grid-cols-1 gap-6 xl:grid-cols-[0.95fr_1.05fr]">
+          <div class="space-y-6">
+            <div class="rounded-3xl border border-black/5 bg-gray-50 p-5">
+              <h2 class="text-lg font-semibold">Contexto comercial</h2>
+              <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+                {% for field in form %}
+                  {% if field.name == "entity" or field.name == "deal" or field.name == "title" or field.name == "proposal_number" %}
+                    <div class="{% if field.name == 'title' %}md:col-span-2{% endif %}">
+                      <label class="mb-1 block text-xs text-gray-500">{{ field.label }}</label>
+                      {{ field }}
+                      {% for error in field.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+                    </div>
+                  {% endif %}
+                {% endfor %}
+              </div>
+            </div>
+
+            <div class="rounded-3xl border border-black/5 bg-gray-50 p-5 text-sm text-gray-600">
+              <h2 class="text-lg font-semibold text-gray-900">Uso rapido</h2>
+              <div class="mt-3 space-y-2">
+                <p>Usa una propuesta cuando el cliente ya necesita ver monto, alcance y validez, aunque el deal siga en curso.</p>
+                <p>Si luego la propuesta se acepta o se rechaza, el historial queda amarrado a la ficha y al deal.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="space-y-6">
+            <div class="rounded-3xl border border-black/5 bg-gray-50 p-5">
+              <h2 class="text-lg font-semibold">Monto y vigencia</h2>
+              <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+                {% for field in form %}
+                  {% if field.name == "amount" or field.name == "currency" or field.name == "status" or field.name == "valid_until" %}
+                    <div>
+                      <label class="mb-1 block text-xs text-gray-500">{{ field.label }}</label>
+                      {{ field }}
+                      {% for error in field.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+                    </div>
+                  {% endif %}
+                {% endfor %}
+                <label class="md:col-span-2 flex items-center gap-2 text-sm text-gray-600">
+                  {{ form.is_active }}
+                  <span>{{ form.is_active.label }}</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="rounded-3xl border border-black/5 bg-gray-50 p-5">
+              <h2 class="text-lg font-semibold">Contenido</h2>
+              <div class="mt-4 space-y-4">
+                {% for field in form %}
+                  {% if field.name == "summary" or field.name == "terms" %}
+                    <div>
+                      <label class="mb-1 block text-xs text-gray-500">{{ field.label }}</label>
+                      {{ field }}
+                      {% for error in field.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+                    </div>
+                  {% endif %}
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap gap-3 border-t border-black/5 pt-6">
+          <button type="submit" class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">{{ submit_label }}</button>
+          <a href="{% url 'binncrm:proposals' %}" class="rounded-xl border px-4 py-2 text-sm hover:bg-gray-50">Cancelar</a>
+        </div>
+      </form>
+    </section>
+  </div>
+{% endblock %}

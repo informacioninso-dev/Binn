@@ -4,7 +4,7 @@ from tenants.models import Client, Domain
 
 
 class Command(BaseCommand):
-    help = "Crear/ajustar tenant publico (schema public) y sus dominios."
+    help = "Crear o ajustar el tenant publico (schema public) y sus dominios."
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -14,7 +14,7 @@ class Command(BaseCommand):
         )
         parser.add_argument(
             "--name",
-            default="Onne Public",
+            default="Binn Public",
             help="Nombre del tenant publico.",
         )
 
@@ -43,7 +43,7 @@ class Command(BaseCommand):
             if not domain_created and domain.tenant_id != public_tenant.id:
                 self.stdout.write(
                     self.style.ERROR(
-                        f"Dominio '{domain_name}' ya pertenece a otra clinica (schema {domain.tenant.schema_name})."
+                        f"Dominio '{domain_name}' ya pertenece a otro tenant (schema {domain.tenant.schema_name})."
                     )
                 )
                 continue

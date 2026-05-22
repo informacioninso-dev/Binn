@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+
+{% block title %}{{ labels.proposal_plural|default:"Propuestas" }} | Binn{% endblock %}
+
+{% block head_extra %}
+<style>
+  .binn-proposals-workspace {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+  .binn-proposals-toolbar {
+    display: grid;
+    gap: 0.7rem;
+    border-radius: 1.15rem;
+    padding: 0.8rem;
+    background:
+      radial-gradient(circle at top right, rgba(0, 123, 255, 0.08), transparent 16rem),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.985) 0%, rgba(247, 250, 255, 0.985) 100%);
+  }
+  .binn-proposals-toolbar-grid {
+    display: grid;
+    gap: 0.8rem;
+  }
+  .binn-proposals-control-card,
+  .binn-proposals-action-card {
+    display: grid;
+    gap: 0.6rem;
+    padding: 0.8rem 0.85rem;
+    border-radius: 1rem;
+    border: 1px solid rgba(15, 23, 42, 0.06);
+    background: rgba(255, 255, 255, 0.9);
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
+  }
+  .binn-proposals-filter-row {
+    display: grid;
+    gap: 0.55rem;
+    margin: 0;
+  }
+  .binn-proposals-headline-row,
+  .binn-proposals-query-row {
+    display: grid;
+    gap: 0.55rem;
+  }
+  .binn-proposals-toolbar-copy {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    min-height: 42px;
+  }
+  .binn-proposals-toolbar-copy .binn-kicker {
+    padding: 0.34rem 0.64rem;
+    font-size: 0.68rem;
+  }
+  .binn-proposals-compact-field {
+    display: grid;
+    gap: 0.3rem;
+  }
+  .binn-proposals-compact-field label {
+    font-size: 0.72rem;
+    line-height: 1;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #667085;
+  }
+  .binn-proposals-compact-field .binn-input {
+    min-height: 48px;
+  }
+  .binn-proposals-inline-note {
+    margin: 0;
+    font-size: 0.74rem;
+    line-height: 1.4;
+    color: var(--binn-ink-soft);
+  }
+  .binn-proposals-toolbar-actions {
+    display: grid;
+    gap: 0.45rem;
+    align-items: start;
+  }
+  .binn-proposals-toolbar-actions > a,
+  .binn-proposals-toolbar-actions > button {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+  }
+  .binn-proposals-list {
+    display: grid;
+    gap: 0.75rem;
+  }
+  .binn-proposal-card {
+    padding: 0.95rem 1rem;
+  }
+  .binn-proposal-card-head {
+    display: grid;
+    gap: 0.8rem;
+  }
+  .binn-proposal-card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+  .binn-proposal-card-title {
+    margin: 0.65rem 0 0;
+    font-size: 1rem;
+    line-height: 1.28;
+    letter-spacing: -0.02em;
+    font-weight: 800;
+  }
+  .binn-proposal-card-copy {
+    margin: 0.2rem 0 0;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    color: var(--binn-ink-soft);
+  }
+  .binn-proposal-card-summary {
+    margin: 0.7rem 0 0;
+    font-size: 0.82rem;
+    line-height: 1.55;
+    color: var(--binn-ink);
+  }
+  .binn-proposal-card-action {
+    align-self: start;
+  }
+  @media (min-width: 1200px) {
+    .binn-proposals-toolbar-grid {
+      grid-template-columns: minmax(0, 1fr) 248px;
+    }
+    .binn-proposals-headline-row {
+      grid-template-columns: 210px minmax(280px, 0.9fr);
+      align-items: end;
+    }
+    .binn-proposals-query-row {
+      grid-template-columns: minmax(0, 1fr) 280px;
+      align-items: end;
+    }
+    .binn-proposal-card-head {
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: start;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+  <div class="binn-proposals-workspace">
+    <section class="binn-panel binn-proposals-toolbar">
+      <div class="binn-proposals-toolbar-grid">
+        <div class="binn-proposals-control-card">
+          <form method="get" class="binn-proposals-filter-row">
+            <div class="binn-proposals-headline-row">
+              <div class="binn-proposals-toolbar-copy">
+                <span class="binn-kicker">{{ labels.proposal_plural|default:"Propuestas" }}</span>
+              </div>
+              <div class="binn-proposals-compact-field">
+                <label for="proposal-status">Estado</label>
+                <select id="proposal-status" name="status" class="binn-input w-full">
+                  <option value="">Todos</option>
+                  {% for key, label in proposal_statuses %}
+                    <option value="{{ key }}" {% if selected_status == key %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+
+            <div class="binn-proposals-query-row">
+              <div class="binn-proposals-compact-field">
+                <label for="proposal-search">Buscar</label>
+                <input
+                  id="proposal-search"
+                  type="text"
+                  name="q"
+                  value="{{ q }}"
+                  class="binn-input w-full"
+                  placeholder="Titulo, numero, cliente o deal"
+                />
+              </div>
+              <p class="binn-proposals-inline-note">
+                {{ proposal_cards|length }} visibles{% if selected_status %} · filtro {{ selected_status }}{% endif %}
+              </p>
+            </div>
+          </form>
+        </div>
+
+        <div class="binn-proposals-action-card">
+          <div class="binn-proposals-toolbar-actions">
+            {% if can_create_proposal %}
+              <a href="{% url 'binncrm:proposal_create' %}" class="binn-btn-primary binn-btn-compact">+ Nueva {{ labels.proposal_singular|default:"propuesta" }}</a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="binn-proposals-list">
+      {% for item in proposal_cards %}
+        <article class="binn-panel binn-record-card binn-proposal-card">
+          <div class="binn-proposal-card-head">
+            <div>
+              <div class="binn-proposal-card-meta">
+                <span class="rounded-full px-3 py-1 text-xs font-medium {{ item.status.tone }}">{{ item.status.label }}</span>
+                <span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">{{ item.proposal.entity.full_name }}</span>
+                {% if item.proposal.deal %}
+                  <span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">{{ item.proposal.deal.title }}</span>
+                {% endif %}
+              </div>
+              <h2 class="binn-proposal-card-title">{{ item.proposal.title }}</h2>
+              <p class="binn-proposal-card-copy">
+                {{ item.amount_label }}
+                {% if item.proposal.proposal_number %} · {{ item.proposal.proposal_number }}{% endif %}
+                {% if item.proposal.valid_until %} · Vigente hasta {{ item.proposal.valid_until|date:"d/m/Y" }}{% endif %}
+              </p>
+              {% if item.proposal.summary %}
+                <p class="binn-proposal-card-summary">{{ item.proposal.summary|truncatechars:180 }}</p>
+              {% endif %}
+            </div>
+            {% if can_edit_proposal %}
+              <a href="{% url 'binncrm:proposal_edit' item.proposal.pk %}" class="binn-record-action binn-proposal-card-action">Editar</a>
+            {% endif %}
+          </div>
+        </article>
+      {% empty %}
+        <section class="binn-panel p-6 text-sm text-gray-500">Aun no hay propuestas registradas.</section>
+      {% endfor %}
+    </section>
+  </div>
+{% endblock %}

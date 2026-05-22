@@ -1,0 +1,38 @@
+from django.urls import path
+
+from . import views
+
+
+app_name = "binncrm"
+
+urlpatterns = [
+    path("", views.index, name="index"),
+    path("pipelines/", views.pipeline_settings, name="pipeline_settings"),
+    path("objects/", views.custom_object_catalog, name="custom_object_catalog"),
+    path("objects/<slug:object_key>/", views.custom_object_records, name="custom_object_records"),
+    path("objects/<slug:object_key>/new/", views.custom_object_record_create, name="custom_object_record_create"),
+    path("objects/<slug:object_key>/<int:pk>/", views.custom_object_record_detail, name="custom_object_record_detail"),
+    path("objects/<slug:object_key>/<int:pk>/edit/", views.custom_object_record_edit, name="custom_object_record_edit"),
+    path("entities/", views.entities, name="entities"),
+    path("entities/import/", views.entity_import, name="entity_import"),
+    path("entities/new/", views.entity_create, name="entity_create"),
+    path("entities/<int:pk>/", views.entity_detail, name="entity_detail"),
+    path("entities/<int:pk>/edit/", views.entity_edit, name="entity_edit"),
+    path("deals/new/", views.deal_create, name="deal_create"),
+    path("deals/<int:pk>/edit/", views.deal_edit, name="deal_edit"),
+    path("proposals/", views.proposals, name="proposals"),
+    path("proposals/new/", views.proposal_create, name="proposal_create"),
+    path("proposals/<int:pk>/edit/", views.proposal_edit, name="proposal_edit"),
+    path("collections/", views.collections, name="collections"),
+    path("collections/new/", views.collection_create, name="collection_create"),
+    path("collections/<int:pk>/edit/", views.collection_edit, name="collection_edit"),
+    path("collections/<int:pk>/move/", views.collection_move, name="collection_move"),
+    path("reports/", views.reports, name="reports"),
+    path("deals/<int:pk>/move/", views.deal_move, name="deal_move"),
+    path("activities/", views.activities, name="activities"),
+    path("activities/new/", views.activity_create, name="activity_create"),
+    path("activities/<int:pk>/toggle-complete/", views.activity_toggle_complete, name="activity_toggle_complete"),
+    path("documents/", views.documents, name="documents"),
+    path("documents/new/", views.document_create, name="document_create"),
+    path("documents/<int:pk>/edit/", views.document_edit, name="document_edit"),
+]

@@ -1,260 +1,410 @@
 {% extends "base.html" %}
 
-{% block title %}Inicio | Onne{% endblock %}
+{% block title %}Inicio | Binn{% endblock %}
+
+{% block head_extra %}
+<style>
+  .binn-control-shell {
+    display: grid;
+    gap: 1rem;
+  }
+  .binn-control-hero,
+  .binn-control-panel {
+    border-radius: 1rem;
+    padding: 1rem;
+  }
+  .binn-control-hero {
+    display: grid;
+    gap: 0.9rem;
+    background:
+      radial-gradient(circle at top right, rgba(0, 123, 255, 0.08), transparent 18rem),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(246, 250, 255, 0.98) 100%);
+  }
+  .binn-control-hero-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    justify-content: space-between;
+    gap: 0.9rem;
+  }
+  .binn-control-hero-copy {
+    max-width: 48rem;
+  }
+  .binn-control-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .binn-control-meta-item {
+    display: inline-flex;
+    align-items: center;
+    min-height: 34px;
+    padding: 0.42rem 0.68rem;
+    border-radius: 0.75rem;
+    border: 1px solid var(--binn-line);
+    background: #fff;
+    color: #475467;
+    font-size: 0.78rem;
+    font-weight: 700;
+  }
+  .binn-control-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+  }
+  .binn-control-summary-grid,
+  .binn-control-funnel-grid {
+    display: grid;
+    gap: 1rem;
+  }
+  .binn-control-panel {
+    display: grid;
+    gap: 0.9rem;
+    align-content: start;
+  }
+  .binn-control-panel-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.9rem;
+  }
+  .binn-control-panel-kicker {
+    margin: 0;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #98a2b3;
+  }
+  .binn-control-panel-value {
+    margin-top: 0.65rem;
+    font-family: var(--binn-font-display);
+    font-size: 2.25rem;
+    line-height: 0.95;
+    letter-spacing: -0.06em;
+    font-weight: 800;
+  }
+  .binn-control-panel-copy {
+    margin-top: 0.45rem;
+    color: var(--binn-ink-soft);
+    line-height: 1.55;
+    font-size: 0.9rem;
+  }
+  .binn-control-list {
+    display: grid;
+    gap: 0.7rem;
+  }
+  .binn-control-list-item {
+    display: grid;
+    gap: 0.35rem;
+    border-top: 1px solid var(--binn-line);
+    padding-top: 0.75rem;
+  }
+  .binn-control-list-item:first-child {
+    border-top: 0;
+    padding-top: 0;
+  }
+  .binn-control-item-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8rem;
+  }
+  .binn-control-item-meta {
+    font-size: 0.82rem;
+    color: var(--binn-ink-soft);
+    line-height: 1.5;
+  }
+  .binn-control-funnel-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.8rem;
+  }
+  .binn-control-funnel-tag {
+    display: inline-flex;
+    align-items: center;
+    min-height: 32px;
+    padding: 0.38rem 0.64rem;
+    border-radius: 999px;
+    border: 1px solid var(--binn-line);
+    background: rgba(255, 255, 255, 0.88);
+    color: #475467;
+    font-size: 0.76rem;
+    font-weight: 700;
+  }
+  .binn-control-funnel-track {
+    display: grid;
+    gap: 0.65rem;
+  }
+  .binn-control-funnel-graphic {
+    display: grid;
+    gap: 0.6rem;
+    margin-top: 0.2rem;
+  }
+  .binn-control-funnel-level {
+    display: flex;
+    justify-content: center;
+  }
+  .binn-control-funnel-stage {
+    width: var(--funnel-width, 100%);
+    min-width: min(18rem, 100%);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-radius: 1rem;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(250, 252, 255, 0.94) 100%);
+    box-shadow: 0 10px 22px rgba(15, 23, 42, 0.04);
+    overflow: hidden;
+  }
+  .binn-control-funnel-stage-bar {
+    height: 5px;
+    background: linear-gradient(90deg, var(--funnel-accent), var(--funnel-accent-alt));
+  }
+  .binn-control-funnel-stage-body {
+    padding: 0.78rem 0.85rem 0.82rem;
+  }
+  .binn-control-funnel-stage-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.7rem;
+  }
+  .binn-control-funnel-stage-top strong {
+    font-size: 0.92rem;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+  }
+  .binn-control-funnel-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.6rem;
+    min-height: 1.6rem;
+    padding: 0.08rem 0.42rem;
+    border-radius: 999px;
+    background: var(--funnel-soft, rgba(15, 23, 42, 0.08));
+    color: var(--binn-ink);
+    font-size: 0.72rem;
+    font-weight: 800;
+  }
+  .binn-control-funnel-amount {
+    margin: 0.38rem 0 0;
+    font-size: 0.78rem;
+    line-height: 1.35;
+    font-weight: 800;
+    color: var(--binn-ink-soft);
+  }
+  .binn-control-funnel-caption {
+    margin: 0.26rem 0 0;
+    font-size: 0.75rem;
+    line-height: 1.35;
+    color: var(--binn-ink-soft);
+  }
+  .binn-control-link {
+    color: var(--binn-ink);
+    text-decoration: none;
+    font-weight: 700;
+  }
+  .binn-control-link:hover {
+    text-decoration: underline;
+  }
+  @media (min-width: 900px) {
+    .binn-control-summary-grid {
+      grid-template-columns: 1.05fr 0.95fr;
+    }
+  }
+  @media (min-width: 1180px) {
+    .binn-control-funnel-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+</style>
+{% endblock %}
 
 {% block content %}
-  <div class="space-y-6">
-    <section class="rounded-2xl border bg-white p-6">
-      <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+  <div class="binn-control-shell">
+    {% if dashboard_access_denied %}
+      <section class="binn-panel binn-control-hero">
+        <span class="binn-kicker">{{ dashboard.kicker }}</span>
         <div>
-          <h1 class="text-2xl font-bold">Centro de operacion</h1>
-          <p class="mt-2 text-sm text-gray-600">
-            {% if tenant_schema and tenant_schema != "public" %}
-              Onne centraliza CRM, pacientes, agenda y caja para {{ tenant_name }}.
-            {% else %}
-              Selecciona una clinica para empezar a operar.
-            {% endif %}
-          </p>
+          <h1 class="binn-section-title">{{ dashboard.welcome_title }}</h1>
+          <p class="binn-section-copy mt-2">{{ dashboard.welcome_copy }}</p>
         </div>
-        {% if tenant_schema and tenant_schema != "public" %}
-          <div class="rounded-xl bg-blue-50 px-4 py-3 text-sm text-blue-800">
-            <p><strong>Clinica:</strong> {{ tenant_name|default:"-" }}</p>
-            <p><strong>Schema:</strong> {{ tenant_schema }}</p>
+      </section>
+    {% else %}
+      <section class="binn-panel binn-control-hero">
+        <div class="binn-control-hero-head">
+          <div class="binn-control-hero-copy">
+            <span class="binn-kicker">{{ dashboard.kicker|default:"Panel" }}</span>
+            <h1 class="binn-section-title mt-3">{{ dashboard.welcome_title|default:"Panel de control" }}</h1>
+            <p class="binn-section-copy mt-2">{{ dashboard.welcome_copy|default:"Lee rapido ventas, cobros y conversaciones sin salir del contexto del tenant." }}</p>
           </div>
-        {% endif %}
-      </div>
-    </section>
+          <div class="binn-control-meta">
+            <span class="binn-control-meta-item">{{ tenant_name }}</span>
+            <span class="binn-control-meta-item">{{ request.tenant.tenant_config.get_profile_display }}</span>
+            {% if request.user.is_superuser %}
+              <span class="binn-control-meta-item">{{ tenant_schema }}</span>
+            {% endif %}
+          </div>
+        </div>
 
-    {% if tenant_schema and tenant_schema != "public" %}
-      <section class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <article class="rounded-2xl border bg-white p-5">
-          <p class="text-xs uppercase tracking-wide text-gray-500">Pacientes activos</p>
-          <p class="mt-3 text-3xl font-bold">{{ summary.patients }}</p>
-          <a href="{% url 'patients:index' %}" class="mt-4 inline-block text-sm text-blue-600 hover:underline">Abrir pacientes</a>
-        </article>
-        <article class="rounded-2xl border bg-white p-5">
-          <p class="text-xs uppercase tracking-wide text-gray-500">Citas de hoy</p>
-          <p class="mt-3 text-3xl font-bold">{{ summary.appointments_today }}</p>
-          <a href="{% url 'appointments:index' %}" class="mt-4 inline-block text-sm text-blue-600 hover:underline">Abrir agenda</a>
-        </article>
-        <article class="rounded-2xl border bg-white p-5">
-          <p class="text-xs uppercase tracking-wide text-gray-500">Leads abiertos</p>
-          <p class="mt-3 text-3xl font-bold">{{ summary.leads_open }}</p>
-          <a href="{% url 'crm:index' %}" class="mt-4 inline-block text-sm text-blue-600 hover:underline">Abrir CRM</a>
-        </article>
-        <article class="rounded-2xl border bg-white p-5">
-          <p class="text-xs uppercase tracking-wide text-gray-500">Cobros de hoy</p>
-          <p class="mt-3 text-3xl font-bold">{{ summary.cash_today }}</p>
-          <a href="{% url 'billing:index' %}" class="mt-4 inline-block text-sm text-blue-600 hover:underline">Abrir caja</a>
-        </article>
-        <article class="rounded-2xl border bg-white p-5">
-          <p class="text-xs uppercase tracking-wide text-gray-500">Cartera</p>
-          <p class="mt-3 text-3xl font-bold">{{ summary.receivable }}</p>
-          <a href="{% url 'billing:invoices' %}" class="mt-4 inline-block text-sm text-blue-600 hover:underline">Abrir facturas</a>
-        </article>
-        {% if request.user.is_superuser or request.tenant_membership.is_admin or request.tenant_membership.role == 'doctor' or request.tenant_membership.role == 'assistant' %}
-          <article class="rounded-2xl border bg-white p-5">
-            <p class="text-xs uppercase tracking-wide text-gray-500">Evoluciones de hoy</p>
-            <p class="mt-3 text-3xl font-bold">{{ summary.encounters_today }}</p>
-            <a href="{% url 'clinical:index' %}" class="mt-4 inline-block text-sm text-blue-600 hover:underline">Abrir clinica</a>
-          </article>
-        {% endif %}
-        {% if 'inventory.basic' in request.tenant.plan_definition.capabilities %}
-          {% if request.user.is_superuser or request.tenant_membership.is_admin or request.tenant_membership.role == 'assistant' or request.tenant_membership.role == 'cashier' %}
-            <article class="rounded-2xl border bg-white p-5">
-              <p class="text-xs uppercase tracking-wide text-gray-500">Stock critico</p>
-              <p class="mt-3 text-3xl font-bold">{{ summary.low_stock }}</p>
-              <a href="{% url 'inventory:index' %}" class="mt-4 inline-block text-sm text-blue-600 hover:underline">Abrir inventario</a>
-            </article>
-          {% endif %}
-        {% endif %}
-        {% if 'commissions.basic' in request.tenant.plan_definition.capabilities %}
-          {% if request.user.is_superuser or request.tenant_membership.is_admin or request.tenant_membership.role == 'assistant' or request.tenant_membership.role == 'cashier' %}
-            <article class="rounded-2xl border bg-white p-5">
-              <p class="text-xs uppercase tracking-wide text-gray-500">Comisiones pendientes</p>
-              <p class="mt-3 text-3xl font-bold">{{ summary.pending_commissions }}</p>
-              <a href="{% url 'operations:commissions' %}" class="mt-4 inline-block text-sm text-blue-600 hover:underline">Abrir operaciones</a>
-            </article>
-          {% endif %}
+        {% if dashboard.quick_actions %}
+          <div class="binn-control-actions">
+            {% for action in dashboard.quick_actions|slice:":5" %}
+              <a href="{{ action.href }}" class="{% if forloop.first %}binn-btn-primary{% else %}binn-btn-secondary{% endif %} binn-btn-compact">
+                {{ action.compact_label|default:action.label }}
+              </a>
+            {% endfor %}
+          </div>
         {% endif %}
       </section>
 
-      <section class="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        <div class="rounded-2xl border bg-white p-6 xl:col-span-2">
-          <div class="mb-4 flex items-center justify-between">
-            <h2 class="text-lg font-semibold">Agenda de hoy</h2>
-            <a href="{% url 'appointments:create' %}" class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700">Nueva cita</a>
+      <section class="binn-control-summary-grid">
+        <article class="binn-panel binn-control-panel">
+          <div class="binn-control-panel-head">
+            <div>
+              <p class="binn-control-panel-kicker">Incendios de hoy</p>
+              <div class="binn-control-panel-value">{{ summary.report_alerts|default:0 }}</div>
+              <p class="binn-control-panel-copy">Lo que ya amerita reaccion: tareas vencidas, cobros atrasados, propuestas activas y documentos sensibles.</p>
+            </div>
+            <a href="{% url 'binncrm:reports' %}" class="binn-record-action binn-record-action-primary">Ver reportes</a>
           </div>
-          <div class="overflow-x-auto">
-            <table class="min-w-full text-sm">
-              <thead class="bg-gray-50 text-left text-gray-600">
-                <tr>
-                  <th class="px-4 py-2">Hora</th>
-                  <th class="px-4 py-2">Paciente</th>
-                  <th class="px-4 py-2">Profesional</th>
-                  <th class="px-4 py-2">Estado</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for appointment in appointments_today %}
-                  <tr class="border-t">
-                    <td class="px-4 py-2">{{ appointment.scheduled_at|date:"H:i" }}</td>
-                    <td class="px-4 py-2">{{ appointment.patient.full_name }}</td>
-                    <td class="px-4 py-2">{{ appointment.provider.username|default:"Sin asignar" }}</td>
-                    <td class="px-4 py-2">{{ appointment.get_status_display }}</td>
-                  </tr>
-                {% empty %}
-                  <tr>
-                    <td colspan="4" class="px-4 py-6 text-center text-gray-500">No hay citas programadas para hoy.</td>
-                  </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        </div>
 
-        <div class="space-y-6">
-          <div class="rounded-2xl border bg-white p-6">
-            <h2 class="text-lg font-semibold">Alertas operativas</h2>
-            <div class="mt-4 space-y-3 text-sm">
-              <div class="rounded-xl bg-amber-50 px-4 py-3 text-amber-800">
-                <strong>{{ alerts.pending_appointments }}</strong> citas pendientes de confirmar
+          <div class="binn-control-list">
+            <div class="binn-control-list-item">
+              <div class="binn-control-item-top">
+                <strong>Tareas vencidas</strong>
+                <span class="binn-pill">{{ summary.activities_due|default:0 }}</span>
               </div>
-              <div class="rounded-xl bg-blue-50 px-4 py-3 text-blue-800">
-                <strong>{{ alerts.checked_in }}</strong> pacientes en sala de espera
+              <p class="binn-control-item-meta">Seguimientos que ya piden respuesta.</p>
+            </div>
+            <div class="binn-control-list-item">
+              <div class="binn-control-item-top">
+                <strong>Cobranzas abiertas</strong>
+                <span class="binn-pill">{{ summary.open_collections|default:0 }}</span>
               </div>
-              <div class="rounded-xl bg-rose-50 px-4 py-3 text-rose-800">
-                <strong>{{ alerts.no_show }}</strong> no-shows registrados
+              <p class="binn-control-item-meta">Dinero que deberia entrar y sigue vivo.</p>
+            </div>
+            <div class="binn-control-list-item">
+              <div class="binn-control-item-top">
+                <strong>Propuestas activas</strong>
+                <span class="binn-pill">{{ summary.open_proposals|default:0 }}</span>
               </div>
-              <div class="rounded-xl bg-orange-50 px-4 py-3 text-orange-800">
-                <strong>{{ alerts.open_invoices }}</strong> facturas con saldo pendiente
-              </div>
-              {% if request.user.is_superuser or request.tenant_membership.is_admin or request.tenant_membership.role == 'doctor' or request.tenant_membership.role == 'assistant' %}
-                <div class="rounded-xl bg-emerald-50 px-4 py-3 text-emerald-800">
-                  <strong>{{ alerts.open_orders }}</strong> ordenes clinicas pendientes
+              <p class="binn-control-item-meta">Casos que todavia piden empuje comercial.</p>
+            </div>
+          </div>
+        </article>
+
+        <article class="binn-panel binn-control-panel">
+          <div class="binn-control-panel-head">
+            <div>
+              <p class="binn-control-panel-kicker">Quien me necesita</p>
+              <div class="binn-control-panel-value">{{ summary.unread_messages|default:0 }}</div>
+              <p class="binn-control-panel-copy">Mensajes internos sin leer y conversaciones que siguen vivas dentro del CRM.</p>
+            </div>
+            <a href="{% url 'collab:inbox' %}" class="binn-record-action binn-record-action-primary">Abrir inbox</a>
+          </div>
+
+          <div class="binn-control-list">
+            {% for summary_item in recent_conversations %}
+              <div class="binn-control-list-item">
+                <div class="binn-control-item-top">
+                  <a href="{% url 'collab:conversation_detail' summary_item.conversation.pk %}" class="binn-control-link">{{ summary_item.conversation.title }}</a>
+                  <span class="binn-pill">{{ summary_item.unread_count }}</span>
                 </div>
+                <p class="binn-control-item-meta">
+                  {% if summary_item.last_message %}
+                    {{ summary_item.last_message.author.username }} · {{ summary_item.last_message.body|truncatechars:72 }}
+                  {% else %}
+                    Sin mensajes todavia.
+                  {% endif %}
+                </p>
+              </div>
+            {% empty %}
+              <div class="binn-empty text-sm">No hay conversaciones activas todavia.</div>
+            {% endfor %}
+          </div>
+        </article>
+      </section>
+
+      <section class="binn-control-funnel-grid">
+        <article class="binn-panel binn-control-panel">
+          <div class="binn-control-funnel-head">
+            <div>
+              <p class="binn-control-panel-kicker">Embudo de ventas</p>
+              <div class="binn-control-panel-value">{{ summary.open_deals|default:0 }}</div>
+              <p class="binn-control-panel-copy">Oportunidades abiertas y distribuidas por etapa del pipeline activo.</p>
+            </div>
+            <div class="flex flex-col items-end gap-2">
+              {% if active_pipeline %}
+                <span class="binn-control-funnel-tag">{{ active_pipeline.name }}</span>
               {% endif %}
-              {% if 'inventory.basic' in request.tenant.plan_definition.capabilities %}
-                {% if request.user.is_superuser or request.tenant_membership.is_admin or request.tenant_membership.role == 'assistant' or request.tenant_membership.role == 'cashier' %}
-                  <div class="rounded-xl bg-fuchsia-50 px-4 py-3 text-fuchsia-800">
-                    <strong>{{ alerts.open_purchase_orders }}</strong> ordenes de compra abiertas
-                  </div>
-                {% endif %}
-              {% endif %}
-              {% if 'commissions.basic' in request.tenant.plan_definition.capabilities %}
-                {% if request.user.is_superuser or request.tenant_membership.is_admin or request.tenant_membership.role == 'assistant' or request.tenant_membership.role == 'cashier' %}
-                  <div class="rounded-xl bg-sky-50 px-4 py-3 text-sky-800">
-                    <strong>{{ alerts.pending_commissions }}</strong> comisiones pendientes por revisar
-                  </div>
-                {% endif %}
-              {% endif %}
+              <a href="{% url 'binncrm:index' %}" class="binn-record-action binn-record-action-primary">Abrir pipeline</a>
             </div>
           </div>
 
-          <div class="rounded-2xl border bg-white p-6">
-            <div class="mb-4 flex items-center justify-between">
-              <h2 class="text-lg font-semibold">CRM reciente</h2>
-              <a href="{% url 'crm:create' %}" class="text-sm text-blue-600 hover:underline">Nuevo lead</a>
-            </div>
-            <div class="space-y-3">
-              {% for lead in recent_leads %}
-                <div class="rounded-xl border px-4 py-3">
-                  <p class="font-medium">{{ lead.full_name }}</p>
-                  <p class="mt-1 text-xs text-gray-500">{{ lead.get_stage_display }} | {{ lead.get_source_display }}</p>
-                </div>
-              {% empty %}
-                <div class="rounded-xl border border-dashed px-4 py-6 text-sm text-gray-500">
-                  Todavia no hay leads recientes.
+          {% if pipeline_summary %}
+            <div class="binn-control-funnel-graphic">
+              {% for item in pipeline_summary %}
+                <div class="binn-control-funnel-level">
+                  <div
+                    class="binn-control-funnel-stage"
+                    style="--funnel-accent:#2563eb; --funnel-accent-alt:#60a5fa; --funnel-soft:rgba(37, 99, 235, 0.12); --funnel-width:{% if forloop.counter0 == 0 %}100%{% elif forloop.counter0 == 1 %}88%{% elif forloop.counter0 == 2 %}76%{% elif forloop.counter0 == 3 %}64%{% elif forloop.counter0 == 4 %}52%{% else %}46%{% endif %};"
+                  >
+                    <div class="binn-control-funnel-stage-bar"></div>
+                    <div class="binn-control-funnel-stage-body">
+                      <div class="binn-control-funnel-stage-top">
+                        <strong>{{ item.stage }}</strong>
+                        <span class="binn-control-funnel-count">{{ item.count }}</span>
+                      </div>
+                      <p class="binn-control-funnel-amount">{{ item.amount_label }}</p>
+                    </div>
+                  </div>
                 </div>
               {% endfor %}
             </div>
+          {% else %}
+            <div class="binn-empty text-sm">{{ dashboard.pipeline_empty }}</div>
+          {% endif %}
+        </article>
+
+        <article class="binn-panel binn-control-panel">
+          <div class="binn-control-funnel-head">
+            <div>
+              <p class="binn-control-panel-kicker">Embudo de cobro</p>
+              <div class="binn-control-panel-value">{{ summary.open_collections|default:0 }}</div>
+              <p class="binn-control-panel-copy">Cobros abiertos organizados por estado operativo para saber que perseguir primero.</p>
+            </div>
+            <div class="flex flex-col items-end gap-2">
+              <span class="binn-control-funnel-tag">{{ labels.collection_plural|default:"Cobranzas" }}</span>
+              <a href="{% url 'binncrm:collections' %}" class="binn-record-action binn-record-action-primary">Abrir cobros</a>
+            </div>
           </div>
 
-          <div class="rounded-2xl border bg-white p-6">
-            <div class="mb-4 flex items-center justify-between">
-              <h2 class="text-lg font-semibold">Facturacion reciente</h2>
-              <a href="{% url 'billing:invoice_create' %}" class="text-sm text-blue-600 hover:underline">Nueva factura</a>
-            </div>
-            <div class="space-y-3">
-              {% for invoice in recent_invoices %}
-                <div class="rounded-xl border px-4 py-3">
-                  <p class="font-medium">{{ invoice.invoice_number }} | {{ invoice.patient.full_name }}</p>
-                  <p class="mt-1 text-xs text-gray-500">{{ invoice.get_status_display }} | Total {{ invoice.total_amount }}</p>
-                </div>
-              {% empty %}
-                <div class="rounded-xl border border-dashed px-4 py-6 text-sm text-gray-500">
-                  Todavia no hay facturas recientes.
+          {% if collection_summary %}
+            <div class="binn-control-funnel-graphic">
+              {% for item in collection_summary %}
+                <div class="binn-control-funnel-level">
+                  <div
+                    class="binn-control-funnel-stage"
+                    style="--funnel-accent:{{ item.tone.accent }}; --funnel-accent-alt:{{ item.tone.alt }}; --funnel-soft:{{ item.tone.soft }}; --funnel-width:{% if forloop.counter0 == 0 %}100%{% elif forloop.counter0 == 1 %}88%{% elif forloop.counter0 == 2 %}76%{% elif forloop.counter0 == 3 %}64%{% elif forloop.counter0 == 4 %}52%{% else %}46%{% endif %};"
+                  >
+                    <div class="binn-control-funnel-stage-bar"></div>
+                    <div class="binn-control-funnel-stage-body">
+                      <div class="binn-control-funnel-stage-top">
+                        <strong>{{ item.label }}</strong>
+                        <span class="binn-control-funnel-count">{{ item.count }}</span>
+                      </div>
+                      <p class="binn-control-funnel-amount">{{ item.amount_label }}</p>
+                    </div>
+                  </div>
                 </div>
               {% endfor %}
             </div>
-          </div>
-
-          {% if request.user.is_superuser or request.tenant_membership.is_admin or request.tenant_membership.role == 'doctor' or request.tenant_membership.role == 'assistant' %}
-            <div class="rounded-2xl border bg-white p-6">
-              <div class="mb-4 flex items-center justify-between">
-                <h2 class="text-lg font-semibold">Actividad clinica</h2>
-                <a href="{% url 'clinical:create' %}" class="text-sm text-blue-600 hover:underline">Nueva evolucion</a>
-              </div>
-              <div class="space-y-3">
-                {% for encounter in recent_encounters %}
-                  <div class="rounded-xl border px-4 py-3">
-                    <p class="font-medium">{{ encounter.patient.full_name }}</p>
-                    <p class="mt-1 text-xs text-gray-500">{{ encounter.get_encounter_type_display }} | {{ encounter.encounter_date|date:"d/m/Y H:i" }}</p>
-                  </div>
-                {% empty %}
-                  <div class="rounded-xl border border-dashed px-4 py-6 text-sm text-gray-500">
-                    Todavia no hay actividad clinica reciente.
-                  </div>
-                {% endfor %}
-              </div>
-            </div>
+          {% else %}
+            <div class="binn-empty text-sm">Todavia no hay cobranzas activas en este espacio.</div>
           {% endif %}
-
-          {% if 'inventory.basic' in request.tenant.plan_definition.capabilities %}
-            {% if request.user.is_superuser or request.tenant_membership.is_admin or request.tenant_membership.role == 'assistant' or request.tenant_membership.role == 'cashier' %}
-              <div class="rounded-2xl border bg-white p-6">
-                <div class="mb-4 flex items-center justify-between">
-                  <h2 class="text-lg font-semibold">Compras recientes</h2>
-                  <a href="{% url 'inventory:purchase_create' %}" class="text-sm text-blue-600 hover:underline">Nueva orden</a>
-                </div>
-                <div class="space-y-3">
-                  {% for purchase in recent_purchase_orders %}
-                    <div class="rounded-xl border px-4 py-3">
-                      <p class="font-medium">{{ purchase.supplier.name }}</p>
-                      <p class="mt-1 text-xs text-gray-500">{{ purchase.get_status_display }} | {{ purchase.total_amount }}</p>
-                    </div>
-                  {% empty %}
-                    <div class="rounded-xl border border-dashed px-4 py-6 text-sm text-gray-500">
-                      Todavia no hay ordenes de compra recientes.
-                    </div>
-                  {% endfor %}
-                </div>
-              </div>
-            {% endif %}
-          {% endif %}
-          {% if 'automation.basic' in request.tenant.plan_definition.capabilities %}
-            {% if request.user.is_superuser or request.tenant_membership.is_admin or request.tenant_membership.role == 'assistant' or request.tenant_membership.role == 'cashier' %}
-              <div class="rounded-2xl border bg-white p-6">
-                <div class="mb-4 flex items-center justify-between">
-                  <h2 class="text-lg font-semibold">Automatizaciones</h2>
-                  <a href="{% url 'operations:index' %}" class="text-sm text-blue-600 hover:underline">Abrir operaciones</a>
-                </div>
-                <div class="space-y-3">
-                  {% for run in recent_automation_runs %}
-                    <div class="rounded-xl border px-4 py-3">
-                      <p class="font-medium">{{ run.rule.name }}</p>
-                      <p class="mt-1 text-xs text-gray-500">{{ run.get_status_display }} | {{ run.executed_at|date:"d/m/Y H:i" }}</p>
-                    </div>
-                  {% empty %}
-                    <div class="rounded-xl border border-dashed px-4 py-6 text-sm text-gray-500">
-                      Todavia no hay ejecuciones de automatizacion.
-                    </div>
-                  {% endfor %}
-                </div>
-              </div>
-            {% endif %}
-          {% endif %}
-        </div>
+        </article>
       </section>
     {% endif %}
   </div>

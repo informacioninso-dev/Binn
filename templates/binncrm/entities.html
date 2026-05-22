@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+
+{% block title %}{{ labels.entity_plural|default:"Contactos" }} | Binn{% endblock %}
+
+{% block head_extra %}
+<style>
+  .binn-entities-workspace {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+  .binn-entities-toolbar {
+    display: grid;
+    gap: 0.7rem;
+    border-radius: 1.15rem;
+    padding: 0.8rem;
+    background:
+      radial-gradient(circle at top right, rgba(0, 123, 255, 0.08), transparent 16rem),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.985) 0%, rgba(247, 250, 255, 0.985) 100%);
+  }
+  .binn-entities-toolbar-grid {
+    display: grid;
+    gap: 0.8rem;
+  }
+  .binn-entities-control-card,
+  .binn-entities-action-card {
+    display: grid;
+    gap: 0.6rem;
+    padding: 0.8rem 0.85rem;
+    border-radius: 1rem;
+    border: 1px solid rgba(15, 23, 42, 0.06);
+    background: rgba(255, 255, 255, 0.9);
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
+  }
+  .binn-entities-filter-row {
+    display: grid;
+    gap: 0.55rem;
+    margin: 0;
+  }
+  .binn-entities-headline-row,
+  .binn-entities-query-row {
+    display: grid;
+    gap: 0.55rem;
+  }
+  .binn-entities-toolbar-copy {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    min-height: 42px;
+  }
+  .binn-entities-toolbar-copy .binn-kicker {
+    padding: 0.34rem 0.64rem;
+    font-size: 0.68rem;
+  }
+  .binn-entities-view-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    justify-content: flex-end;
+  }
+  .binn-entities-view-row .binn-module-tools-label {
+    margin-right: 0.1rem;
+    margin-bottom: 0;
+    white-space: nowrap;
+  }
+  .binn-entities-view-row .binn-module-shortcuts {
+    margin-top: 0;
+    gap: 0.45rem;
+    flex-wrap: wrap;
+  }
+  .binn-entities-view-row .binn-module-shortcut {
+    min-height: 32px;
+    padding: 0.38rem 0.66rem;
+    border-radius: 999px;
+    font-size: 0.74rem;
+  }
+  .binn-entities-compact-field {
+    display: grid;
+    gap: 0.3rem;
+  }
+  .binn-entities-compact-field label {
+    font-size: 0.72rem;
+    line-height: 1;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #667085;
+  }
+  .binn-entities-compact-field .binn-input {
+    min-height: 48px;
+  }
+  .binn-entities-inline-note {
+    margin: 0;
+    font-size: 0.74rem;
+    line-height: 1.4;
+    color: var(--binn-ink-soft);
+  }
+  .binn-entities-toolbar-actions {
+    display: grid;
+    gap: 0.45rem;
+    align-items: start;
+  }
+  .binn-entities-toolbar-actions > a,
+  .binn-entities-toolbar-actions > button {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+  }
+  @media (min-width: 1200px) {
+    .binn-entities-toolbar-grid {
+      grid-template-columns: minmax(0, 1fr) 248px;
+    }
+    .binn-entities-headline-row {
+      grid-template-columns: 210px minmax(0, 1fr);
+      align-items: center;
+    }
+    .binn-entities-query-row {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      align-items: end;
+    }
+  }
+  @media (max-width: 1199px) {
+    .binn-entities-view-row {
+      justify-content: flex-start;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+  <div class="binn-entities-workspace">
+    <section class="binn-panel binn-entities-toolbar">
+      <div class="binn-entities-toolbar-grid">
+        <div class="binn-entities-control-card">
+          <form
+            method="get"
+            hx-get="{% url 'binncrm:entities' %}"
+            hx-target="#entity-results"
+            hx-swap="outerHTML"
+            class="binn-entities-filter-row"
+          >
+            <input type="hidden" name="view" value="{{ current_view.key }}" />
+
+            <div class="binn-entities-headline-row">
+              <div class="binn-entities-toolbar-copy">
+                <span class="binn-kicker">{{ labels.entity_plural|default:"Contactos" }}</span>
+              </div>
+              <p class="binn-entities-inline-note">{{ entities|length }} visibles{% if searchable_fields %} · {{ searchable_fields|length }} campos buscables{% endif %}</p>
+            </div>
+
+            <div class="binn-entities-query-row">
+              <div class="binn-entities-compact-field">
+                <label for="entity-search">Buscar</label>
+                <input
+                  id="entity-search"
+                  type="text"
+                  name="q"
+                  value="{{ q }}"
+                  placeholder="{{ labels.search_placeholder|default:'Busca por nombre, identificacion o telefono' }}"
+                  class="binn-input w-full"
+                />
+              </div>
+
+              {% if saved_views %}
+                <div class="binn-entities-view-row">
+                  <span class="binn-module-tools-label">Vistas</span>
+                  <div class="binn-module-shortcuts">
+                    {% for view in saved_views %}
+                      <a
+                        href="{% url 'binncrm:entities' %}?view={{ view.key }}{% if q %}&q={{ q|urlencode }}{% endif %}"
+                        class="binn-module-shortcut {% if current_view.key == view.key %}binn-record-action-primary{% endif %}"
+                      >
+                        {{ view.label }}
+                      </a>
+                    {% endfor %}
+                  </div>
+                </div>
+              {% endif %}
+            </div>
+          </form>
+        </div>
+
+        <div class="binn-entities-action-card">
+          <div class="binn-entities-toolbar-actions">
+            {% if can_import_entities %}
+              <a href="{% url 'binncrm:entity_import' %}" class="binn-btn-secondary binn-btn-compact">Importar CSV</a>
+            {% endif %}
+            {% if can_create_entity %}
+              <a href="{% url 'binncrm:entity_create' %}" class="binn-btn-primary binn-btn-compact">+ Nueva {{ labels.entity_singular|default:"entidad" }}</a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {% include "binncrm/_entity_table.html" %}
+  </div>
+{% endblock %}

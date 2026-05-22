@@ -9,7 +9,10 @@ from tenants import views as tenant_views
 urlpatterns = [
     path("", tenant_views.TenantAccessListView.as_view(), name="dashboard"),
     path("health/", tenant_views.SystemHealthView.as_view(), name="health"),
+    path("health/runtime/", tenant_views.SystemRuntimeHealthView.as_view(), name="health_runtime"),
     path("tenants/", include(("tenants.urls", "tenants"), namespace="tenants")),
+    path("governance/", include(("governance.urls", "governance"), namespace="governance")),
+    path("consolidation/", include(("consolidation.urls", "consolidation"), namespace="consolidation")),
 
     path("accounts/login/", tenant_views.TenantLoginView.as_view(), name="login"),
     path("accounts/logout/", auth_views.LogoutView.as_view(), name="logout"),

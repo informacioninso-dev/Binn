@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page_title }} | Binn{% endblock %}
+
+{% block content %}
+  <div class="space-y-6">
+    <section class="binn-panel rounded-3xl p-6">
+      <span class="binn-kicker">Objeto custom</span>
+      <h1 class="binn-section-title mt-3">{{ page_title }}</h1>
+      <p class="binn-section-copy mt-2">El registro se guarda como payload flexible dentro del schema privado del tenant, pero con forma estable para operar y auditar.</p>
+    </section>
+
+    <section class="binn-panel rounded-3xl p-6">
+      <form method="post" class="space-y-5">
+        {% csrf_token %}
+        {% for field in form %}
+          <div>
+            <label class="mb-2 block text-sm font-medium text-slate-700">{{ field.label }}</label>
+            {{ field }}
+            {% if field.help_text %}
+              <p class="mt-2 text-xs text-slate-500">{{ field.help_text }}</p>
+            {% endif %}
+            {% for error in field.errors %}
+              <p class="mt-2 text-xs font-medium text-red-600">{{ error }}</p>
+            {% endfor %}
+          </div>
+        {% endfor %}
+        <div class="flex flex-wrap gap-3">
+          <button type="submit" class="binn-btn-primary">Guardar registro</button>
+          <a href="{% url 'binncrm:custom_object_records' object_schema.key %}" class="binn-btn-secondary">Cancelar</a>
+        </div>
+      </form>
+    </section>
+  </div>
+{% endblock %}

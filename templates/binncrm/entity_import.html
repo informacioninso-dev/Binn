@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}Importar {{ labels.entity_plural|default:"entidades" }} | Binn{% endblock %}
+
+{% block content %}
+  <div class="mx-auto max-w-5xl space-y-6">
+    <section class="binn-panel rounded-3xl p-6 sm:p-8">
+      <div class="mb-6">
+        <span class="binn-kicker">Importacion CSV</span>
+        <h1 class="binn-title mt-4">Carga muchas fichas de una sola vez.</h1>
+        <p class="binn-subtitle mt-3">Sube un CSV con encabezados simples y Binn crea o actualiza {{ labels.entity_plural|default:"entidades" }} sin tocar la estructura del tenant.</p>
+      </div>
+
+      <form method="post" enctype="multipart/form-data" class="space-y-6">
+        {% csrf_token %}
+        <div class="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_0.9fr]">
+          <div class="rounded-3xl border border-black/5 bg-gray-50 p-5">
+            <div class="space-y-4">
+              <div>
+                <label class="mb-1 block text-xs text-gray-500">{{ form.csv_file.label }}</label>
+                {{ form.csv_file }}
+                {% if form.csv_file.help_text %}
+                  <p class="mt-1 text-xs text-gray-400">{{ form.csv_file.help_text }}</p>
+                {% endif %}
+                {% for error in form.csv_file.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+              </div>
+
+              <label class="flex items-start gap-3 rounded-2xl border border-black/5 bg-white px-4 py-3 text-sm text-gray-700">
+                {{ form.update_existing }}
+                <span>
+                  <span class="block font-medium">{{ form.update_existing.label }}</span>
+                  {% if form.update_existing.help_text %}
+                    <span class="mt-1 block text-xs text-gray-500">{{ form.update_existing.help_text }}</span>
+                  {% endif %}
+                </span>
+              </label>
+            </div>
+          </div>
+
+          <div class="rounded-3xl border border-black/5 bg-gray-50 p-5 text-sm text-gray-600">
+            <h2 class="text-lg font-semibold text-gray-900">Columnas recomendadas</h2>
+            <div class="mt-4 flex flex-wrap gap-2">
+              {% for column in sample_columns %}
+                <span class="rounded-full bg-white px-3 py-1 text-xs font-medium text-gray-700">{{ column }}</span>
+              {% endfor %}
+            </div>
+            <div class="mt-4 space-y-2">
+              <p>Tambien puedes usar los nombres de los campos flexibles del tenant, por ejemplo `placa`, `departamento` o `campana`.</p>
+              <p>Si el archivo trae `cedula`, `ruc`, `telefono`, `correo` o `notas`, Binn los reconoce automaticamente.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap gap-3 border-t border-black/5 pt-6">
+          <button type="submit" class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">Importar ahora</button>
+          <a href="{% url 'binncrm:entities' %}" class="rounded-xl border px-4 py-2 text-sm hover:bg-gray-50">Volver</a>
+        </div>
+      </form>
+    </section>
+
+    {% if import_summary %}
+      <section class="grid grid-cols-1 gap-4 md:grid-cols-4">
+        <article class="binn-panel rounded-3xl p-5">
+          <p class="binn-metric-label">Filas leidas</p>
+          <p class="binn-metric-value">{{ import_summary.processed }}</p>
+        </article>
+        <article class="binn-panel rounded-3xl p-5">
+          <p class="binn-metric-label">Creadas</p>
+          <p class="binn-metric-value">{{ import_summary.created }}</p>
+        </article>
+        <article class="binn-panel rounded-3xl p-5">
+          <p class="binn-metric-label">Actualizadas</p>
+          <p class="binn-metric-value">{{ import_summary.updated }}</p>
+        </article>
+        <article class="binn-panel rounded-3xl p-5">
+          <p class="binn-metric-label">Saltadas</p>
+          <p class="binn-metric-value">{{ import_summary.skipped }}</p>
+        </article>
+      </section>
+
+      {% if import_summary.error_rows %}
+        <section class="binn-panel rounded-3xl p-6">
+          <h2 class="text-lg font-semibold">Filas con observaciones</h2>
+          <div class="mt-4 space-y-3">
+            {% for error in import_summary.error_rows %}
+              <div class="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                Fila {{ error.row_number }}: {{ error.message }}
+              </div>
+            {% endfor %}
+          </div>
+        </section>
+      {% endif %}
+    {% endif %}
+  </div>
+{% endblock %}

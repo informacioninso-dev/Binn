@@ -1,0 +1,405 @@
+{% extends "base.html" %}
+
+{% block title %}{{ group.name }} | Governance{% endblock %}
+{% block main_class %}container mx-auto w-full max-w-6xl flex-1 px-4 py-6{% endblock %}
+
+{% block head_extra %}
+<style>
+  .binn-governance-table-shell {
+    overflow-x: auto;
+    border-radius: 1.1rem;
+    border: 1px solid var(--binn-line);
+    background: rgba(255, 255, 255, 0.82);
+  }
+  .binn-governance-stack {
+    display: grid;
+    gap: 0.95rem;
+  }
+  .binn-governance-stack-card {
+    border-radius: 1rem;
+    border: 1px solid var(--binn-line);
+    background: rgba(255, 255, 255, 0.8);
+    padding: 1rem;
+  }
+  .binn-governance-form-shell {
+    border-radius: 1.2rem;
+    border: 1px solid var(--binn-line);
+    background: rgba(228, 236, 245, 0.66);
+    padding: 1.1rem;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+  <div class="space-y-6">
+    <section class="binn-panel rounded-3xl p-6 sm:p-8">
+      <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+        <div class="max-w-3xl">
+          <span class="binn-kicker">Holding corporativo</span>
+          <h1 class="binn-title mt-4">{{ group.name }}</h1>
+          <p class="binn-subtitle mt-3">{{ group.notes|default:"Este holding todavia no tiene notas operativas registradas." }}</p>
+        </div>
+        <div class="flex flex-wrap gap-3">
+          <a href="{% url 'governance:group_switch' group.pk %}" class="binn-btn-primary">Abrir dashboard</a>
+          {% if request.user.is_superuser %}
+            <a href="{% url 'governance:group_edit' group.pk %}" class="binn-btn-secondary">Editar gobierno</a>
+            <a href="{% url 'governance:group_list' %}" class="binn-btn-secondary">Volver a holdings</a>
+          {% else %}
+            <a href="{% url 'dashboard' %}" class="binn-btn-secondary">Volver</a>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="mt-6 flex flex-wrap gap-3">
+        <span class="binn-pill">{{ group.get_status_display }}</span>
+        <span class="binn-pill">Modelo: {{ group.get_operating_model_display }}</span>
+        <span class="binn-pill">Consolidacion: {{ group.get_consolidation_mode_display }}</span>
+        <span class="binn-pill">Owner: {{ group.owner.username|default:"Sin owner" }}</span>
+        {% if group_membership %}
+          <span class="binn-pill">Tu rol: {{ group_membership.get_role_display }}</span>
+        {% endif %}
+      </div>
+
+      <div class="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div class="binn-note">
+          <p class="text-xs uppercase tracking-wide text-gray-500">Empresas vinculadas</p>
+          <p class="mt-2 text-2xl font-extrabold tracking-tight">{{ tenant_links|length }}</p>
+        </div>
+        <div class="binn-note">
+          <p class="text-xs uppercase tracking-wide text-gray-500">Miembros globales</p>
+          <p class="mt-2 text-2xl font-extrabold tracking-tight">{{ memberships|length }}</p>
+        </div>
+        <div class="binn-note">
+          <p class="text-xs uppercase tracking-wide text-gray-500">Accesos por empresa</p>
+          <p class="mt-2 text-2xl font-extrabold tracking-tight">{{ tenant_accesses|length }}</p>
+        </div>
+      </div>
+
+      <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div class="binn-note">
+          <p class="text-xs uppercase tracking-wide text-gray-500">Licencias activas</p>
+          <p class="mt-2 text-2xl font-extrabold tracking-tight">{{ usage_snapshot.seat_usage }} / {{ usage_snapshot.seat_limit }}</p>
+          <p class="mt-2 text-xs {% if usage_snapshot.seat_health.is_over %}text-red-600{% else %}text-slate-500{% endif %}">
+            {% if usage_snapshot.seat_health.is_over %}Se excedio el pool de licencias.{% else %}{{ usage_snapshot.seat_health.remaining }} licencias disponibles.{% endif %}
+          </p>
+        </div>
+        <div class="binn-note">
+          <p class="text-xs uppercase tracking-wide text-gray-500">Managers asignados</p>
+          <p class="mt-2 text-2xl font-extrabold tracking-tight">{{ usage_snapshot.manager_usage }} / {{ usage_snapshot.manager_limit }}</p>
+          <p class="mt-2 text-xs {% if usage_snapshot.manager_health.is_over %}text-red-600{% else %}text-slate-500{% endif %}">
+            {% if usage_snapshot.manager_health.is_over %}Se excedio el limite de managers.{% else %}{{ usage_snapshot.manager_health.remaining }} cupos disponibles.{% endif %}
+          </p>
+        </div>
+        <div class="binn-note">
+          <p class="text-xs uppercase tracking-wide text-gray-500">Storage total</p>
+          <p class="mt-2 text-2xl font-extrabold tracking-tight">{{ usage_snapshot.storage_label }}</p>
+          <p class="mt-2 text-xs {% if usage_snapshot.storage_health.is_over %}text-red-600{% else %}text-slate-500{% endif %}">
+            Quota: {{ usage_snapshot.storage_limit_mb }} MB
+          </p>
+        </div>
+        <div class="binn-note">
+          <p class="text-xs uppercase tracking-wide text-gray-500">Huella operativa</p>
+          <p class="mt-2 text-2xl font-extrabold tracking-tight">{{ usage_snapshot.document_count }}</p>
+          <p class="mt-2 text-xs text-slate-500">{{ usage_snapshot.object_record_count }} registros custom visibles</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="grid grid-cols-1 gap-6 xl:grid-cols-[1.04fr_0.96fr]">
+      <div class="space-y-6">
+        <section class="binn-panel rounded-3xl p-6">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <h2 class="binn-section-title">Empresas del holding</h2>
+              <p class="binn-section-copy mt-2">El holding puede existir aunque las empresas esten bloqueadas, en solo agregados o con detalle completo.</p>
+            </div>
+          </div>
+
+          <div class="mt-5 binn-governance-table-shell">
+            <table class="min-w-full divide-y divide-black/5 text-sm">
+              <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th class="px-4 py-3">Empresa</th>
+                  <th class="px-4 py-3">Usuarios</th>
+                  <th class="px-4 py-3">Managers</th>
+                  <th class="px-4 py-3">Storage</th>
+                  <th class="px-4 py-3">Docs</th>
+                  <th class="px-4 py-3">Objetos</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-black/5">
+                {% for row in usage_snapshot.tenant_rows %}
+                  <tr>
+                    <td class="px-4 py-3 align-top">
+                      <p class="font-medium text-slate-900">{{ row.tenant.name }}</p>
+                      <p class="mt-1 text-xs text-slate-500">{{ row.link.effective_mode }}{% if row.warning %} · warning de lectura{% endif %}</p>
+                    </td>
+                    <td class="px-4 py-3 align-top">
+                      <p class="font-medium text-slate-900">{{ row.local_user_count }} / {{ row.local_user_health.limit }}</p>
+                      <p class="mt-1 text-xs {% if row.local_user_health.is_over %}text-red-600{% else %}text-slate-500{% endif %}">
+                        {% if row.local_user_health.is_over %}Sobre el limite local{% else %}Locales activos{% endif %}
+                      </p>
+                    </td>
+                    <td class="px-4 py-3 align-top">
+                      <p class="font-medium text-slate-900">{{ row.manager_count }}</p>
+                      <p class="mt-1 text-xs text-slate-500">
+                        {% if row.manager_names %}{{ row.manager_names|join:", " }}{% else %}Sin gerentes asignados{% endif %}
+                      </p>
+                    </td>
+                    <td class="px-4 py-3 align-top">
+                      <p class="font-medium text-slate-900">{{ row.storage_label }}</p>
+                      <p class="mt-1 text-xs {% if row.storage_health.is_over %}text-red-600{% else %}text-slate-500{% endif %}">Quota tenant: {{ row.storage_health.limit }} MB</p>
+                    </td>
+                    <td class="px-4 py-3 align-top font-medium text-slate-900">{{ row.document_count }}</td>
+                    <td class="px-4 py-3 align-top font-medium text-slate-900">{{ row.object_record_count }}</td>
+                  </tr>
+                {% empty %}
+                  <tr>
+                    <td colspan="6" class="px-4 py-6 text-sm text-slate-500">Todavia no hay uso operativo para consolidar.</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+          <div class="mt-5 binn-governance-stack">
+            {% for link in tenant_links %}
+              <article class="binn-governance-stack-card">
+                <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <div class="flex flex-wrap items-center gap-3">
+                      <h3 class="text-lg font-semibold">{{ link.tenant.name }}</h3>
+                      <span class="binn-pill">{{ link.get_consolidation_mode_display }}</span>
+                      <span class="binn-pill">Efectivo: {{ link.effective_mode }}</span>
+                      {% if link.is_primary %}
+                        <span class="binn-pill">Primaria</span>
+                      {% endif %}
+                    </div>
+                    <p class="mt-2 text-sm text-slate-500">{{ link.tenant.schema_name }}{% if link.tenant.primary_domain %} | {{ link.tenant.primary_domain }}{% endif %}</p>
+                    <p class="mt-3 text-sm text-slate-600">
+                      {% if not link.tenant.allow_consolidation %}
+                        Binn bloqueo la consolidacion de esta empresa desde el tenant.
+                      {% elif link.effective_mode == "blocked" %}
+                        El holding administra este vinculo, pero la empresa no comparte nada.
+                      {% elif link.effective_mode == "aggregate_only" %}
+                        Solo se exponen agregados; no hay acceso al detalle operativo.
+                      {% else %}
+                        La empresa admite drill-down corporativo. El Group Admin decide que usuarios del holding pueden entrar.
+                      {% endif %}
+                    </p>
+                  </div>
+                  <div class="text-sm text-slate-500">
+                    <p>Estado: {% if link.is_active %}Activo{% else %}Inactivo{% endif %}</p>
+                    <p class="mt-1">Join: {{ link.joined_at|date:"d/m/Y H:i" }}</p>
+                  </div>
+                </div>
+              </article>
+            {% empty %}
+              <div class="binn-empty">Este holding todavia no tiene empresas vinculadas.</div>
+            {% endfor %}
+          </div>
+
+          {% if can_manage_links %}
+            <div class="mt-6 binn-governance-form-shell">
+              <h3 class="text-lg font-semibold tracking-tight">Vincular o actualizar empresa</h3>
+              {% if tenant_link_form.non_field_errors %}
+                <p class="mt-3 text-sm text-red-600">{{ tenant_link_form.non_field_errors }}</p>
+              {% endif %}
+              <form method="post" action="{% url 'governance:group_tenant_link_upsert' group.pk %}" class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+                {% csrf_token %}
+                {% for field in tenant_link_form %}
+                  <div>
+                    <label for="{{ field.id_for_label }}" class="mb-2 block text-sm font-medium text-slate-700">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.errors %}
+                      <p class="mt-2 text-xs text-red-600">{{ field.errors|join:", " }}</p>
+                    {% endif %}
+                  </div>
+                {% endfor %}
+                <div class="md:col-span-2">
+                  <button type="submit" class="binn-btn-primary">Guardar vinculo</button>
+                </div>
+              </form>
+            </div>
+          {% endif %}
+        </section>
+
+        <section class="binn-panel rounded-3xl p-6">
+          <h2 class="binn-section-title">Miembros del holding</h2>
+          <div class="mt-4 binn-governance-stack">
+            {% for membership in memberships %}
+              <article class="binn-governance-stack-card">
+                <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <p class="font-semibold text-slate-900">{{ membership.user.username }}</p>
+                    <p class="text-sm text-slate-500">{{ membership.user.email|default:"Sin correo" }}</p>
+                  </div>
+                  <div class="flex flex-wrap items-center gap-3 text-sm">
+                    <span class="binn-pill">{{ membership.get_role_display }}</span>
+                    <span class="binn-pill">{% if membership.is_active %}Activo{% else %}Inactivo{% endif %}</span>
+                  </div>
+                </div>
+              </article>
+            {% empty %}
+              <div class="binn-empty">Este holding no tiene miembros todavia.</div>
+            {% endfor %}
+          </div>
+
+          {% if can_manage_group %}
+            <div class="mt-6 binn-governance-form-shell">
+              <h3 class="text-lg font-semibold tracking-tight">Asignar miembro global</h3>
+              {% if membership_form.non_field_errors %}
+                <p class="mt-3 text-sm text-red-600">{{ membership_form.non_field_errors }}</p>
+              {% endif %}
+              <form method="post" action="{% url 'governance:group_membership_upsert' group.pk %}" class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+                {% csrf_token %}
+                {% for field in membership_form %}
+                  <div>
+                    <label for="{{ field.id_for_label }}" class="mb-2 block text-sm font-medium text-slate-700">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.errors %}
+                      <p class="mt-2 text-xs text-red-600">{{ field.errors|join:", " }}</p>
+                    {% endif %}
+                  </div>
+                {% endfor %}
+                <div class="md:col-span-3">
+                  <button type="submit" class="binn-btn-primary">Guardar miembro</button>
+                </div>
+              </form>
+            </div>
+          {% endif %}
+        </section>
+      </div>
+
+      <div class="space-y-6">
+        <section class="binn-panel rounded-3xl p-6">
+          <h2 class="binn-section-title">Accesos por empresa</h2>
+          <p class="binn-section-copy mt-2">Aqui decides que usuarios del holding pueden entrar a cada empresa y con que rol operativo trabajaran dentro de ella.</p>
+          <div class="mt-4 binn-governance-stack">
+            {% for access in tenant_accesses %}
+              <article class="binn-governance-stack-card">
+                <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                  <div>
+                    <p class="font-semibold text-slate-900">{{ access.tenant.name }} · {{ access.user.username }}</p>
+                    <p class="mt-1 text-sm text-slate-500">Rol: {{ access.role_label }} · {% if access.is_active %}Activo{% else %}Inactivo{% endif %}</p>
+                    <p class="mt-2 text-xs text-slate-500">Actualizado {{ access.updated_at|date:"d/m/Y H:i" }}{% if access.granted_by %} · por {{ access.granted_by.username }}{% endif %}</p>
+                  </div>
+                  {% if can_manage_group_access %}
+                    <div class="flex gap-2">
+                      <form method="post" action="{% url 'governance:group_tenant_access_toggle' access.pk %}">
+                        {% csrf_token %}
+                        <button type="submit" class="binn-btn-secondary binn-btn-compact">{% if access.is_active %}Desactivar{% else %}Activar{% endif %}</button>
+                      </form>
+                      <form method="post" action="{% url 'governance:group_tenant_access_delete' access.pk %}">
+                        {% csrf_token %}
+                        <button type="submit" class="binn-btn-danger binn-btn-compact">Quitar</button>
+                      </form>
+                    </div>
+                  {% endif %}
+                </div>
+              </article>
+            {% empty %}
+              <div class="binn-empty">Todavia no existen accesos por empresa dentro de este holding.</div>
+            {% endfor %}
+          </div>
+
+          {% if can_manage_group_access %}
+            <div class="mt-6 binn-governance-form-shell">
+              <h3 class="text-lg font-semibold tracking-tight">Asignar acceso a una empresa del grupo</h3>
+              {% if tenant_access_form.non_field_errors %}
+                <p class="mt-3 text-sm text-red-600">{{ tenant_access_form.non_field_errors }}</p>
+              {% endif %}
+              <form method="post" action="{% url 'governance:group_tenant_access_upsert' group.pk %}" class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+                {% csrf_token %}
+                {% for field in tenant_access_form %}
+                  <div>
+                    <label for="{{ field.id_for_label }}" class="mb-2 block text-sm font-medium text-slate-700">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.help_text %}
+                      <p class="mt-2 text-xs text-slate-500">{{ field.help_text }}</p>
+                    {% endif %}
+                    {% if field.errors %}
+                      <p class="mt-2 text-xs text-red-600">{{ field.errors|join:", " }}</p>
+                    {% endif %}
+                  </div>
+                {% endfor %}
+                <div class="md:col-span-2">
+                  <button type="submit" class="binn-btn-primary">Guardar acceso</button>
+                </div>
+              </form>
+            </div>
+          {% endif %}
+        </section>
+
+        <section class="binn-panel rounded-3xl p-6">
+          <h2 class="binn-section-title">Billing del holding</h2>
+          <div class="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div class="binn-note">
+              <p class="text-xs uppercase tracking-wide text-gray-500">Fee mensual</p>
+              <p class="mt-2 text-xl font-extrabold tracking-tight">{{ billing_account.currency }} {{ billing_account.monthly_amount }}</p>
+              <p class="mt-2 text-xs text-slate-500">Renueva: {{ billing_account.renews_on|date:"d/m/Y"|default:"Sin fecha" }}</p>
+            </div>
+            <div class="binn-note">
+              <p class="text-xs uppercase tracking-wide text-gray-500">Enforcement</p>
+              <p class="mt-2 text-xl font-extrabold tracking-tight">{% if billing_account.enforce_limits %}Activo{% else %}Solo referencia{% endif %}</p>
+              <p class="mt-2 text-xs text-slate-500">Pool seats {{ billing_account.seat_limit }} · storage {{ billing_account.storage_limit_mb }} MB</p>
+            </div>
+          </div>
+          {% if can_manage_billing %}
+            {% if billing_form.non_field_errors %}
+              <p class="mt-3 text-sm text-red-600">{{ billing_form.non_field_errors }}</p>
+            {% endif %}
+            <form method="post" action="{% url 'governance:group_billing' group.pk %}" class="mt-4 binn-governance-form-shell grid grid-cols-1 gap-4">
+              {% csrf_token %}
+              {% for field in billing_form %}
+                <div>
+                  <label for="{{ field.id_for_label }}" class="mb-2 block text-sm font-medium text-slate-700">{{ field.label }}</label>
+                  {{ field }}
+                  {% if field.errors %}
+                    <p class="mt-2 text-xs text-red-600">{{ field.errors|join:", " }}</p>
+                  {% endif %}
+                </div>
+              {% endfor %}
+              <div>
+                <button type="submit" class="binn-btn-primary">Guardar billing</button>
+              </div>
+            </form>
+          {% else %}
+            <div class="mt-4 space-y-3 text-sm text-slate-600">
+              <div class="binn-note">
+                <p><strong class="text-slate-900">Nombre:</strong> {{ billing_account.billing_name|default:"Sin definir" }}</p>
+              </div>
+              <div class="binn-note">
+                <p><strong class="text-slate-900">Correo:</strong> {{ billing_account.billing_email|default:"Sin definir" }}</p>
+              </div>
+              <div class="binn-note">
+                <p><strong class="text-slate-900">RUC/NIT:</strong> {{ billing_account.tax_id|default:"Sin definir" }}</p>
+              </div>
+              <div class="binn-note">
+                <p><strong class="text-slate-900">Licencias:</strong> {{ billing_account.seat_limit }}</p>
+              </div>
+              <div class="binn-note">
+                <p><strong class="text-slate-900">Storage:</strong> {{ billing_account.storage_limit_mb }} MB</p>
+              </div>
+            </div>
+          {% endif %}
+        </section>
+
+        <section class="binn-panel rounded-3xl p-6">
+          <h2 class="binn-section-title">Eventos recientes</h2>
+          <div class="mt-4 binn-governance-stack">
+            {% for event in recent_events %}
+              <article class="binn-governance-stack-card">
+                <p class="font-medium text-slate-900">{{ event.event_type }}</p>
+                <p class="mt-1 text-sm text-slate-600">{{ event.message|default:"Sin mensaje adicional." }}</p>
+                <p class="mt-2 text-xs text-slate-500">{{ event.created_at|date:"d/m/Y H:i" }}{% if event.actor %} · {{ event.actor.username }}{% endif %}{% if event.tenant %} · {{ event.tenant.name }}{% endif %}</p>
+              </article>
+            {% empty %}
+              <div class="binn-empty">Aun no hay eventos de gobernanza registrados.</div>
+            {% endfor %}
+          </div>
+        </section>
+      </div>
+    </section>
+  </div>
+{% endblock %}

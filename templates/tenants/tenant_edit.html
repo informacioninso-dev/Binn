@@ -1,91 +1,177 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 
-{% block title %}Editar {{ object.name }}{% endblock %}
+{% block title %}Editar empresa | Binn{% endblock %}
 
 {% block content %}
-  <div class="mb-4">
-    <h1 class="text-2xl font-bold">Editar Clinica</h1>
-    <p class="text-sm text-gray-600">Schema: <span class="font-mono">{{ object.schema_name }}</span></p>
-  </div>
-
-  <div class="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-    <div class="rounded-xl border bg-white p-4">
-      <p class="text-xs uppercase tracking-wide text-gray-500">Plan actual</p>
-      <h2 class="mt-2 text-lg font-semibold">{{ plan_definition.label }}</h2>
-      <p class="mt-2 text-sm text-gray-600">{{ plan_definition.description }}</p>
-      <div class="mt-3 text-sm text-gray-600">
-        <div>Usuarios: {{ plan_definition.max_users_display }}</div>
-        <div>Admins: {{ plan_definition.max_admins_display }}</div>
-        <div>Soporte: {{ plan_definition.support_tier }}</div>
+  <div class="mx-auto max-w-5xl">
+    <section class="binn-panel rounded-3xl p-6 sm:p-8">
+      <div class="mb-6">
+        <h1 class="text-3xl font-bold tracking-tight">Editar empresa</h1>
+        <p class="mt-2 text-sm text-gray-600">Ajusta modulos, nombres, permisos y flujos de esta empresa sin salir del panel administrativo.</p>
       </div>
-    </div>
-    <div class="rounded-xl border bg-white p-4">
-      <p class="text-xs uppercase tracking-wide text-gray-500">Diagnostico rapido</p>
-      <div class="mt-2 flex items-center gap-2">
-        {% if diagnostics.status == 'error' %}
-          <span class="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">Error</span>
-        {% elif diagnostics.status == 'warning' %}
-          <span class="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">Atencion</span>
-        {% else %}
-          <span class="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">Saludable</span>
+
+      <form method="post" class="space-y-6">
+        {% csrf_token %}
+        {% if form.non_field_errors %}
+          <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {{ form.non_field_errors }}
+          </div>
         {% endif %}
-      </div>
-      <div class="mt-3 space-y-2 text-sm text-gray-600">
-        <div>Dominio principal: {{ diagnostics.primary_domain|default:"Sin dominio" }}</div>
-        <div>Miembros activos: {{ diagnostics.active_members }}</div>
-        <div>Admins activos: {{ diagnostics.active_admins }}</div>
-      </div>
-    </div>
-  </div>
 
-  <form method="post" class="max-w-xl space-y-4">
-    {% csrf_token %}
+        <div class="grid grid-cols-1 gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+          <div class="space-y-6">
+            <div class="rounded-3xl border border-black/5 bg-gray-50 p-5">
+              <div class="mb-4">
+                <h2 class="text-lg font-semibold">Base de la empresa</h2>
+                <p class="mt-1 text-sm text-gray-500">Nombre comercial, plan y tipo de operacion principal.</p>
+              </div>
+              <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                {% for field in form %}
+                  {% if field.name == "name" or field.name == "plan" or field.name == "profile" or field.name == "max_users" or field.name == "storage_quota_mb" or field.name == "is_active" or field.name == "allow_consolidation" or field.name == "reset_to_profile_defaults" %}
+                    <div class="{% if field.name == 'reset_to_profile_defaults' or field.name == 'is_active' or field.name == 'allow_consolidation' %}md:col-span-2{% endif %}">
+                      {% if field.name == "reset_to_profile_defaults" or field.name == "is_active" or field.name == "allow_consolidation" %}
+                        <label class="flex items-start gap-3 rounded-2xl border border-black/5 bg-white px-4 py-3 text-sm text-gray-700">
+                          {{ field }}
+                          <span>
+                            <span class="block font-medium">{{ field.label }}</span>
+                            {% if field.help_text %}
+                              <span class="mt-1 block text-xs text-gray-500">{{ field.help_text }}</span>
+                            {% endif %}
+                          </span>
+                        </label>
+                      {% else %}
+                        <label class="mb-1 block text-xs text-gray-500">{{ field.label }}</label>
+                        {{ field }}
+                        {% if field.help_text %}
+                          <p class="mt-1 text-xs text-gray-400">{{ field.help_text }}</p>
+                        {% endif %}
+                      {% endif %}
+                      {% for error in field.errors %}
+                        <p class="mt-1 text-xs text-red-600">{{ error }}</p>
+                      {% endfor %}
+                    </div>
+                  {% endif %}
+                {% endfor %}
+              </div>
+            </div>
 
-    {% if form.non_field_errors %}
-      <div class="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-        {{ form.non_field_errors }}
-      </div>
-    {% endif %}
+            <div class="rounded-3xl border border-black/5 bg-gray-50 p-5">
+              <h2 class="text-lg font-semibold">Guia rapida</h2>
+              <div class="mt-4 space-y-3 text-sm text-gray-600">
+                <p>Estos campos controlan lo que la empresa vera en su CRM. Si desactivas un modulo, desaparece del menu y del inicio.</p>
+                <p><strong>Module order</strong> cambia el orden del menu. <strong>Dashboard widgets</strong> prende o apaga bloques completos de la pantalla inicial.</p>
+                <p><strong>Role policies</strong> define que puede ver o hacer cada rol, por ejemplo crear, mover o completar tareas.</p>
+                <p><strong>Document blueprints</strong> sirve para personalizar tipos de documento por empresa sin tocar codigo.</p>
+                <p>Si cambias el perfil y activas "Reaplicar defaults del perfil", Binn vuelve a sembrar nombres, campos y flujos base para ese tipo de negocio.</p>
+                <p>Los pipelines se sincronizan al guardar. Si ya existe historial en un flujo viejo, Binn lo conserva para no perder datos anteriores.</p>
+              </div>
+            </div>
+          </div>
 
-    <div>
-      <label class="mb-1 block text-sm font-medium">Nombre</label>
-      {{ form.name }}
-      {{ form.name.errors }}
-    </div>
+          <div class="space-y-6">
+            <div class="rounded-3xl border border-black/5 bg-gray-50 p-5">
+              <div class="mb-4">
+                <h2 class="text-lg font-semibold">Modulos y nombres</h2>
+                <p class="mt-1 text-sm text-gray-500">Controla que modulos existen, como se llaman en pantalla y que puede hacer cada rol.</p>
+              </div>
+              <div class="space-y-4">
+                {% for field in form %}
+                  {% if field.name == "feature_flags_json" or field.name == "labels_json" or field.name == "role_policies_json" %}
+                    <div>
+                      <label class="mb-1 block text-xs text-gray-500">{{ field.label }}</label>
+                      {{ field }}
+                      {% if field.help_text %}
+                        <p class="mt-1 text-xs text-gray-400">{{ field.help_text }}</p>
+                      {% endif %}
+                      {% for error in field.errors %}
+                        <p class="mt-1 text-xs text-red-600">{{ error }}</p>
+                      {% endfor %}
+                    </div>
+                  {% endif %}
+                {% endfor %}
+              </div>
+            </div>
 
-    <div>
-      <label class="mb-1 block text-sm font-medium">Plan</label>
-      {{ form.plan }}
-      {{ form.plan.errors }}
-    </div>
+            <div class="rounded-3xl border border-black/5 bg-gray-50 p-5">
+              <div class="mb-4">
+                <h2 class="text-lg font-semibold">Ficha de clientes y orden del menu</h2>
+                <p class="mt-1 text-sm text-gray-500">Define campos extra para la ficha y el orden visible del CRM dentro de esta empresa.</p>
+              </div>
+              <div class="space-y-4">
+                {% for field in form %}
+                  {% if field.name == "entity_fields_json" or field.name == "custom_objects_json" or field.name == "module_order_json" or field.name == "dashboard_widgets_json" %}
+                    <div>
+                      <label class="mb-1 block text-xs text-gray-500">{{ field.label }}</label>
+                      {{ field }}
+                      {% if field.help_text %}
+                        <p class="mt-1 text-xs text-gray-400">{{ field.help_text }}</p>
+                      {% endif %}
+                      {% for error in field.errors %}
+                        <p class="mt-1 text-xs text-red-600">{{ error }}</p>
+                      {% endfor %}
+                    </div>
+                  {% endif %}
+                {% endfor %}
+              </div>
+            </div>
 
-    <div class="flex items-center gap-2">
-      {{ form.is_active }}
-      <label class="text-sm font-medium">Clinica activa</label>
-      {{ form.is_active.errors }}
-    </div>
+            <div class="rounded-3xl border border-black/5 bg-gray-50 p-5" id="pipeline-stages">
+              <div class="mb-4">
+                <h2 class="text-lg font-semibold">Pipeline y etapas del tablero</h2>
+                <p class="mt-1 text-sm text-gray-500">Las etapas que pongas aqui se convierten en las columnas visibles de Oportunidades: por ejemplo Nuevo, Contactado, Propuesta o Ganado.</p>
+              </div>
+              <div class="space-y-4">
+                {% for field in form %}
+                  {% if field.name == "pipeline_templates_json" %}
+                    <div>
+                      <div class="rounded-2xl border border-black/5 bg-white px-4 py-3 text-sm text-gray-600">
+                        <strong class="text-gray-900">Ejemplo rapido:</strong>
+                        <span class="mt-1 block">Si tu proceso comercial usa <em>Nuevo -> Contactado -> Propuesta -> Ganado</em>, esas seran las columnas del kanban.</span>
+                      </div>
+                      <label class="mb-1 mt-4 block text-xs text-gray-500">{{ field.label }}</label>
+                      {{ field }}
+                      {% if field.help_text %}
+                        <p class="mt-1 text-xs text-gray-400">{{ field.help_text }}</p>
+                      {% endif %}
+                      {% for error in field.errors %}
+                        <p class="mt-1 text-xs text-red-600">{{ error }}</p>
+                      {% endfor %}
+                    </div>
+                  {% endif %}
+                {% endfor %}
+              </div>
+            </div>
 
-    <div class="rounded-lg border bg-gray-50 p-3">
-      <h3 class="mb-2 text-sm font-semibold text-gray-700">Dominios</h3>
-      {% for d in domains %}
-        <div class="text-sm">
-          {{ d.domain }}
-          {% if d.is_primary %}<span class="text-xs text-blue-500">(primario)</span>{% endif %}
+            <div class="rounded-3xl border border-black/5 bg-gray-50 p-5">
+              <div class="mb-4">
+                <h2 class="text-lg font-semibold">Tipos de documento</h2>
+                <p class="mt-1 text-sm text-gray-500">Ajusta los documentos disponibles segun el tipo de negocio y lo que realmente necesita operar.</p>
+              </div>
+              <div class="space-y-4">
+                {% for field in form %}
+                  {% if field.name == "document_blueprints_json" %}
+                    <div>
+                      <label class="mb-1 block text-xs text-gray-500">{{ field.label }}</label>
+                      {{ field }}
+                      {% if field.help_text %}
+                        <p class="mt-1 text-xs text-gray-400">{{ field.help_text }}</p>
+                      {% endif %}
+                      {% for error in field.errors %}
+                        <p class="mt-1 text-xs text-red-600">{{ error }}</p>
+                      {% endfor %}
+                    </div>
+                  {% endif %}
+                {% endfor %}
+              </div>
+            </div>
+          </div>
         </div>
-      {% empty %}
-        <p class="text-sm text-gray-400">Sin dominios configurados.</p>
-      {% endfor %}
-    </div>
 
-    <div class="flex gap-2">
-      <button type="submit"
-              class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
-        Guardar cambios
-      </button>
-      <a href="{% url 'tenants:detail' object.pk %}" class="rounded-lg border px-4 py-2 text-sm">
-        Cancelar
-      </a>
-    </div>
-  </form>
+        <div class="flex flex-wrap gap-3 border-t border-black/5 pt-6">
+          <button type="submit" class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">Guardar cambios</button>
+          <a href="{% url 'tenants:detail' object.pk %}" class="rounded-xl border px-4 py-2 text-sm hover:bg-gray-50">Cancelar</a>
+        </div>
+      </form>
+    </section>
+  </div>
 {% endblock %}
-

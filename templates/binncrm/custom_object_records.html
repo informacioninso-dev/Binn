@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}{{ object_schema.label }} | Binn{% endblock %}
+
+{% block head_extra %}
+<style>
+  .binn-object-records-workspace { display: flex; flex-direction: column; gap: 0.85rem; }
+  .binn-object-records-toolbar { display: grid; gap: 0.7rem; border-radius: 1.15rem; padding: 0.8rem; background: radial-gradient(circle at top right, rgba(0,123,255,0.08), transparent 16rem), linear-gradient(180deg, rgba(255,255,255,0.985) 0%, rgba(247,250,255,0.985) 100%); }
+  .binn-object-records-toolbar-grid { display: grid; gap: 0.8rem; }
+  .binn-object-records-control-card, .binn-object-records-action-card { display: grid; gap: 0.6rem; padding: 0.8rem 0.85rem; border-radius: 1rem; border: 1px solid rgba(15,23,42,0.06); background: rgba(255,255,255,0.9); box-shadow: 0 8px 18px rgba(15,23,42,0.04); }
+  .binn-object-records-headline-row, .binn-object-records-query-row { display: grid; gap: 0.55rem; }
+  .binn-object-records-toolbar-copy { display: flex; align-items: center; gap: 0.55rem; min-height: 42px; }
+  .binn-object-records-toolbar-copy .binn-kicker { padding: 0.34rem 0.64rem; font-size: 0.68rem; }
+  .binn-object-records-compact-field { display: grid; gap: 0.3rem; }
+  .binn-object-records-compact-field label { font-size: 0.72rem; line-height: 1; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #667085; }
+  .binn-object-records-compact-field .binn-input { min-height: 48px; }
+  .binn-object-records-inline-note { margin: 0; font-size: 0.74rem; line-height: 1.4; color: var(--binn-ink-soft); }
+  .binn-object-records-toolbar-actions { display: grid; gap: 0.45rem; align-items: start; }
+  .binn-object-records-toolbar-actions > a { width: 100%; justify-content: center; text-align: center; }
+  @media (min-width: 1200px) {
+    .binn-object-records-toolbar-grid { grid-template-columns: minmax(0, 1fr) 248px; }
+    .binn-object-records-headline-row { grid-template-columns: 210px minmax(0, 1fr); align-items: center; }
+    .binn-object-records-query-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: end; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+  <div class="binn-object-records-workspace">
+    <section class="binn-panel binn-object-records-toolbar">
+      <div class="binn-object-records-toolbar-grid">
+        <div class="binn-object-records-control-card">
+          <div class="binn-object-records-headline-row">
+            <div class="binn-object-records-toolbar-copy">
+              <span class="binn-kicker">{{ object_schema.label }}</span>
+            </div>
+            <p class="binn-object-records-inline-note">{{ object_schema.description|default:"Registro flexible del tenant." }}</p>
+          </div>
+          <form method="get" class="binn-object-records-query-row">
+            <div class="binn-object-records-compact-field">
+              <label for="object-search">Buscar</label>
+              <input id="object-search" type="text" name="q" value="{{ q }}" class="binn-input" placeholder="Busca por titulo o texto visible del registro" />
+            </div>
+            <div class="binn-meta-strip">
+              {% for item in object_views %}
+                <span class="binn-pill">{{ item.label }}</span>
+              {% endfor %}
+            </div>
+          </form>
+        </div>
+        <div class="binn-object-records-action-card">
+          <div class="binn-object-records-toolbar-actions">
+            <a href="{% url 'binncrm:custom_object_catalog' %}" class="binn-btn-secondary binn-btn-compact">Volver a objetos</a>
+            {% if can_edit_objects %}<a href="{% url 'binncrm:custom_object_record_create' object_schema.key %}" class="binn-btn-primary binn-btn-compact">+ Nuevo registro</a>{% endif %}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="space-y-4">
+      {% for item in record_previews %}
+        <article class="binn-panel rounded-3xl p-5">
+          <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <h2 class="text-lg font-semibold tracking-tight">{{ item.title }}</h2>
+              {% if item.subtitle %}<p class="mt-2 text-sm text-slate-500">{{ item.subtitle }}</p>{% endif %}
+            </div>
+            <div class="flex flex-wrap gap-3">
+              <a href="{% url 'binncrm:custom_object_record_detail' object_schema.key item.record.pk %}" class="binn-record-action">Abrir</a>
+              {% if can_edit_objects %}<a href="{% url 'binncrm:custom_object_record_edit' object_schema.key item.record.pk %}" class="binn-record-action-primary binn-record-action">Editar</a>{% endif %}
+            </div>
+          </div>
+          <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {% for field in item.fields|slice:":6" %}
+              <div class="rounded-2xl border border-black/5 bg-white/70 px-4 py-3">
+                <p class="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">{{ field.label }}</p>
+                <p class="mt-2 text-sm font-medium text-slate-900">{{ field.value }}</p>
+              </div>
+            {% endfor %}
+          </div>
+        </article>
+      {% empty %}
+        <section class="binn-panel rounded-3xl p-6"><div class="binn-empty text-sm">Todavia no hay registros en {{ object_schema.label }}.</div></section>
+      {% endfor %}
+    </section>
+  </div>
+{% endblock %}

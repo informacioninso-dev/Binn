@@ -9,10 +9,4 @@ class Migration(migrations.Migration):
         ('tenants', '0002_tenantoperationalevent'),
     ]
 
-    operations = [
-        migrations.AddField(
-            model_name='tenantmembership',
-            name='role',
-            field=models.CharField(choices=[('clinic_admin', 'Admin de clinica'), ('doctor', 'Profesional'), ('reception', 'Recepcion'), ('cashier', 'Caja'), ('assistant', 'Asistente')], default='assistant', max_length=30),
-        ),
-    ]
+    operations = []

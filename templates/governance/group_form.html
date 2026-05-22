@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page_title }} | Binn{% endblock %}
+{% block main_class %}container mx-auto w-full max-w-4xl flex-1 px-4 py-6{% endblock %}
+
+{% block content %}
+  <div class="space-y-6">
+    <section class="binn-panel rounded-3xl p-6 sm:p-8">
+      <span class="binn-kicker">Governance</span>
+      <h1 class="binn-title mt-4">{{ page_title }}</h1>
+      <p class="binn-subtitle mt-3">Define la filosofia del holding, su owner global y la politica base de consolidacion antes de vincular empresas o grants operativos.</p>
+    </section>
+
+    <section class="binn-panel rounded-3xl p-6">
+      <form method="post" class="space-y-6">
+        {% csrf_token %}
+        {% if form.non_field_errors %}
+          <div class="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {{ form.non_field_errors }}
+          </div>
+        {% endif %}
+
+        <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
+          {% for field in form %}
+            <div class="{% if field.name == 'notes' %}md:col-span-2{% endif %}">
+              <label for="{{ field.id_for_label }}" class="mb-2 block text-sm font-medium text-slate-700">{{ field.label }}</label>
+              {{ field }}
+              {% if field.help_text %}
+                <p class="mt-2 text-xs leading-5 text-slate-500">{{ field.help_text }}</p>
+              {% endif %}
+              {% if field.errors %}
+                <p class="mt-2 text-xs text-red-600">{{ field.errors|join:", " }}</p>
+              {% endif %}
+            </div>
+          {% endfor %}
+        </div>
+
+        <div class="flex flex-wrap gap-3">
+          <button type="submit" class="binn-btn-primary">{{ submit_label }}</button>
+          {% if group %}
+            <a href="{% url 'governance:group_detail' group.pk %}" class="binn-btn-secondary">Cancelar</a>
+          {% else %}
+            <a href="{% url 'governance:group_list' %}" class="binn-btn-secondary">Cancelar</a>
+          {% endif %}
+        </div>
+      </form>
+    </section>
+  </div>
+{% endblock %}

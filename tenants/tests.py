@@ -1,580 +1,321 @@
+import json
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
-from django.core.management.base import CommandError
-from django.http import HttpResponse
-from django.test import RequestFactory
-from django.test import SimpleTestCase, TestCase
+from django.contrib.auth.models import AnonymousUser
+from django.contrib.auth import get_user_model
+from django.test import RequestFactory, SimpleTestCase, TestCase
 
-from core.middleware import LoginRequiredMiddleware
-from tenants.auth_backends import TenantAwareBackend
-from tenants.forms import AddMemberForm, TenantCreateForm
-from tenants.management.commands.bootstrap_clinic import Command as BootstrapClinicCommand
-from tenants.middleware import TenantAccessMiddleware
-from tenants.observability import build_system_health_payload, build_tenant_diagnostics
-from tenants.permissions import tenant_capability_required
-from tenants.services import (
-    TenantProvisionError,
-    assign_tenant_membership,
-    create_tenant,
-    ensure_tenant_admin_membership,
+from access.permissions import PERMISSION_DEALS_MOVE, membership_has_tenant_permission
+from core.runtime_services import ServiceRuntimeStatus
+from tenants.defaults import (
+    PROFILE_BROKER,
+    PROFILE_CONDOMINIO,
+    PROFILE_RETAIL_MODA,
+    PROFILE_SERVICIOS,
+    build_profile_launchpad,
+    get_profile_defaults,
 )
+from tenants.forms import TenantEditForm
+from tenants.models import Client
+from tenants.services import TenantProvisionError, assign_tenant_membership
+from tenants.views import SystemHealthView, SystemRuntimeHealthView
+from tenants.workspace_packs import build_group_pack_mix, build_workspace_pack
 
 
-class TenantAwareBackendTests(SimpleTestCase):
+class TenantEditFormTests(SimpleTestCase):
+    def _base_data(self):
+        return {
+            "name": "Tenant Demo",
+            "plan": Client.PLAN_SHARED,
+            "profile": PROFILE_BROKER,
+            "max_users": "25",
+            "storage_quota_mb": "2048",
+            "is_active": "on",
+            "feature_flags_json": '{"entities": true, "documents": true, "kanban": true}',
+            "labels_json": '{"entity_plural": "Asegurados", "deal_plural": "Renovaciones"}',
+            "entity_fields_json": '[{"key": "placa", "label": "Placa", "type": "text", "required": true}]',
+            "custom_objects_json": '[{"key": "poliza_detalle", "label": "Polizas", "fields": [{"key": "numero_poliza", "label": "Numero de poliza", "type": "text", "required": true}]}]',
+            "module_order_json": '["documents", "entities", "deals", "activities"]',
+            "dashboard_widgets_json": '["summary_cards", "quick_actions", "pipeline_panel"]',
+            "role_policies_json": '{"viewer": ["dashboard.view", "entities.view"], "operator": ["dashboard.view", "deals.move"]}',
+            "document_blueprints_json": (
+                '[{"key": "certificado", "label": "Certificado", "category": "Entrega", '
+                '"description": "Documento listo para compartir con el cliente.", '
+                '"storage_hint": "broker/certificados/{numero_poliza}/{filename}", '
+                '"metadata_fields": [{"key": "numero_poliza", "label": "Numero de poliza", "type": "text"}]}]'
+            ),
+            "pipeline_templates_json": '[{"key": "renovaciones", "label": "Renovaciones", "stages": ["Cotizado", "Emitido"]}]',
+        }
+
+    def test_accepts_valid_camaleonic_configuration(self):
+        form = TenantEditForm(
+            data=self._base_data(),
+            instance=Client(name="Tenant Demo", plan=Client.PLAN_SHARED, is_active=True),
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data["feature_flags_json"]["documents"], True)
+        self.assertEqual(form.cleaned_data["entity_fields_json"][0]["key"], "placa")
+        self.assertEqual(form.cleaned_data["custom_objects_json"][0]["key"], "poliza_detalle")
+        self.assertEqual(form.cleaned_data["module_order_json"][0], "documents")
+        self.assertEqual(form.cleaned_data["dashboard_widgets_json"][0], "summary_cards")
+        self.assertEqual(form.cleaned_data["role_policies_json"]["viewer"], ["dashboard.view", "entities.view"])
+        self.assertEqual(form.cleaned_data["document_blueprints_json"][0]["key"], "certificado")
+        self.assertEqual(form.cleaned_data["pipeline_templates_json"][0]["stages"], ["Cotizado", "Emitido"])
+
+    def test_rejects_non_boolean_feature_flags(self):
+        data = self._base_data()
+        data["feature_flags_json"] = '{"entities": "si"}'
+        form = TenantEditForm(
+            data=data,
+            instance=Client(name="Tenant Demo", plan=Client.PLAN_SHARED, is_active=True),
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("feature_flags_json", form.errors)
+
+    def test_reset_to_profile_defaults_restores_profile_blueprint(self):
+        data = self._base_data()
+        data["profile"] = PROFILE_CONDOMINIO
+        data["reset_to_profile_defaults"] = "on"
+        form = TenantEditForm(
+            data=data,
+            instance=Client(name="Tenant Demo", plan=Client.PLAN_SHARED, is_active=True),
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        defaults = get_profile_defaults(PROFILE_CONDOMINIO)
+        self.assertEqual(form.cleaned_data["feature_flags_json"], defaults["feature_flags"])
+        self.assertEqual(form.cleaned_data["entity_fields_json"], defaults["entity_fields"])
+        self.assertEqual(form.cleaned_data["custom_objects_json"], defaults["custom_objects"])
+        self.assertEqual(form.cleaned_data["module_order_json"], defaults["module_order"])
+        self.assertEqual(form.cleaned_data["dashboard_widgets_json"], defaults["dashboard_widgets"])
+        self.assertEqual(form.cleaned_data["role_policies_json"], defaults["role_policies"])
+
+    def test_rejects_duplicated_pipeline_keys(self):
+        data = self._base_data()
+        data["pipeline_templates_json"] = (
+            '[{"key": "captacion", "label": "Captacion", "stages": ["Nuevo"]}, '
+            '{"key": "captacion", "label": "Duplicado", "stages": ["Otro"]}]'
+        )
+        form = TenantEditForm(
+            data=data,
+            instance=Client(name="Tenant Demo", plan=Client.PLAN_SHARED, is_active=True),
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("pipeline_templates_json", form.errors)
+
+    def test_rejects_invalid_dashboard_widget(self):
+        data = self._base_data()
+        data["dashboard_widgets_json"] = '["summary_cards", "unknown_widget"]'
+        form = TenantEditForm(
+            data=data,
+            instance=Client(name="Tenant Demo", plan=Client.PLAN_SHARED, is_active=True),
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("dashboard_widgets_json", form.errors)
+
+    def test_rejects_invalid_role_permission(self):
+        data = self._base_data()
+        data["role_policies_json"] = '{"viewer": ["entities.destroy"]}'
+        form = TenantEditForm(
+            data=data,
+            instance=Client(name="Tenant Demo", plan=Client.PLAN_SHARED, is_active=True),
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("role_policies_json", form.errors)
+
+
+class TenantLaunchpadTests(SimpleTestCase):
+    def test_broker_launchpad_enables_documents_and_renovaciones_pipeline(self):
+        launchpad = build_profile_launchpad(PROFILE_BROKER)
+
+        self.assertTrue(any(item["key"] == "documents" for item in launchpad["enabled_capabilities"]))
+        self.assertTrue(any(item["key"] == "proposals" for item in launchpad["enabled_capabilities"]))
+        self.assertTrue(any(item["key"] == "collections" for item in launchpad["enabled_capabilities"]))
+        self.assertTrue(any(pipeline["key"] == "renovaciones" for pipeline in launchpad["pipelines"]))
+        self.assertIn("renovaciones", launchpad["headline"].lower())
+        self.assertEqual(launchpad["module_order"][0]["key"], "entities")
+        self.assertTrue(any(widget["key"] == "summary_cards" for widget in launchpad["dashboard_widgets"]))
+        self.assertTrue(any(policy["role"] == "owner" for policy in launchpad["role_policies"]))
+
+    def test_condominio_launchpad_hides_documents_and_keeps_collection_copy(self):
+        launchpad = build_profile_launchpad(PROFILE_CONDOMINIO)
+
+        self.assertTrue(any(item["key"] == "documents" for item in launchpad["hidden_capabilities"]))
+        self.assertTrue(any(item["key"] == "proposals" for item in launchpad["hidden_capabilities"]))
+        self.assertTrue(any(item["key"] == "collections" for item in launchpad["enabled_capabilities"]))
+        self.assertEqual(launchpad["labels"]["entity_plural"], "Residentes")
+        self.assertEqual(launchpad["pipelines"][0]["label"], "Recaudacion")
+
+    def test_services_launchpad_enables_reports_and_b2b_pipeline(self):
+        launchpad = build_profile_launchpad(PROFILE_SERVICIOS)
+
+        self.assertTrue(any(item["key"] == "reports" for item in launchpad["enabled_capabilities"]))
+        self.assertTrue(any(pipeline["key"] == "servicios_b2b" for pipeline in launchpad["pipelines"]))
+        self.assertEqual(launchpad["labels"]["entity_plural"], "Clientes")
+        self.assertTrue(any(item["key"] == "entregable" for item in launchpad["custom_objects"]))
+
+    def test_retail_launchpad_exposes_clienteling_fields(self):
+        launchpad = build_profile_launchpad(PROFILE_RETAIL_MODA)
+
+        self.assertTrue(any(item["key"] == "reports" for item in launchpad["enabled_capabilities"]))
+        self.assertTrue(any(field["key"] == "talla" for field in launchpad["entity_fields"]))
+        self.assertEqual(launchpad["pipelines"][0]["label"], "Clienteling")
+
+
+class WorkspacePackTests(SimpleTestCase):
+    def test_workspace_pack_exposes_broker_operating_focus(self):
+        pack = build_workspace_pack(
+            profile=PROFILE_BROKER,
+            labels={"entity_plural": "Asegurados", "deal_plural": "Renovaciones"},
+            feature_flags={"collab": True, "documents": True},
+        )
+
+        self.assertEqual(pack["title"], "Pack Broker de Seguros")
+        self.assertTrue(pack["collab_enabled"])
+        self.assertIn("Docs bajo control", pack["pillars"])
+
+    def test_group_pack_mix_aggregates_visible_metrics_by_profile(self):
+        tenant_config = type("Config", (), {"profile": PROFILE_CONDOMINIO})()
+        tenant = type("Tenant", (), {"tenant_config": tenant_config})()
+
+        mix = build_group_pack_mix(
+            tenant_rows=[
+                {
+                    "tenant": tenant,
+                    "metrics_visible": True,
+                    "entity_count": 12,
+                    "open_deals_count": 4,
+                    "overdue_activities_count": 2,
+                },
+                {
+                    "tenant": tenant,
+                    "metrics_visible": False,
+                    "entity_count": 30,
+                    "open_deals_count": 9,
+                    "overdue_activities_count": 5,
+                },
+            ]
+        )
+
+        self.assertEqual(mix[0]["profile_label"], "Administracion de condominios")
+        self.assertEqual(mix[0]["tenant_count"], 2)
+        self.assertEqual(mix[0]["visible_tenant_count"], 1)
+        self.assertEqual(mix[0]["entity_count"], 12)
+
+
+class TenantPermissionPolicyTests(SimpleTestCase):
+    def test_membership_permission_uses_role_policies(self):
+        tenant = Client(name="Demo", schema_name="demo", plan=Client.PLAN_SHARED)
+        tenant.tenant_config = type(
+            "Config",
+            (),
+            {"role_policies": {"viewer": ["dashboard.view"], "operator": ["dashboard.view", "deals.move"]}},
+        )()
+        membership = type("Membership", (), {"role": "operator"})()
+
+        self.assertTrue(membership_has_tenant_permission(membership, tenant, PERMISSION_DEALS_MOVE))
+
+
+class TenantMembershipCapacityTests(TestCase):
     def setUp(self):
-        self.backend = TenantAwareBackend()
-
-    def _user(self, *, is_superuser=False):
-        user = MagicMock()
-        user.is_superuser = is_superuser
-        user.check_password.return_value = True
-        return user
-
-    @patch("tenants.auth_backends.TenantMembership.objects.filter")
-    def test_superuser_can_authenticate_without_membership(self, membership_filter):
-        tenant = SimpleNamespace(schema_name="clinica_a", is_active=True)
-        request = SimpleNamespace(tenant=tenant)
-        user = self._user(is_superuser=True)
-
-        with (
-            patch.object(self.backend, "_get_user_by_login", return_value=user),
-            patch.object(self.backend, "user_can_authenticate", return_value=True),
-        ):
-            authenticated = self.backend.authenticate(request=request, username="admin", password="secret")
-
-        self.assertIs(authenticated, user)
-        membership_filter.assert_not_called()
-
-    @patch("tenants.auth_backends.TenantMembership.objects.filter")
-    def test_regular_user_requires_membership(self, membership_filter):
-        tenant = SimpleNamespace(schema_name="clinica_a", is_active=True)
-        request = SimpleNamespace(tenant=tenant)
-        user = self._user(is_superuser=False)
-        membership_filter.return_value.exists.return_value = False
-
-        with (
-            patch.object(self.backend, "_get_user_by_login", return_value=user),
-            patch.object(self.backend, "user_can_authenticate", return_value=True),
-        ):
-            authenticated = self.backend.authenticate(request=request, username="usuario", password="secret")
-
-        self.assertIsNone(authenticated)
-        membership_filter.assert_called_once()
-
-    @patch("tenants.auth_backends.TenantMembership.objects.filter")
-    def test_regular_user_with_membership_can_authenticate(self, membership_filter):
-        tenant = SimpleNamespace(schema_name="clinica_a", is_active=True)
-        request = SimpleNamespace(tenant=tenant)
-        user = self._user(is_superuser=False)
-        membership_filter.return_value.exists.return_value = True
-
-        with (
-            patch.object(self.backend, "_get_user_by_login", return_value=user),
-            patch.object(self.backend, "user_can_authenticate", return_value=True),
-        ):
-            authenticated = self.backend.authenticate(request=request, username="usuario", password="secret")
-
-        self.assertIs(authenticated, user)
-        membership_filter.assert_called_once()
-
-    @patch("tenants.auth_backends.TenantMembership.objects.filter")
-    def test_inactive_tenant_denies_authentication(self, membership_filter):
-        tenant = SimpleNamespace(schema_name="clinica_a", is_active=False)
-        request = SimpleNamespace(tenant=tenant)
-        user = self._user(is_superuser=True)
-
-        with (
-            patch.object(self.backend, "_get_user_by_login", return_value=user),
-            patch.object(self.backend, "user_can_authenticate", return_value=True),
-        ):
-            authenticated = self.backend.authenticate(request=request, username="admin", password="secret")
-
-        self.assertIsNone(authenticated)
-        membership_filter.assert_not_called()
-
-    def test_ambiguous_case_insensitive_username_match_is_rejected(self):
-        user_model = MagicMock()
-        user_model.USERNAME_FIELD = "username"
-
-        username_matches = MagicMock()
-        username_matches.count.return_value = 2
-        user_model._default_manager.filter.return_value.order_by.return_value = username_matches
-
-        user = self.backend._get_user_by_login(user_model, "Admin")
-
-        self.assertIsNone(user)
-
-
-class BootstrapClinicCommandTests(SimpleTestCase):
-    @patch("tenants.management.commands.bootstrap_clinic.create_tenant")
-    def test_wraps_provision_errors(self, create_tenant_mock):
-        create_tenant_mock.side_effect = TenantProvisionError("fallo controlado")
-
-        command = BootstrapClinicCommand()
-        with self.assertRaises(CommandError):
-            command.handle(
-                schema_name="clinica_a",
-                name="Clinica A",
-                domain="clinica-a.example.com",
-                plan="shared",
-                admin_user=None,
-                admin_email=None,
-                admin_password=None,
-            )
-
-
-class TenantCreateFormTests(SimpleTestCase):
-    def test_schema_and_subdomain_are_normalized(self):
-        form = TenantCreateForm(
-            data={
-                "name": "El Rosal",
-                "schema_name": "El-Rosal",
-                "subdomain": "El_rosal",
-                "plan": "shared",
-                "admin_username": "",
-                "admin_email": "",
-                "admin_password": "",
-            }
+        self.user_model = get_user_model()
+        self.owner = self.user_model.objects.create_user(username="tenantowner", password="x")
+        self.extra_user = self.user_model.objects.create_user(username="tenantextra", password="x")
+        self.tenant = Client(
+            name="Capacidad Demo",
+            schema_name="capacidaddemo",
+            plan=Client.PLAN_SHARED,
+            is_active=True,
+            max_users=1,
         )
+        self.tenant.auto_create_schema = False
+        self.tenant.save()
 
-        self.assertTrue(form.is_valid())
-        self.assertEqual(form.cleaned_data["schema_name"], "el_rosal")
-        self.assertEqual(form.cleaned_data["subdomain"], "el-rosal.localhost")
+    def test_assign_tenant_membership_blocks_new_user_when_limit_reached(self):
+        assign_tenant_membership(tenant=self.tenant, username="tenantowner", role="owner")
 
-    @patch("tenants.forms.get_user_model")
-    def test_existing_admin_user_can_be_reused_without_password(self, get_user_model):
-        user_model = MagicMock()
-        user_model._default_manager.filter.return_value.count.return_value = 1
-        get_user_model.return_value = user_model
+        with self.assertRaises(TenantProvisionError) as ctx:
+            assign_tenant_membership(tenant=self.tenant, username="tenantextra", role="viewer")
 
-        form = TenantCreateForm(
-            data={
-                "name": "Clinica A",
-                "schema_name": "clinica_a",
-                "subdomain": "clinica-a",
-                "plan": "shared",
-                "admin_username": "admin",
-                "admin_email": "admin@example.com",
-                "admin_password": "",
-            }
-        )
+        self.assertIn("limite de 1 usuarios activos", str(ctx.exception))
 
-        self.assertTrue(form.is_valid())
+    def test_assign_tenant_membership_allows_updating_existing_active_user(self):
+        result = assign_tenant_membership(tenant=self.tenant, username="tenantowner", role="owner")
 
-    @patch("tenants.forms.get_user_model")
-    def test_new_admin_user_requires_password(self, get_user_model):
-        user_model = MagicMock()
-        user_model._default_manager.filter.return_value.count.return_value = 0
-        get_user_model.return_value = user_model
+        updated = assign_tenant_membership(tenant=self.tenant, username="tenantowner", role="manager")
 
-        form = TenantCreateForm(
-            data={
-                "name": "Clinica A",
-                "schema_name": "clinica_a",
-                "subdomain": "clinica-a",
-                "plan": "shared",
-                "admin_username": "admin",
-                "admin_email": "admin@example.com",
-                "admin_password": "",
-            }
-        )
-
-        self.assertFalse(form.is_valid())
-        self.assertIn("admin_password", form.errors)
-
-    @patch("tenants.forms.get_user_model")
-    def test_ambiguous_admin_username_is_rejected(self, get_user_model):
-        user_model = MagicMock()
-        user_model._default_manager.filter.return_value.count.return_value = 2
-        get_user_model.return_value = user_model
-
-        form = TenantCreateForm(
-            data={
-                "name": "Clinica A",
-                "schema_name": "clinica_a",
-                "subdomain": "clinica-a",
-                "plan": "shared",
-                "admin_username": "Admin",
-                "admin_email": "admin@example.com",
-                "admin_password": "NuevaClave123",
-            }
-        )
-
-        self.assertFalse(form.is_valid())
-        self.assertIn("admin_username", form.errors)
+        self.assertEqual(result.membership.pk, updated.membership.pk)
+        self.assertEqual(updated.membership.role, "manager")
 
 
-class AddMemberFormTests(SimpleTestCase):
-    @patch("tenants.forms.get_user_model")
-    def test_existing_global_user_is_valid(self, get_user_model):
-        user_model = MagicMock()
-        user_model._default_manager.filter.return_value.count.return_value = 1
-        get_user_model.return_value = user_model
-
-        form = AddMemberForm(
-            data={
-                "username": "admin",
-                "role": "clinic_admin",
-            }
-        )
-
-        self.assertTrue(form.is_valid())
-
-    @patch("tenants.forms.get_user_model")
-    def test_unknown_user_is_rejected(self, get_user_model):
-        user_model = MagicMock()
-        user_model._default_manager.filter.return_value.count.return_value = 0
-        get_user_model.return_value = user_model
-
-        form = AddMemberForm(
-            data={
-                "username": "fantasma",
-                "role": "assistant",
-            }
-        )
-
-        self.assertFalse(form.is_valid())
-        self.assertIn("username", form.errors)
-
-    @patch("tenants.forms.get_user_model")
-    def test_ambiguous_user_is_rejected(self, get_user_model):
-        user_model = MagicMock()
-        user_model._default_manager.filter.return_value.count.return_value = 2
-        get_user_model.return_value = user_model
-
-        form = AddMemberForm(
-            data={
-                "username": "Admin",
-                "role": "assistant",
-            }
-        )
-
-        self.assertFalse(form.is_valid())
-        self.assertIn("username", form.errors)
-
-
-class TenantProvisionServiceTests(SimpleTestCase):
-    @patch("tenants.services.Domain")
-    @patch("tenants.services.Client")
-    def test_rejects_invalid_plan_before_creating_records(self, client_cls, domain_cls):
-        with self.assertRaises(TenantProvisionError):
-            create_tenant(
-                schema_name="clinica_a",
-                name="Clinica A",
-                domain="clinica-a.example.com",
-                plan="gold",
-            )
-
-        client_cls.assert_not_called()
-        domain_cls.assert_not_called()
-
-    @patch("tenants.services.Domain")
-    @patch("tenants.services.Client")
-    def test_rejects_invalid_domain_before_creating_records(self, client_cls, domain_cls):
-        with self.assertRaises(TenantProvisionError):
-            create_tenant(
-                schema_name="clinica_a",
-                name="Clinica A",
-                domain="clinica_a",
-                plan="shared",
-            )
-
-        client_cls.assert_not_called()
-        domain_cls.assert_not_called()
-
-    @patch("tenants.services.schema_context")
-    @patch("tenants.services.call_command")
-    @patch("tenants.services.Domain")
-    @patch("tenants.services.Client")
-    def test_rolls_back_when_seed_fails(self, client_cls, domain_cls, call_command, schema_context):
-        client_cls.objects.filter.return_value.exists.return_value = False
-        domain_cls.objects.filter.return_value.exists.return_value = False
-
-        client = MagicMock()
-        client.schema_name = "clinica_a"
-        client.pk = 1
-        client_cls.return_value = client
-
-        schema_context.return_value = MagicMock()
-        call_command.side_effect = RuntimeError("seed failed")
-
-        with self.assertRaises(TenantProvisionError):
-            create_tenant(
-                schema_name="clinica_a",
-                name="Clinica A",
-                domain="clinica-a.example.com",
-                plan="shared",
-            )
-
-        client.delete.assert_called_once_with(force_drop=True)
-
-    @patch("tenants.services.Domain")
-    @patch("tenants.services.Client")
-    def test_rolls_back_when_domain_create_fails(self, client_cls, domain_cls):
-        client_cls.objects.filter.return_value.exists.return_value = False
-        domain_cls.objects.filter.return_value.exists.return_value = False
-        domain_cls.objects.create.side_effect = RuntimeError("domain conflict")
-
-        client = MagicMock()
-        client.schema_name = "clinica_a"
-        client.pk = 1
-        client_cls.return_value = client
-
-        with self.assertRaises(TenantProvisionError):
-            create_tenant(
-                schema_name="clinica_a",
-                name="Clinica A",
-                domain="clinica-a.example.com",
-                plan="shared",
-            )
-
-        client.delete.assert_called_once_with(force_drop=True)
-
-    @patch("tenants.services.TenantMembership.objects.get_or_create")
-    @patch("tenants.services.get_user_model")
-    def test_existing_user_keeps_global_credentials(self, get_user_model, membership_get_or_create):
-        user_model = MagicMock()
-        existing_user = MagicMock()
-        existing_user.email = "admin@actual.example"
-        username_matches = user_model._default_manager.filter.return_value.order_by.return_value
-        username_matches.count.return_value = 1
-        username_matches.first.return_value = existing_user
-        get_user_model.return_value = user_model
-
-        membership = MagicMock()
-        membership.is_admin = True
-        membership.is_active = True
-        membership_get_or_create.return_value = (membership, True)
-
-        notices = ensure_tenant_admin_membership(
-            tenant=SimpleNamespace(),
-            username="admin",
-            email="nuevo@example.com",
-            password="NuevaClave123",
-        )
-
-        existing_user.set_password.assert_not_called()
-        existing_user.save.assert_not_called()
-        self.assertEqual(
-            notices,
-            [
-                "El usuario 'admin' ya existia; su contrasena global no fue modificada.",
-                "El usuario 'admin' ya existia; su correo global no fue modificado.",
-            ],
-        )
-
-    @patch("tenants.services.TenantMembership.objects.get_or_create")
-    @patch("tenants.services.get_user_model")
-    def test_assign_membership_requires_existing_global_user(self, get_user_model, membership_get_or_create):
-        user_model = MagicMock()
-        username_matches = user_model._default_manager.filter.return_value.order_by.return_value
-        username_matches.count.return_value = 0
-        username_matches.first.return_value = None
-        get_user_model.return_value = user_model
-
-        with self.assertRaises(TenantProvisionError):
-            assign_tenant_membership(
-                tenant=SimpleNamespace(),
-                username="nuevo",
-                role="clinic_admin",
-            )
-
-        membership_get_or_create.assert_not_called()
-
-    @patch("tenants.services.TenantMembership.objects.get_or_create")
-    @patch("tenants.services.get_user_model")
-    def test_assign_membership_updates_local_role_without_touching_global_flags(
-        self,
-        get_user_model,
-        membership_get_or_create,
-    ):
-        user_model = MagicMock()
-        existing_user = MagicMock()
-        existing_user.is_staff = False
-        username_matches = user_model._default_manager.filter.return_value.order_by.return_value
-        username_matches.count.return_value = 1
-        username_matches.first.return_value = existing_user
-        get_user_model.return_value = user_model
-
-        membership = MagicMock()
-        membership.is_admin = False
-        membership.is_active = False
-        membership_get_or_create.return_value = (membership, False)
-
-        result = assign_tenant_membership(
-            tenant=SimpleNamespace(),
-            username="admin",
-            role="clinic_admin",
-        )
-
-        self.assertFalse(result.membership_created)
-        membership.save.assert_called_once_with(update_fields=["role", "is_admin", "is_active"])
-        existing_user.save.assert_not_called()
-        self.assertFalse(existing_user.is_staff)
-
-    @patch("tenants.services.TenantMembership.objects.get_or_create")
-    @patch("tenants.services.get_user_model")
-    def test_new_admin_user_is_deleted_if_membership_assignment_fails(
-        self,
-        get_user_model,
-        membership_get_or_create,
-    ):
-        user_model = MagicMock()
-        username_matches = user_model._default_manager.filter.return_value.order_by.return_value
-        username_matches.count.return_value = 0
-        username_matches.first.return_value = None
-        created_user = MagicMock()
-        user_model._default_manager.create_user.return_value = created_user
-        get_user_model.return_value = user_model
-        membership_get_or_create.side_effect = RuntimeError("membership failed")
-
-        with self.assertRaises(TenantProvisionError):
-            ensure_tenant_admin_membership(
-                tenant=SimpleNamespace(),
-                username="nuevo_admin",
-                email="nuevo@onne.local",
-                password="Temporal123",
-            )
-
-        created_user.delete.assert_called_once()
-
-
-class TenantObservabilityTests(TestCase):
-    def test_diagnostics_reports_missing_domain_and_admin(self):
-        tenant = SimpleNamespace(pk=1, name="Clinica A", schema_name="clinica_a", plan="shared", is_active=True)
-        diagnostics = build_tenant_diagnostics(tenant, domains=[], memberships=[])
-
-        self.assertEqual(diagnostics.status, "error")
-        self.assertTrue(any(alert.code == "missing_domain" for alert in diagnostics.alerts))
-        self.assertTrue(any(alert.code == "missing_active_admin" for alert in diagnostics.alerts))
-
-    def test_diagnostics_reports_plan_limit_overrun(self):
-        tenant = SimpleNamespace(pk=2, name="Clinica B", schema_name="clinica_b", plan="shared", is_active=True)
-        domains = [SimpleNamespace(domain="clinica-b.localhost", is_primary=True)]
-        memberships = [
-            SimpleNamespace(is_active=True, is_admin=(index == 0))
-            for index in range(21)
-        ]
-
-        diagnostics = build_tenant_diagnostics(tenant, domains=domains, memberships=memberships)
-
-        self.assertEqual(diagnostics.status, "warning")
-        self.assertTrue(any(alert.code == "plan_user_limit_exceeded" for alert in diagnostics.alerts))
-
-    def test_system_health_payload_for_tenant_uses_diagnostics_status(self):
-        tenant = SimpleNamespace(pk=3, name="Clinica C", schema_name="clinica_c", plan="shared", is_active=False)
-        diagnostics = SimpleNamespace(
-            tenant=tenant,
-            status="error",
-            alerts=("a", "b", "c", "d"),
-        )
-
-        with (
-            patch("tenants.observability.connection.cursor") as cursor_mock,
-            patch("tenants.observability.build_tenant_diagnostics", return_value=diagnostics),
-        ):
-            cursor = MagicMock()
-            cursor_mock.return_value.__enter__.return_value = cursor
-
-            payload, status_code = build_system_health_payload(tenant=tenant)
-
-        self.assertEqual(status_code, 503)
-        self.assertEqual(payload["tenant"]["schema_name"], "clinica_c")
-        self.assertEqual(payload["alerts_count"], 4)
-
-
-class LoginRequiredMiddlewareTests(SimpleTestCase):
+class SystemHealthViewTests(TestCase):
     def setUp(self):
         self.factory = RequestFactory()
-        self.middleware = LoginRequiredMiddleware(lambda request: HttpResponse("ok"))
+        self.user_model = get_user_model()
 
-    def test_health_endpoint_is_public(self):
-        request = self.factory.get("/health/")
-        request.user = SimpleNamespace(is_authenticated=False)
+    def test_public_health_payload_is_minimal(self):
+        request = RequestFactory().get("/health/")
 
-        response = self.middleware(request)
+        response = SystemHealthView.as_view()(request)
+        payload = json.loads(response.content)
 
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(payload, {"status": "ok"})
 
+    @patch("tenants.views.get_runtime_services_status")
+    def test_runtime_health_payload_includes_runtime_services_for_superadmin(self, get_runtime_services_status_mock):
+        get_runtime_services_status_mock.return_value = {
+            "database": ServiceRuntimeStatus(True, True, True, True, "sql", "Base de datos responde a SELECT 1."),
+            "redis": ServiceRuntimeStatus(False, True, False, True, "disabled", "Redis no esta configurado."),
+            "cache": ServiceRuntimeStatus(True, True, True, True, "memory", "Cache default responde a set/get."),
+            "channels": ServiceRuntimeStatus(False, True, False, True, "disabled", "Realtime deshabilitado por configuracion."),
+            "celery": ServiceRuntimeStatus(False, True, False, True, "disabled", "Workers de background deshabilitados por configuracion."),
+            "celery_result_backend": ServiceRuntimeStatus(False, True, False, True, "disabled", "Celery result backend deshabilitado junto con los workers."),
+        }
+        request = self.factory.get("/health/runtime/")
+        request.user = self.user_model.objects.create_superuser(username="root", email="root@example.com", password="x")
+        request.tenant = SimpleNamespace(schema_name="public")
 
-class TenantCapabilityRequiredTests(SimpleTestCase):
-    def setUp(self):
-        self.factory = RequestFactory()
-
-    @patch("tenants.permissions.messages.error")
-    def test_redirects_when_plan_does_not_include_capability(self, error_message):
-        @tenant_capability_required("billing.basic")
-        def protected_view(request):
-            return HttpResponse("ok")
-
-        request = self.factory.get("/billing/")
-        request.tenant = SimpleNamespace(has_capability=lambda capability: False)
-
-        response = protected_view(request)
-
-        self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, "/")
-        error_message.assert_called_once()
-
-
-class TenantAccessMiddlewareTests(SimpleTestCase):
-    def setUp(self):
-        self.factory = RequestFactory()
-        self.middleware = TenantAccessMiddleware(lambda request: HttpResponse("ok"))
-
-    @patch("tenants.middleware.messages.error")
-    @patch("tenants.middleware.build_public_app_url", return_value="https://portal.example.com/")
-    @patch("tenants.middleware.TenantMembership.objects.filter")
-    def test_missing_membership_redirects_without_logging_out(
-        self,
-        membership_filter,
-        public_url,
-        error_message,
-    ):
-        request = self.factory.get("/")
-        request.tenant = SimpleNamespace(schema_name="clinica_a", is_active=True)
-        request.user = SimpleNamespace(is_authenticated=True, is_superuser=False)
-        membership_filter.return_value.first.return_value = None
-
-        response = self.middleware(request)
-
-        self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, "https://portal.example.com/")
-        membership_filter.assert_called_once()
-        public_url.assert_called_once_with(request, "dashboard")
-        error_message.assert_called_once()
-
-    @patch("tenants.middleware.TenantMembership.objects.filter")
-    def test_active_membership_is_attached_to_request(self, membership_filter):
-        request = self.factory.get("/")
-        membership = SimpleNamespace()
-        request.tenant = SimpleNamespace(schema_name="clinica_a", is_active=True)
-        request.user = SimpleNamespace(is_authenticated=True, is_superuser=False)
-        membership_filter.return_value.first.return_value = membership
-
-        response = self.middleware(request)
+        response = SystemRuntimeHealthView.as_view()(request)
+        payload = json.loads(response.content)
 
         self.assertEqual(response.status_code, 200)
-        self.assertIs(request.tenant_membership, membership)
+        self.assertEqual(payload["status"], "ok")
+        self.assertEqual(payload["tenant"], "public")
+        self.assertIn("database", payload["services"])
+        self.assertIn("celery", payload["services"])
 
-    @patch("tenants.middleware.messages.error")
-    @patch("tenants.middleware.build_public_app_url", return_value="https://portal.example.com/")
-    @patch("tenants.middleware.TenantMembership.objects.filter")
-    def test_inactive_tenant_redirects_before_membership_check(
-        self,
-        membership_filter,
-        public_url,
-        error_message,
-    ):
-        request = self.factory.get("/")
-        request.tenant = SimpleNamespace(schema_name="clinica_a", is_active=False)
-        request.user = SimpleNamespace(is_authenticated=True, is_superuser=False)
+    @patch("tenants.views.get_runtime_services_status")
+    def test_runtime_health_returns_503_when_any_service_is_unhealthy(self, get_runtime_services_status_mock):
+        get_runtime_services_status_mock.return_value = {
+            "database": ServiceRuntimeStatus(True, True, True, True, "sql", "Base de datos responde a SELECT 1."),
+            "redis": ServiceRuntimeStatus(True, True, True, False, "configured", "Redis fallo: timeout"),
+            "cache": ServiceRuntimeStatus(True, True, True, True, "redis", "Cache default responde a set/get."),
+            "channels": ServiceRuntimeStatus(True, True, True, False, "redis", "Realtime usa Redis pero Redis no responde."),
+            "celery": ServiceRuntimeStatus(False, True, False, True, "disabled", "Workers de background deshabilitados por configuracion."),
+            "celery_result_backend": ServiceRuntimeStatus(False, True, False, True, "disabled", "Celery result backend deshabilitado junto con los workers."),
+        }
+        request = self.factory.get("/health/runtime/")
+        request.user = self.user_model.objects.create_superuser(username="ops", email="ops@example.com", password="x")
+        request.tenant = SimpleNamespace(schema_name="public")
 
-        response = self.middleware(request)
+        response = SystemRuntimeHealthView.as_view()(request)
+        payload = json.loads(response.content)
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(payload["status"], "error")
+        self.assertFalse(payload["services"]["redis"]["healthy"])
+
+    def test_runtime_health_requires_authentication(self):
+        request = self.factory.get("/health/runtime/")
+        request.user = AnonymousUser()
+
+        response = SystemRuntimeHealthView.as_view()(request)
 
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, "https://portal.example.com/")
-        membership_filter.assert_not_called()
-        public_url.assert_called_once_with(request, "dashboard")
-        error_message.assert_called_once()

@@ -1,0 +1,457 @@
+{% extends "base.html" %}
+
+{% block title %}{{ labels.deal_plural|default:"Deals" }} | Binn{% endblock %}
+
+{% block head_extra %}
+<style>
+  .binn-kanban-workspace {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+  .binn-kanban-toolbar {
+    display: grid;
+    gap: 0.7rem;
+    border-radius: 1.15rem;
+    padding: 0.8rem;
+    background:
+      radial-gradient(circle at top right, rgba(0, 123, 255, 0.08), transparent 16rem),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.985) 0%, rgba(247, 250, 255, 0.985) 100%);
+  }
+  .binn-kanban-toolbar-grid {
+    display: grid;
+    gap: 0.8rem;
+  }
+  .binn-kanban-control-card,
+  .binn-kanban-action-card {
+    display: grid;
+    gap: 0.6rem;
+    padding: 0.8rem 0.85rem;
+    border-radius: 1rem;
+    border: 1px solid rgba(15, 23, 42, 0.06);
+    background: rgba(255, 255, 255, 0.9);
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
+  }
+  .binn-kanban-toolbar-copy {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    min-height: 42px;
+  }
+  .binn-kanban-toolbar-copy .binn-section-copy {
+    display: none;
+  }
+  .binn-kanban-toolbar-copy .binn-kicker {
+    padding: 0.34rem 0.64rem;
+    font-size: 0.68rem;
+  }
+  .binn-kanban-toolbar-actions {
+    display: grid;
+    gap: 0.45rem;
+    align-items: start;
+  }
+  .binn-kanban-toolbar-actions > a,
+  .binn-kanban-toolbar-actions > button {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+  }
+  .binn-kanban-headline-row,
+  .binn-kanban-query-row {
+    display: grid;
+    gap: 0.55rem;
+  }
+  .binn-kanban-pipeline-field {
+    display: flex;
+    align-items: center;
+  }
+  .binn-kanban-pipeline-field .binn-input {
+    min-height: 48px;
+  }
+  .binn-kanban-view-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    justify-content: flex-end;
+  }
+  .binn-kanban-view-row .binn-module-tools-label {
+    margin-right: 0.1rem;
+    margin-bottom: 0;
+    white-space: nowrap;
+  }
+  .binn-kanban-view-row .binn-module-shortcuts {
+    margin-top: 0;
+    gap: 0.45rem;
+    flex-wrap: wrap;
+  }
+  .binn-kanban-view-row .binn-module-shortcut {
+    min-height: 32px;
+    padding: 0.38rem 0.66rem;
+    border-radius: 999px;
+    font-size: 0.74rem;
+  }
+  .binn-kanban-filter-row {
+    display: grid;
+    gap: 0.55rem;
+    margin: 0;
+  }
+  .binn-kanban-compact-field {
+    display: grid;
+    gap: 0.3rem;
+  }
+  .binn-kanban-compact-field label {
+    font-size: 0.72rem;
+    line-height: 1;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #667085;
+  }
+  .binn-kanban-compact-field .binn-input {
+    min-height: 48px;
+  }
+  .binn-kanban-inline-note {
+    margin: 0;
+    font-size: 0.74rem;
+    line-height: 1.4;
+    color: var(--binn-ink-soft);
+  }
+  .binn-kanban-scan {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.42rem;
+  }
+  .binn-kanban-scan .binn-pill {
+    background: rgba(255, 255, 255, 0.78);
+  }
+  .binn-kanban-board-shell {
+    border-radius: 1.2rem;
+    padding: 0.45rem 0 0;
+  }
+  .binn-sales-board {
+    padding-bottom: 0.15rem;
+  }
+  .binn-sales-track {
+    gap: 0.8rem;
+    align-items: flex-start;
+  }
+  .binn-sales-stage {
+    width: min(18.2rem, 84vw);
+    flex: 0 0 min(18.2rem, 84vw);
+    padding: 0.7rem;
+    border-radius: 1.15rem;
+    border: 1px solid var(--binn-line);
+    background: linear-gradient(180deg, #ffffff 0%, rgba(255, 255, 255, 0.95) 100%);
+    box-shadow: var(--binn-shadow-soft);
+  }
+  .binn-sales-stage-header {
+    margin-bottom: 0.5rem;
+  }
+  .binn-sales-stage-copy {
+    display: grid;
+    gap: 0.45rem;
+  }
+  .binn-sales-stage-progress {
+    width: 100%;
+    height: 4px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.08);
+  }
+  .binn-sales-stage-progress span {
+    display: block;
+    width: 72%;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--stage-accent), var(--stage-accent-alt));
+  }
+  .binn-sales-stage-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+  }
+  .binn-sales-stage-title-row h2 {
+    margin: 0;
+    font-size: 0.96rem;
+    line-height: 1.2;
+    letter-spacing: -0.025em;
+    font-weight: 800;
+  }
+  .binn-sales-stage-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.65rem;
+    min-height: 1.65rem;
+    padding: 0.1rem 0.42rem;
+    border-radius: 999px;
+    background: var(--stage-soft);
+    color: var(--binn-ink);
+    font-size: 0.72rem;
+    font-weight: 800;
+  }
+  .binn-sales-stage-total {
+    margin: 0;
+    font-size: 0.78rem;
+    line-height: 1.3;
+    font-weight: 800;
+    color: var(--binn-ink-soft);
+  }
+  .binn-sales-drop {
+    display: grid;
+    align-content: start;
+    gap: 0.85rem;
+    min-height: 12rem;
+    padding: 0.45rem;
+    border-radius: 0.95rem;
+    border: 1px solid rgba(15, 23, 42, 0.04);
+    background: linear-gradient(180deg, var(--stage-soft) 0%, rgba(248, 250, 252, 0.65) 100%);
+  }
+  .binn-sales-card {
+    display: grid;
+    gap: 0.55rem;
+    border-radius: 0.92rem;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    background: #fff;
+    padding: 0.82rem 0.86rem;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+    transition: transform 0.14s ease, border-color 0.14s ease, box-shadow 0.14s ease;
+  }
+  .binn-sales-card:hover {
+    transform: translateY(-1px);
+    border-color: rgba(15, 23, 42, 0.16);
+    box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+  }
+  .binn-sales-card-head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.65rem;
+    align-items: start;
+  }
+  .binn-sales-card-title {
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.35;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+  .binn-sales-card-account {
+    margin: 0.18rem 0 0;
+    font-size: 0.76rem;
+    line-height: 1.35;
+    color: var(--binn-ink-soft);
+  }
+  .binn-sales-card-amount-block {
+    display: grid;
+    justify-items: end;
+    gap: 0.2rem;
+    text-align: right;
+  }
+  .binn-sales-card-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.4rem;
+  }
+  .binn-sales-card-amount {
+    margin: 0;
+    font-size: 0.84rem;
+    line-height: 1.2;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+  .binn-sales-card-link {
+    text-decoration: none;
+    font-size: 0.72rem;
+    line-height: 1.2;
+    font-weight: 800;
+    color: var(--binn-ink-soft);
+  }
+  .binn-sales-card-link:hover {
+    color: var(--binn-ink);
+  }
+  .binn-sales-card-summary {
+    margin: 0;
+    font-size: 0.76rem;
+    line-height: 1.45;
+    color: var(--binn-ink);
+    opacity: 0.86;
+  }
+  .binn-sales-card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.55rem;
+    font-size: 0.72rem;
+    line-height: 1.35;
+    color: var(--binn-ink-soft);
+  }
+  .binn-sales-card-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.32rem;
+  }
+  .binn-sales-chip {
+    display: inline-flex;
+    align-items: center;
+    min-height: 1.4rem;
+    border-radius: 999px;
+    padding: 0.15rem 0.42rem;
+    font-size: 0.67rem;
+    line-height: 1;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+  }
+  .binn-sales-chip-good {
+    background: #ecfdf3;
+    color: #0f766e;
+  }
+  .binn-sales-chip-warn {
+    background: #fff7ed;
+    color: #c2410c;
+  }
+  .binn-sales-chip-danger {
+    background: #fff1f2;
+    color: #be123c;
+  }
+  .binn-sales-chip-info {
+    background: #eef2ff;
+    color: #4338ca;
+  }
+  .binn-sales-chip-neutral {
+    background: #f8fafc;
+    color: #475467;
+  }
+  @media (min-width: 980px) {
+    .binn-kanban-toolbar-grid {
+      grid-template-columns: minmax(0, 1fr) 248px;
+      align-items: start;
+    }
+    .binn-kanban-headline-row {
+      grid-template-columns: 210px minmax(0, 1fr);
+      align-items: center;
+    }
+    .binn-kanban-query-row {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      align-items: center;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+  <div class="binn-kanban-workspace">
+    <section class="binn-panel binn-kanban-toolbar">
+      <div class="binn-kanban-toolbar-grid">
+        <div class="binn-kanban-control-card">
+          <form
+            method="get"
+            hx-get="{% url 'binncrm:index' %}"
+            hx-target="#kanban-board"
+            hx-swap="outerHTML"
+            class="binn-kanban-filter-row"
+          >
+            <input type="hidden" name="view" value="{{ current_view.key }}" />
+
+            <div class="binn-kanban-headline-row">
+              <div class="binn-kanban-toolbar-copy">
+                <span class="binn-kicker">{{ labels.deal_plural|default:"Deals" }}</span>
+              </div>
+              <div class="binn-kanban-pipeline-field">
+                <select name="pipeline" class="binn-input w-full">
+                  {% for pipeline in pipelines %}
+                    <option value="{{ pipeline.pk }}" {% if current_pipeline and pipeline.pk == current_pipeline.pk %}selected{% endif %}>{{ pipeline.name }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+
+            <div class="binn-kanban-query-row">
+              <div class="binn-kanban-compact-field">
+                <label>Buscar</label>
+                <input
+                  type="text"
+                  name="q"
+                  value="{{ q }}"
+                  placeholder="{{ labels.search_placeholder|default:'Busca por nombre o identificacion' }}"
+                  class="binn-input w-full"
+                />
+              </div>
+
+              {% if saved_views %}
+                <div class="binn-kanban-view-row">
+                  <span class="binn-module-tools-label">Vistas</span>
+                  <div class="binn-module-shortcuts">
+                    {% for view in saved_views %}
+                      <a
+                        href="{% url 'binncrm:index' %}?view={{ view.key }}{% if current_pipeline %}&pipeline={{ current_pipeline.pk }}{% endif %}{% if q %}&q={{ q|urlencode }}{% endif %}"
+                        class="binn-module-shortcut {% if current_view.key == view.key %}binn-record-action-primary{% endif %}"
+                      >
+                        {{ view.label }}
+                      </a>
+                    {% endfor %}
+                  </div>
+                </div>
+              {% endif %}
+            </div>
+          </form>
+        </div>
+
+        <div class="binn-kanban-action-card">
+          <div class="binn-kanban-toolbar-actions">
+            {% if can_manage_pipelines %}
+              <a href="{% url 'binncrm:pipeline_settings' %}" class="binn-btn-secondary binn-btn-compact">Configurar pipeline</a>
+            {% endif %}
+            {% if can_create_deal %}
+              <a href="{% url 'binncrm:deal_create' %}" class="binn-btn-primary binn-btn-compact">+ Nuevo {{ labels.deal_singular|default:"deal" }}</a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="binn-panel binn-kanban-board-shell">
+      {% include "binncrm/_kanban_board.html" %}
+    </section>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  <script>
+    function initBinnKanban() {
+      const canEdit = {{ can_move_deals|yesno:"true,false" }};
+      if (!canEdit) {
+        return;
+      }
+      const moveUrlTemplate = "{% url 'binncrm:deal_move' 0 %}";
+      document.querySelectorAll("[data-kanban-stage]").forEach((column) => {
+        if (column.dataset.sortableReady === "true") {
+          return;
+        }
+        column.dataset.sortableReady = "true";
+        Sortable.create(column, {
+          group: "binn-kanban",
+          animation: 150,
+          ghostClass: "kanban-ghost",
+          dragClass: "kanban-drag",
+          onEnd: function (event) {
+            const dealId = event.item.dataset.dealId;
+            const stage = event.to.dataset.kanbanStage;
+            fetch(moveUrlTemplate.replace("/0/", `/${dealId}/`), {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+                "X-CSRFToken": window.getCsrfToken(),
+              },
+              body: new URLSearchParams({ stage, position: event.newIndex }),
+            });
+          },
+        });
+      });
+    }
+
+    document.addEventListener("DOMContentLoaded", initBinnKanban);
+    document.body.addEventListener("htmx:afterSwap", initBinnKanban);
+  </script>
+{% endblock %}

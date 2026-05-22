@@ -1,71 +1,177 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 
-{% block title %}Mis clinicas{% endblock %}
+{% block title %}Empresas | Binn{% endblock %}
+{% block main_class %}container mx-auto w-full max-w-6xl flex-1 px-4 py-6{% endblock %}
 
-{% block content %}
-  <div class="mb-4">
-    <h1 class="text-2xl font-bold">Mis clinicas</h1>
-    <p class="text-sm text-gray-600">Selecciona la clinica a la que deseas ingresar.</p>
-  </div>
-
-  <div class="overflow-x-auto rounded-xl border bg-white">
-    <table class="min-w-full text-sm">
-      <thead class="bg-gray-50 text-left text-gray-600">
-        <tr>
-          <th class="px-4 py-2">Clinica</th>
-          <th class="px-4 py-2">Plan</th>
-          <th class="px-4 py-2">Schema</th>
-          <th class="px-4 py-2">Rol</th>
-          <th class="px-4 py-2">Dominio</th>
-          <th class="px-4 py-2 text-right">Accion</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for m in memberships %}
-          <tr class="border-t hover:bg-gray-50">
-            <td class="px-4 py-2 font-medium">{{ m.tenant.name }}</td>
-            <td class="px-4 py-2">
-              {% if m.tenant.plan == 'enterprise' %}
-                <span class="inline-flex items-center rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">Enterprise</span>
-              {% else %}
-                <span class="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">Shared</span>
-              {% endif %}
-            </td>
-            <td class="px-4 py-2 font-mono text-xs text-gray-500">{{ m.tenant.schema_name }}</td>
-            <td class="px-4 py-2">
-              {% if m.is_admin %}
-                <span class="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">Admin</span>
-              {% else %}
-                <span class="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">Usuario</span>
-              {% endif %}
-            </td>
-            <td class="px-4 py-2 text-xs">
-              {% with d=m.tenant.domains.first %}
-                {% if d %}{{ d.domain }}{% else %}<span class="text-gray-400">Sin dominio</span>{% endif %}
-              {% endwith %}
-            </td>
-            <td class="px-4 py-2 text-right">
-              <a href="{% url 'tenants:switch' m.tenant.pk %}"
-                 class="rounded bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100">
-                Entrar
-              </a>
-            </td>
-          </tr>
-        {% empty %}
-          <tr>
-            <td colspan="6" class="px-4 py-6 text-center text-gray-500">
-              No tienes clinicas activas asignadas.
-            </td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-
-  {% if request.user.is_superuser %}
-    <div class="mt-4">
-      <a href="{% url 'tenants:list' %}" class="text-sm text-blue-600 hover:underline">Administrar Clinicas</a>
-    </div>
-  {% endif %}
+{% block head_extra %}
+<style>
+  .binn-access-shell {
+    display: grid;
+    gap: 1rem;
+  }
+  .binn-access-header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  .binn-access-list {
+    display: grid;
+    gap: 0.75rem;
+  }
+  .binn-access-row {
+    display: grid;
+    gap: 1rem;
+    align-items: center;
+    padding: 1rem 1.1rem;
+    border-radius: 1rem;
+    transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  }
+  .binn-access-row:hover {
+    transform: translateY(-1px);
+    border-color: rgba(0, 123, 255, 0.16);
+    box-shadow: 0 18px 32px rgba(10, 25, 47, 0.08);
+  }
+  .binn-access-main {
+    min-width: 0;
+  }
+  .binn-access-top {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.55rem;
+    margin-bottom: 0.5rem;
+  }
+  .binn-access-title {
+    font-size: 1.1rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+  }
+  .binn-access-copy {
+    color: var(--binn-ink-soft);
+    line-height: 1.55;
+    font-size: 0.92rem;
+  }
+  .binn-access-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 0.75rem;
+    margin-top: 0.75rem;
+    color: #475467;
+    font-size: 0.8rem;
+  }
+  .binn-access-meta span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-height: 2rem;
+    padding: 0.36rem 0.58rem;
+    border-radius: 999px;
+    border: 1px solid var(--binn-line);
+    background: rgba(255, 255, 255, 0.72);
+  }
+  .binn-access-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+  }
+  .binn-access-status {
+    color: #027a48;
+    background: #ecfdf3;
+    border-color: rgba(2, 122, 72, 0.12);
+  }
+  .binn-access-group-grid {
+    display: grid;
+    gap: 0.75rem;
+  }
+  .binn-access-shell .binn-kicker {
+    background: rgba(255, 255, 255, 0.9);
+  }
+  @media (min-width: 980px) {
+    .binn-access-row {
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+    .binn-access-group-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+</style>
 {% endblock %}
 
+{% block content %}
+  <div class="binn-access-shell">
+    <section class="binn-panel rounded-2xl p-5 sm:p-6">
+      <div class="binn-access-header">
+        <span class="binn-kicker">Accesos</span>
+        <div>
+          <h1 class="binn-section-title">Elige dónde vas a trabajar</h1>
+          <p class="binn-section-copy mt-2">Solo entra a una empresa y sigue. Sin dashboard intermedio ni ruido visual.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="binn-access-list">
+      {% for membership in memberships %}
+        <article class="binn-panel binn-access-row">
+          <div class="binn-access-main">
+            <div class="binn-access-top">
+              <span class="binn-kicker">{{ membership.tenant.tenant_config.get_profile_display }}</span>
+              <span class="binn-pill">{{ membership.role_label }}</span>
+              <span class="binn-pill binn-access-status">Activa</span>
+            </div>
+
+            <div class="binn-access-title">{{ membership.tenant.name }}</div>
+            <p class="binn-access-copy">{{ membership.tenant.tenant_config.labels.dashboard_subtitle|default:"Empresa lista para trabajar." }}</p>
+
+            <div class="binn-access-meta">
+              <span><strong>Acceso:</strong> {{ membership.tenant.primary_domain|default:"Acceso local" }}</span>
+              <span><strong>Pantalla:</strong> {{ membership.tenant.tenant_config.labels.dashboard_title|default:"Centro de control" }}</span>
+              <span><strong>Schema:</strong> {{ membership.tenant.schema_name }}</span>
+            </div>
+          </div>
+
+          <div class="binn-access-actions">
+            <a href="{% url 'tenants:switch' membership.tenant.pk %}" class="binn-btn-primary binn-btn-compact">Entrar</a>
+            {% if membership.is_admin or membership.role == "owner" or membership.role == "manager" %}
+              <a href="{% url 'tenants:access_admin' membership.tenant.pk %}" class="binn-btn-secondary binn-btn-compact">Usuarios</a>
+            {% endif %}
+          </div>
+        </article>
+      {% empty %}
+        <section class="binn-panel rounded-2xl p-6">
+          <div class="binn-empty">
+            No tienes empresas activas asignadas todavía.
+          </div>
+        </section>
+      {% endfor %}
+    </section>
+
+    {% if group_memberships %}
+      <section class="binn-panel rounded-2xl p-5 sm:p-6">
+        <div class="flex flex-col gap-3">
+          <div>
+            <span class="binn-kicker">Holdings</span>
+            <h2 class="binn-section-title mt-3">Acceso corporativo</h2>
+            <p class="binn-section-copy mt-2">Abre un holding cuando necesites vista consolidada o gobernanza.</p>
+          </div>
+
+          <div class="binn-access-group-grid">
+            {% for group_membership in group_memberships %}
+              <article class="binn-panel rounded-2xl p-5">
+                <div class="binn-access-top">
+                  <span class="binn-kicker">Holding</span>
+                  <span class="binn-pill">{{ group_membership.get_role_display }}</span>
+                </div>
+                <div class="binn-access-title">{{ group_membership.group.name }}</div>
+                <p class="binn-access-copy">Modo {{ group_membership.group.get_operating_model_display }} · Consolidación {{ group_membership.group.get_consolidation_mode_display }}</p>
+                <div class="binn-access-actions mt-4">
+                  <a href="{% url 'governance:group_switch' group_membership.group.pk %}" class="binn-btn-primary binn-btn-compact">Abrir holding</a>
+                  <a href="{% url 'governance:group_detail' group_membership.group.pk %}" class="binn-btn-secondary binn-btn-compact">Gobernanza</a>
+                </div>
+              </article>
+            {% endfor %}
+          </div>
+        </div>
+      </section>
+    {% endif %}
+  </div>
+{% endblock %}

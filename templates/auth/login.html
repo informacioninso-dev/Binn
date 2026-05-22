@@ -1,88 +1,495 @@
 {% extends "base.html" %}
-{% load static %}
 
-{% block title %}Iniciar sesión · Onne{% endblock %}
+{% block title %}Iniciar sesion | Binn{% endblock %}
+{% block body_class %}min-h-screen overflow-x-hidden text-gray-900{% endblock %}
+{% block page_chrome %}{% endblock %}
+{% block page_footer %}{% endblock %}
+{% block main_class %}flex-1 px-0 py-0{% endblock %}
+
+{% block head_extra %}
+<style>
+  .binn-auth-shell {
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at 10% 10%, rgba(95, 215, 196, 0.22), transparent 22%),
+      radial-gradient(circle at 90% 12%, rgba(255, 124, 95, 0.18), transparent 18%),
+      linear-gradient(180deg, #fbf7f1 0%, #f5ede2 100%);
+  }
+  .binn-auth-stage {
+    width: min(1160px, calc(100% - 2rem));
+    margin: 0 auto;
+    padding: 2rem 0;
+    display: grid;
+    gap: 1.35rem;
+    align-items: stretch;
+  }
+  .binn-auth-showcase,
+  .binn-auth-card {
+    border-radius: 2rem;
+    border: 1px solid rgba(17, 35, 59, 0.08);
+    box-shadow: 0 24px 60px rgba(17, 35, 59, 0.1);
+  }
+  .binn-auth-showcase {
+    position: relative;
+    overflow: hidden;
+    padding: 2rem;
+    background:
+      radial-gradient(circle at top right, rgba(255, 255, 255, 0.12), transparent 26%),
+      linear-gradient(155deg, #10243d 0%, #1d3557 58%, #12314b 100%);
+    color: #f5fbff;
+  }
+  .binn-auth-showcase::after {
+    content: "";
+    position: absolute;
+    right: -4rem;
+    bottom: -4rem;
+    width: 13rem;
+    height: 13rem;
+    border-radius: 999px;
+    background: radial-gradient(circle, rgba(95, 215, 196, 0.26), transparent 68%);
+  }
+  .binn-auth-card {
+    padding: 1.5rem;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(14px);
+  }
+  .binn-auth-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+  }
+  .binn-auth-brand-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.12rem;
+  }
+  .binn-auth-badge {
+    display: inline-flex;
+    width: fit-content;
+    align-items: center;
+    gap: 0.4rem;
+    margin-top: 1.4rem;
+    border-radius: 999px;
+    padding: 0.48rem 0.82rem;
+    background: rgba(95, 215, 196, 0.14);
+    color: #cbfff3;
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .binn-auth-badge svg,
+  .binn-auth-inline-icon {
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+  }
+  .binn-auth-hero-title {
+    margin-top: 1.15rem;
+    max-width: 11ch;
+    font-family: var(--binn-font-display);
+    font-size: clamp(2.45rem, 5vw, 4.7rem);
+    line-height: 0.94;
+    letter-spacing: -0.06em;
+    font-weight: 800;
+  }
+  .binn-auth-hero-copy {
+    margin-top: 1rem;
+    max-width: 34rem;
+    font-size: 1.03rem;
+    line-height: 1.72;
+    color: rgba(245, 251, 255, 0.8);
+  }
+  .binn-auth-benefits {
+    margin-top: 1.7rem;
+    display: grid;
+    gap: 0.9rem;
+  }
+  .binn-auth-benefit {
+    border-radius: 1.4rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.08);
+    padding: 1rem 1rem 1.05rem;
+  }
+  .binn-auth-benefit-head {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .binn-auth-benefit-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.35rem;
+    height: 2.35rem;
+    border-radius: 0.95rem;
+    background: rgba(95, 215, 196, 0.14);
+    color: #d9fff6;
+  }
+  .binn-auth-benefit-icon svg {
+    width: 1.15rem;
+    height: 1.15rem;
+  }
+  .binn-auth-benefit strong {
+    display: block;
+    font-size: 1rem;
+  }
+  .binn-auth-benefit p {
+    margin-top: 0.42rem;
+    font-size: 0.93rem;
+    line-height: 1.62;
+    color: rgba(245, 251, 255, 0.72);
+  }
+  .binn-auth-proof {
+    margin-top: 1.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    padding-top: 1rem;
+    font-size: 0.9rem;
+    color: rgba(245, 251, 255, 0.74);
+  }
+  .binn-auth-card-head {
+    text-align: center;
+  }
+  .binn-auth-card-head h1 {
+    margin-top: 1rem;
+    font-family: var(--binn-font-display);
+    font-size: clamp(2rem, 4vw, 2.8rem);
+    line-height: 0.96;
+    letter-spacing: -0.05em;
+    font-weight: 800;
+  }
+  .binn-auth-card-head p {
+    margin-top: 0.75rem;
+    color: #667488;
+    line-height: 1.68;
+  }
+  .binn-auth-form {
+    margin-top: 1.8rem;
+  }
+  .binn-auth-field + .binn-auth-field {
+    margin-top: 1rem;
+  }
+  .binn-auth-label {
+    display: block;
+    margin-bottom: 0.45rem;
+    font-size: 0.85rem;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    color: #32475e;
+  }
+  .binn-auth-label-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+  }
+  .binn-auth-input {
+    min-height: 3.45rem;
+    border-radius: 1.1rem;
+    border-color: rgba(17, 35, 59, 0.11);
+    background: #fcfcfa;
+    font-size: 1rem;
+  }
+  .binn-auth-input:focus {
+    border-color: rgba(95, 215, 196, 0.62);
+    box-shadow: 0 0 0 4px rgba(95, 215, 196, 0.16);
+  }
+  .binn-auth-password-wrap {
+    position: relative;
+  }
+  .binn-auth-password-wrap .binn-auth-input {
+    padding-right: 4rem;
+  }
+  .binn-auth-toggle {
+    position: absolute;
+    top: 50%;
+    right: 0.75rem;
+    transform: translateY(-50%);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.6rem;
+    height: 2.6rem;
+    border: 0;
+    border-radius: 999px;
+    background: #eef5f2;
+    color: #3c5168;
+    cursor: pointer;
+    transition: background-color 0.18s ease, color 0.18s ease;
+  }
+  .binn-auth-toggle:hover {
+    background: #e0f7f1;
+    color: #163a5d;
+  }
+  .binn-auth-toggle:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 4px rgba(95, 215, 196, 0.18);
+  }
+  .binn-auth-toggle svg {
+    width: 1.15rem;
+    height: 1.15rem;
+  }
+  .binn-auth-toggle [data-eye-off] {
+    display: none;
+  }
+  .binn-auth-toggle.is-visible [data-eye-on] {
+    display: none;
+  }
+  .binn-auth-toggle.is-visible [data-eye-off] {
+    display: block;
+  }
+  .binn-auth-submit {
+    width: 100%;
+    min-height: 3.5rem;
+    margin-top: 1.25rem;
+    border-radius: 1.1rem;
+    font-size: 1rem;
+  }
+  .binn-auth-submit-content {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+  }
+  .binn-auth-help {
+    margin-top: 1rem;
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    align-items: center;
+    font-size: 0.9rem;
+    color: #667488;
+  }
+  .binn-auth-help a {
+    color: #163a5d;
+    font-weight: 800;
+    text-decoration: none;
+  }
+  .binn-auth-help a:hover {
+    text-decoration: underline;
+  }
+  .binn-auth-note {
+    margin-top: 1.25rem;
+    border-radius: 1.2rem;
+    background: #f5f8fb;
+    border: 1px solid rgba(17, 35, 59, 0.08);
+    padding: 1rem 1rem 1.05rem;
+    font-size: 0.93rem;
+    line-height: 1.62;
+    color: #5e6d81;
+  }
+  .binn-auth-note-head {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    margin-bottom: 0.35rem;
+    font-weight: 800;
+    color: #31475e;
+  }
+  @media (min-width: 980px) {
+    .binn-auth-stage {
+      min-height: 100vh;
+      grid-template-columns: minmax(0, 1.05fr) minmax(420px, 0.95fr);
+      padding: 2rem 0;
+    }
+    .binn-auth-showcase,
+    .binn-auth-card {
+      padding: 2.35rem;
+    }
+    .binn-auth-card {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+  }
+  @media (max-width: 979px) {
+    .binn-auth-showcase {
+      padding: 1.6rem;
+    }
+    .binn-auth-card {
+      padding: 1.35rem;
+    }
+    .binn-auth-hero-title {
+      max-width: 12ch;
+    }
+  }
+</style>
+{% endblock %}
 
 {% block content %}
-  <div class="min-h-[60vh] grid place-items-center">
-    <div class="w-full max-w-md rounded-2xl border bg-white p-6 shadow-sm">
-      <div class="mb-6 text-center">
-        <img src="{% static 'img/logo.png' %}" alt="Logo de Onne" class="mx-auto h-12 w-12">
-        <h1 class="mt-3 text-2xl font-bold">Iniciar sesión</h1>
-        <p class="text-sm text-gray-500">Accede con usuario o correo y contraseña</p>
-      </div>
-
-      {% if form.errors %}
-        <div class="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          {% if form.non_field_errors %}
-            {{ form.non_field_errors.0 }}
-          {% else %}
-            Usuario o contraseña inválidos. Intenta de nuevo.
-          {% endif %}
-        </div>
-      {% endif %}
-
-      <form method="post" novalidate class="space-y-4">
-        {% csrf_token %}
-        <div>
-          <label for="id_username" class="mb-1 block text-sm font-medium">Usuario o correo</label>
-          <input type="text" name="username" autofocus required id="id_username"
-                 class="w-full rounded-lg border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-        </div>
-        <div>
-          <label for="id_password" class="mb-1 block text-sm font-medium">Contraseña</label>
-          <div class="relative">
-            <input type="password" name="password" required id="id_password"
-                   class="w-full rounded-lg border px-3 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <button type="button"
-                    id="toggle-password"
-                    class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none transition-colors"
-                    aria-label="Mostrar contraseña">
-              <svg id="eye-open" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                <path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd" />
-              </svg>
-              <svg id="eye-closed" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 hidden" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-1.473-1.473A10.014 10.014 0 0019.542 10C18.268 5.943 14.478 3 10 3a9.958 9.958 0 00-4.512 1.074l-1.78-1.781zm4.261 4.26l1.514 1.515a2.003 2.003 0 012.45 2.45l1.514 1.514a4 4 0 00-5.478-5.478z" clip-rule="evenodd" />
-                <path d="M12.454 16.697L9.75 13.992a4 4 0 01-3.742-3.741L2.335 6.578A9.98 9.98 0 00.458 10c1.274 4.057 5.065 7 9.542 7 .847 0 1.669-.105 2.454-.303z" />
-              </svg>
-            </button>
+  <section class="binn-auth-shell">
+    <div class="binn-auth-stage">
+      <section class="binn-auth-showcase">
+        <div class="binn-auth-brand">
+          <span class="binn-mark-lg" aria-hidden="true">Bn</span>
+          <div class="binn-auth-brand-copy">
+            <strong class="text-2xl font-semibold tracking-tight">Binn</strong>
+            <span class="text-sm text-white/70">CRM comercial para pymes</span>
           </div>
         </div>
-        <button type="submit" class="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
-          Entrar
-        </button>
-      </form>
 
-      <p class="mt-4 text-center text-xs text-gray-500">
-        ¿Olvidaste tu contraseña? Solicítala a un administrador.
-      </p>
+        <span class="binn-auth-badge">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3l7 4v5c0 4.6-2.9 7.9-7 9-4.1-1.1-7-4.4-7-9V7l7-4Z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="m9.5 12 1.7 1.7 3.3-3.4" />
+          </svg>
+          Hecho para equipos pequenos
+        </span>
+        <h2 class="binn-auth-hero-title">Clientes, seguimiento y cobros en un lugar claro.</h2>
+        <p class="binn-auth-hero-copy">
+          Binn ayuda a vender con orden, atender mejor y no perder tareas, documentos o cuentas por cobrar entre WhatsApp, Excel y notas sueltas.
+        </p>
+
+        <div class="binn-auth-benefits">
+          <article class="binn-auth-benefit">
+            <div class="binn-auth-benefit-head">
+              <span class="binn-auth-benefit-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2" />
+                  <circle cx="9.5" cy="7" r="4" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M20 8v6M23 11h-6" />
+                </svg>
+              </span>
+              <strong>Clientes y contexto a la mano</strong>
+            </div>
+            <p>Encuentra rapido a cada cliente, revisa su historial y decide el siguiente paso sin perder tiempo buscando.</p>
+          </article>
+          <article class="binn-auth-benefit">
+            <div class="binn-auth-benefit-head">
+              <span class="binn-auth-benefit-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z" />
+                </svg>
+              </span>
+              <strong>Facil de aprender y usar</strong>
+            </div>
+            <p>La interfaz prioriza acciones claras, lenguaje simple y flujos rapidos para el trabajo del dia a dia.</p>
+          </article>
+          <article class="binn-auth-benefit">
+            <div class="binn-auth-benefit-head">
+              <span class="binn-auth-benefit-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M7 12h10M10 18h4" />
+                </svg>
+              </span>
+              <strong>Cada negocio ve lo que si importa</strong>
+            </div>
+            <p>Broker, condominio, servicios o retail: cada espacio se adapta para mostrar menos ruido y mas foco operativo.</p>
+          </article>
+        </div>
+
+        <p class="binn-auth-proof">Pensado para negocios que hoy se apoyan en WhatsApp, Excel y seguimiento manual.</p>
+      </section>
+
+      <section class="binn-auth-card">
+        <div class="binn-auth-card-head">
+          <span class="binn-mark-lg mx-auto" aria-hidden="true">Bn</span>
+          <h1>Inicia sesion</h1>
+          <p>Entra con tu usuario o correo. Si administras varias empresas, eliges la correcta despues del acceso.</p>
+        </div>
+
+        {% if form.errors %}
+          <div class="mt-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {% if form.non_field_errors %}
+              {{ form.non_field_errors.0 }}
+            {% else %}
+              Usuario o contrasena invalida. Revisa tus datos e intenta otra vez.
+            {% endif %}
+          </div>
+        {% endif %}
+
+        <form method="post" novalidate class="binn-auth-form">
+          {% csrf_token %}
+          <div class="binn-auth-field">
+            <label for="id_username" class="binn-auth-label">
+              <span class="binn-auth-label-row">
+                <svg class="binn-auth-inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M20 21a8 8 0 0 0-16 0" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+                Correo o usuario
+              </span>
+            </label>
+            {{ form.username }}
+          </div>
+
+          <div class="binn-auth-field">
+            <label for="id_password" class="binn-auth-label">
+              <span class="binn-auth-label-row">
+                <svg class="binn-auth-inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                  <rect x="4" y="11" width="16" height="9" rx="2" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M8 11V8a4 4 0 1 1 8 0v3" />
+                </svg>
+                Contrasena
+              </span>
+            </label>
+            <div class="binn-auth-password-wrap">
+              {{ form.password }}
+              <button
+                type="button"
+                class="binn-auth-toggle"
+                data-password-toggle
+                aria-label="Mostrar contrasena"
+                aria-pressed="false"
+              >
+                <svg data-eye-on viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+                <svg data-eye-off viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 3 21 21" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M10.6 10.7A3 3 0 0 0 13.4 13.5" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9.9 5.1A11.6 11.6 0 0 1 12 5c6.5 0 10 7 10 7a17.6 17.6 0 0 1-4 4.9" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6.5 6.6A17.6 17.6 0 0 0 2 12s3.5 7 10 7a11.6 11.6 0 0 0 4-.7" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <button type="submit" class="binn-btn-primary binn-auth-submit">
+            <span class="binn-auth-submit-content">
+              <svg class="binn-auth-inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 5l7 7-7 7" />
+              </svg>
+              Entrar
+            </span>
+          </button>
+
+          <div class="binn-auth-help">
+            <span>Acceso seguro para tu equipo</span>
+            <a href="/accounts/password/reset/">Olvide mi clave</a>
+          </div>
+        </form>
+
+        <div class="binn-auth-note">
+          <div class="binn-auth-note-head">
+            <svg class="binn-auth-inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v5M12 7h.01" />
+            </svg>
+            Acceso guiado
+          </div>
+          Si no recuerdas a que espacio debes entrar, inicia sesion primero. Binn te mostrara las empresas o negocios disponibles para tu usuario.
+        </div>
+      </section>
     </div>
-  </div>
+  </section>
+{% endblock %}
 
+{% block scripts %}
   <script>
     document.addEventListener("DOMContentLoaded", function () {
-      const toggleBtn = document.getElementById("toggle-password");
-      const passwordInput = document.getElementById("id_password");
-      const eyeOpen = document.getElementById("eye-open");
-      const eyeClosed = document.getElementById("eye-closed");
+      const toggle = document.querySelector("[data-password-toggle]");
+      const input = document.getElementById("id_password");
 
-      if (toggleBtn && passwordInput && eyeOpen && eyeClosed) {
-        toggleBtn.addEventListener("click", function () {
-          const isPassword = passwordInput.type === "password";
-          passwordInput.type = isPassword ? "text" : "password";
-
-          if (isPassword) {
-            eyeOpen.classList.add("hidden");
-            eyeClosed.classList.remove("hidden");
-          } else {
-            eyeOpen.classList.remove("hidden");
-            eyeClosed.classList.add("hidden");
-          }
-
-          toggleBtn.setAttribute("aria-label", isPassword ? "Ocultar contraseña" : "Mostrar contraseña");
-        });
+      if (!toggle || !input) {
+        return;
       }
+
+      toggle.addEventListener("click", function () {
+        const visible = input.type === "text";
+        input.type = visible ? "password" : "text";
+        toggle.classList.toggle("is-visible", !visible);
+        toggle.setAttribute("aria-pressed", String(!visible));
+      });
     });
   </script>
 {% endblock %}
