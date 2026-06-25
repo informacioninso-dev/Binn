@@ -1,6 +1,7 @@
 import json
+from contextlib import nullcontext
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from django.contrib.auth.models import AnonymousUser
 from django.contrib.auth import get_user_model
@@ -18,7 +19,7 @@ from tenants.defaults import (
 )
 from tenants.forms import TenantEditForm
 from tenants.models import Client
-from tenants.services import TenantProvisionError, assign_tenant_membership
+from tenants.services import TenantProvisionError, assign_tenant_membership, create_tenant
 from tenants.views import SystemHealthView, SystemRuntimeHealthView
 from tenants.workspace_packs import build_group_pack_mix, build_workspace_pack
 
@@ -252,6 +253,131 @@ class TenantMembershipCapacityTests(TestCase):
 
         self.assertEqual(result.membership.pk, updated.membership.pk)
         self.assertEqual(updated.membership.role, "manager")
+
+
+class TenantProvisioningServiceTests(SimpleTestCase):
+    @patch("tenants.services._validate_tenant_request")
+    @patch("tenants.services._get_existing_user", return_value=None)
+    @patch("tenants.services.Client")
+    @patch("tenants.services.Domain")
+    @patch("tenants.services.TenantConfig")
+    @patch(
+        "tenants.services.build_tenant_launchpad",
+        return_value={
+            "headline": "CRM listo",
+            "enabled_capabilities": [{"key": "entities", "label": "Fichas"}],
+            "hidden_capabilities": [],
+            "pipelines": [],
+        },
+    )
+    @patch("tenants.services.record_tenant_event")
+    @patch("tenants.services.sync_tenant_pipelines", return_value=[])
+    @patch("tenants.services.sync_tenant_object_schemas", return_value=[])
+    @patch("tenants.services.ensure_tenant_admin_membership", return_value=[])
+    @patch("tenants.services.get_public_schema_name", return_value="public")
+    @patch("tenants.services.schema_context", side_effect=lambda schema: nullcontext())
+    def test_create_tenant_provisions_schema_explicitly(
+        self,
+        schema_context_mock,
+        public_schema_mock,
+        ensure_admin_mock,
+        sync_objects_mock,
+        sync_pipelines_mock,
+        record_event_mock,
+        launchpad_mock,
+        tenant_config_mock,
+        domain_mock,
+        client_class_mock,
+        get_existing_user_mock,
+        validate_request_mock,
+    ):
+        client = MagicMock()
+        client.schema_name = "demo"
+        client.name = "Demo"
+        client.pk = 1
+        client_class_mock.return_value = client
+
+        config = MagicMock()
+        config.get_profile_display.return_value = "General"
+        tenant_config_mock.objects.filter.return_value.first.return_value = None
+        tenant_config_mock.return_value = config
+
+        result = create_tenant(
+            schema_name="demo",
+            name="Demo",
+            domain="demo.binnso.com",
+            plan=Client.PLAN_SHARED,
+            profile="general",
+        )
+
+        self.assertIs(result.client, client)
+        self.assertFalse(client.auto_create_schema)
+        client.save.assert_called_once()
+        domain_mock.objects.create.assert_called_once_with(
+            domain="demo.binnso.com",
+            tenant=client,
+            is_primary=True,
+        )
+        client.create_schema.assert_called_once_with(check_if_exists=True, verbosity=0)
+        sync_pipelines_mock.assert_called_once_with(client)
+        sync_objects_mock.assert_called_once_with(client)
+        ensure_admin_mock.assert_not_called()
+        self.assertGreaterEqual(record_event_mock.call_count, 2)
+
+    @patch("tenants.services._safe_drop_client")
+    @patch("tenants.services._validate_tenant_request")
+    @patch("tenants.services._get_existing_user", return_value=None)
+    @patch("tenants.services.Client")
+    @patch("tenants.services.Domain")
+    @patch("tenants.services.TenantConfig")
+    @patch(
+        "tenants.services.build_tenant_launchpad",
+        return_value={
+            "headline": "CRM listo",
+            "enabled_capabilities": [{"key": "entities", "label": "Fichas"}],
+            "hidden_capabilities": [],
+            "pipelines": [],
+        },
+    )
+    @patch("tenants.services.record_tenant_event")
+    @patch("tenants.services.get_public_schema_name", return_value="public")
+    @patch("tenants.services.schema_context", side_effect=lambda schema: nullcontext())
+    def test_create_tenant_rolls_back_when_schema_provision_fails(
+        self,
+        schema_context_mock,
+        public_schema_mock,
+        record_event_mock,
+        launchpad_mock,
+        tenant_config_mock,
+        domain_mock,
+        client_class_mock,
+        get_existing_user_mock,
+        validate_request_mock,
+        safe_drop_client_mock,
+    ):
+        client = MagicMock()
+        client.schema_name = "demo"
+        client.name = "Demo"
+        client.pk = 1
+        client.create_schema.side_effect = RuntimeError("boom")
+        client_class_mock.return_value = client
+
+        config = MagicMock()
+        config.get_profile_display.return_value = "General"
+        tenant_config_mock.objects.filter.return_value.first.return_value = None
+        tenant_config_mock.return_value = config
+
+        with self.assertRaises(TenantProvisionError) as ctx:
+            create_tenant(
+                schema_name="demo",
+                name="Demo",
+                domain="demo.binnso.com",
+                plan=Client.PLAN_SHARED,
+                profile="general",
+            )
+
+        self.assertIn("No se pudo provisionar el schema", str(ctx.exception))
+        safe_drop_client_mock.assert_called_once_with(client)
 
 
 class SystemHealthViewTests(TestCase):

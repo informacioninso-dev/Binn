@@ -131,6 +131,7 @@ def create_tenant(
 
     client = None
     launchpad = {}
+    config = None
     try:
         with schema_context(get_public_schema_name()):
             client = Client(
@@ -139,6 +140,7 @@ def create_tenant(
                 plan=plan,
                 is_active=True,
             )
+            client.auto_create_schema = False
             client.save()
             Domain.objects.create(
                 domain=domain,
@@ -164,7 +166,15 @@ def create_tenant(
     except Exception as exc:
         if client and getattr(client, "pk", None):
             _safe_drop_client(client)
-        raise TenantProvisionError(f"No se pudo crear el tenant '{schema_name}': {exc}") from exc
+        raise TenantProvisionError(f"No se pudo registrar el tenant '{schema_name}': {exc}") from exc
+
+    try:
+        client.create_schema(check_if_exists=True, verbosity=0)
+    except Exception as exc:
+        _safe_drop_client(client)
+        raise TenantProvisionError(
+            f"No se pudo provisionar el schema del tenant '{schema_name}': {exc}"
+        ) from exc
 
     try:
         notices = _build_launchpad_notices(launchpad)

@@ -18,19 +18,28 @@ from config.env import (
 )
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+ENV_FILE = BASE_DIR / ".env"
 
 
 def _env_bool(name: str, default: bool = False) -> bool:
     value = os.getenv(name)
     if value is None:
         return default
-    return value.strip().lower() in {"1", "true", "yes", "on"}
+    normalized = value.strip().lower()
+    if not normalized:
+        return default
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    return default
 
 
-load_dotenv(BASE_DIR / ".env", override=False)
+load_dotenv(ENV_FILE, override=False)
 
 SECRET_KEY = (os.getenv("SECRET_KEY", DEFAULT_DEV_SECRET) or DEFAULT_DEV_SECRET).strip()
-DEBUG = _env_bool("DEBUG", default=False)
+# Si no existe .env ni una variable DEBUG explicita, asumimos perfil local seguro.
+DEBUG = _env_bool("DEBUG", default=not ENV_FILE.exists())
 ALLOWED_HOSTS = resolve_allowed_hosts(debug=DEBUG, env_value=os.getenv("ALLOWED_HOSTS"))
 TENANT_BASE_DOMAIN = resolve_tenant_base_domain(debug=DEBUG, env_value=os.getenv("TENANT_BASE_DOMAIN"))
 CSRF_TRUSTED_ORIGINS = resolve_csrf_trusted_origins(debug=DEBUG, env_value=os.getenv("CSRF_TRUSTED_ORIGINS"))

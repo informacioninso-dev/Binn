@@ -21,11 +21,23 @@ Base inicial de Binn sobre Django + PostgreSQL schemas + HTMX.
 ## Arranque local
 
 ```bash
+py -3.12 -m venv .venv
+.venv\Scripts\activate
+Copy-Item .env.example .env
+python -m pip install --upgrade pip
+pip install -r requirements.lock.txt
 python manage.py migrate_schemas --shared
 python manage.py setup_public_tenant --domains localhost,127.0.0.1 --name "Binn Public"
 python manage.py createsuperuser
 python manage.py runserver
 ```
+
+Referencia local:
+
+- Python `3.12`
+- dependencias instaladas desde `requirements.lock.txt`
+- PostgreSQL requerido por `django-tenants`
+- si todavia no existe `.env`, Binn cae en perfil local seguro (`DEBUG=True`, hosts locales unicamente)
 
 ## Static y media en produccion
 
