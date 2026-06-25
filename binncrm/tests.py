@@ -13,9 +13,9 @@ from .document_blueprints import (
     get_document_type_label,
 )
 from .demo_seed import build_demo_scenario
-from .forms import CollectionRecordForm, EntityForm, ObjectRecordForm, PipelineTemplateEditorForm, ProposalForm
+from .forms import CollectionRecordForm, EntityForm, ObjectRecordForm, PipelineTemplateEditorForm, ProposalForm, SavedWorkspaceFilterForm
 from .importers import import_entities_from_csv
-from .models import CollectionRecord, Document, ObjectSchema, Proposal
+from .models import CollectionRecord, Document, ObjectSchema, Proposal, SavedWorkspaceFilter
 from .object_engine import get_entity_field_definitions, resolve_object_record_title
 from .view_engine import apply_deal_saved_view, apply_entity_saved_view, get_saved_views, resolve_saved_view
 from .views import (
@@ -27,6 +27,7 @@ from .views import (
     _build_entity_search_query,
     _document_expiry_status,
     _format_extra_value,
+    _normalize_saved_filter_params,
     _proposal_status,
     _task_status,
 )
@@ -121,6 +122,41 @@ class PipelineTemplateEditorFormTests(SimpleTestCase):
 
         self.assertFalse(form.is_valid())
         self.assertIn("label", form.errors)
+
+
+class SavedWorkspaceFilterFormTests(SimpleTestCase):
+    def test_entity_filter_form_normalizes_query_and_view(self):
+        form = SavedWorkspaceFilterForm(
+            data={
+                "label": "Contactos sin telefono",
+                "q": " ana ",
+                "view": "missing_contact",
+            },
+            object_type=SavedWorkspaceFilter.OBJECT_ENTITY,
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(
+            form.cleaned_data["normalized_params"],
+            {"q": "ana", "view": "missing_contact"},
+        )
+
+    def test_deal_filter_form_keeps_pipeline_when_present(self):
+        form = SavedWorkspaceFilterForm(
+            data={
+                "label": "Pipeline principal",
+                "q": "acme",
+                "view": "pipeline_board",
+                "pipeline": "7",
+            },
+            object_type=SavedWorkspaceFilter.OBJECT_DEAL,
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(
+            form.cleaned_data["normalized_params"],
+            {"q": "acme", "view": "pipeline_board", "pipeline": "7"},
+        )
 
 
 class ObjectEngineFallbackTests(SimpleTestCase):
@@ -233,6 +269,17 @@ class SavedViewFilteringTests(SimpleTestCase):
 
         self.assertEqual(len(queryset.filtered), 1)
         self.assertEqual(queryset.ordered[-1], ("sort_order", "-updated_at"))
+
+    def test_normalize_saved_filter_params_drops_unknown_keys(self):
+        normalized = _normalize_saved_filter_params(
+            object_type=SavedWorkspaceFilter.OBJECT_ENTITY,
+            raw_params={"q": "ana", "view": "recently_updated", "pipeline": "99", "x": "nope"},
+        )
+
+        self.assertEqual(
+            normalized,
+            {"q": "ana", "view": "recently_updated"},
+        )
 
 
 class EntityHelperTests(SimpleTestCase):

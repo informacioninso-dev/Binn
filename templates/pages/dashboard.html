@@ -137,6 +137,49 @@
     display: grid;
     gap: 0.65rem;
   }
+  .binn-control-action-grid {
+    display: grid;
+    gap: 1rem;
+  }
+  .binn-control-action-card {
+    display: grid;
+    gap: 0.85rem;
+  }
+  .binn-control-action-list {
+    display: grid;
+    gap: 0.65rem;
+  }
+  .binn-control-action-item {
+    display: grid;
+    gap: 0.3rem;
+    border-top: 1px solid var(--binn-line);
+    padding-top: 0.75rem;
+  }
+  .binn-control-action-item:first-child {
+    border-top: 0;
+    padding-top: 0;
+  }
+  .binn-control-action-item-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+  }
+  .binn-control-action-item-title {
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.35;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+  .binn-control-action-item-meta,
+  .binn-control-action-item-status {
+    margin: 0;
+    font-size: 0.78rem;
+    line-height: 1.45;
+    color: var(--binn-ink-soft);
+  }
   .binn-control-funnel-graphic {
     display: grid;
     gap: 0.6rem;
@@ -216,6 +259,9 @@
   @media (min-width: 1180px) {
     .binn-control-funnel-grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .binn-control-action-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
     }
   }
 </style>
@@ -406,6 +452,39 @@
           {% endif %}
         </article>
       </section>
+
+      {% if action_sections %}
+        <section class="binn-control-action-grid">
+          {% for section in action_sections %}
+            <article class="binn-panel binn-control-action-card">
+              <div class="binn-control-panel-head">
+                <div>
+                  <p class="binn-control-panel-kicker">{{ section.title }}</p>
+                  <p class="binn-control-panel-copy">{{ section.subtitle }}</p>
+                </div>
+                {% if section.href %}
+                  <a href="{{ section.href }}" class="binn-record-action binn-record-action-primary">{{ section.cta|default:"Abrir" }}</a>
+                {% endif %}
+              </div>
+
+              <div class="binn-control-action-list">
+                {% for item in section.items %}
+                  <article class="binn-control-action-item">
+                    <div class="binn-control-action-item-head">
+                      <h3 class="binn-control-action-item-title">{{ item.title }}</h3>
+                      <a href="{{ item.href }}" class="binn-record-action">Abrir</a>
+                    </div>
+                    <p class="binn-control-action-item-meta">{{ item.meta }}</p>
+                    <p class="binn-control-action-item-status">{{ item.status }}</p>
+                  </article>
+                {% empty %}
+                  <div class="binn-empty text-sm">{{ section.empty_message }}</div>
+                {% endfor %}
+              </div>
+            </article>
+          {% endfor %}
+        </section>
+      {% endif %}
     {% endif %}
   </div>
 {% endblock %}

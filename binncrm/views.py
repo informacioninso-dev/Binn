@@ -1,4 +1,5 @@
 import json
+from urllib.parse import urlencode
 from datetime import date, datetime, timedelta
 
 from django.conf import settings
@@ -60,8 +61,9 @@ from .forms import (
     ObjectRecordForm,
     PipelineTemplateEditorForm,
     ProposalForm,
+    SavedWorkspaceFilterForm,
 )
-from .models import Activity, CollectionRecord, Deal, Document, Entity, ObjectRecord, ObjectSchema, Pipeline, Proposal
+from .models import Activity, CollectionRecord, Deal, Document, Entity, ObjectRecord, ObjectSchema, Pipeline, Proposal, SavedWorkspaceFilter
 from .object_engine import (
     build_object_record_preview,
     get_custom_object_schemas,
@@ -106,6 +108,70 @@ def _can_manage_pipeline_settings(request) -> bool:
     if membership is None or not membership.is_active:
         return False
     return membership.role in CRM_ADMIN_ALLOWED_ROLES
+
+
+def _saved_filter_allowed_keys(object_type: str) -> tuple[str, ...]:
+    if object_type == SavedWorkspaceFilter.OBJECT_DEAL:
+        return ("q", "view", "pipeline")
+    return ("q", "view")
+
+
+def _normalize_saved_filter_params(*, object_type: str, raw_params: dict | None) -> dict[str, str]:
+    normalized = {}
+    for key in _saved_filter_allowed_keys(object_type):
+        value = str((raw_params or {}).get(key, "") or "").strip()
+        if value:
+            normalized[key] = value
+    return normalized
+
+
+def _resolve_active_saved_filter(request, *, object_type: str) -> tuple[SavedWorkspaceFilter | None, dict[str, str]]:
+    raw_filter_id = (request.GET.get("saved_filter") or "").strip()
+    if not raw_filter_id.isdigit():
+        return None, {}
+    saved_filter = (
+        SavedWorkspaceFilter.objects.filter(
+            pk=int(raw_filter_id),
+            owner=request.user,
+            object_type=object_type,
+        )
+        .only("id", "label", "params", "object_type")
+        .first()
+    )
+    if saved_filter is None:
+        return None, {}
+    return saved_filter, _normalize_saved_filter_params(object_type=object_type, raw_params=saved_filter.params)
+
+
+def _resolve_filter_value(request, *, key: str, defaults: dict[str, str]) -> str:
+    return str(request.GET.get(key, defaults.get(key, "")) or "").strip()
+
+
+def _build_saved_filter_redirect(route_name: str, *, params: dict[str, str], saved_filter_id: int | None = None) -> str:
+    query_params = dict(params)
+    if saved_filter_id is not None:
+        query_params["saved_filter"] = str(saved_filter_id)
+    base_url = reverse(route_name)
+    if not query_params:
+        return base_url
+    return f"{base_url}?{urlencode(query_params)}"
+
+
+def _build_saved_filter_items(request, *, object_type: str, route_name: str, active_filter: SavedWorkspaceFilter | None) -> list[dict]:
+    filters = SavedWorkspaceFilter.objects.filter(owner=request.user, object_type=object_type).order_by("label", "id")
+    items = []
+    active_filter_id = getattr(active_filter, "pk", None)
+    for saved_filter in filters:
+        params = _normalize_saved_filter_params(object_type=object_type, raw_params=saved_filter.params)
+        items.append(
+            {
+                "pk": saved_filter.pk,
+                "label": saved_filter.label,
+                "href": _build_saved_filter_redirect(route_name, params=params, saved_filter_id=saved_filter.pk),
+                "is_active": saved_filter.pk == active_filter_id,
+            }
+        )
+    return items
 
 
 def _replace_pipeline_template(templates: list[dict], pipeline_key: str, replacement: dict) -> list[dict]:
@@ -481,6 +547,209 @@ def _parse_extra_date(raw_value):
         return date.fromisoformat(str(raw_value)[:10])
     except ValueError:
         return None
+
+
+def _build_search_section(*, key: str, title: str, empty_message: str, items: list[dict], href: str = "") -> dict:
+    return {
+        "key": key,
+        "title": title,
+        "empty_message": empty_message,
+        "count": len(items),
+        "items": items,
+        "href": href,
+    }
+
+
+def _build_global_search_sections(request, *, query: str) -> list[dict]:
+    query = (query or "").strip()
+    if not query:
+        return []
+
+    labels = request.tenant.tenant_config.labels
+    entity_fields = get_entity_field_definitions(tenant=request.tenant)
+    sections = []
+
+    if _can(request, PERMISSION_ENTITIES_VIEW):
+        entity_items = [
+            {
+                "title": entity.full_name,
+                "meta": entity.legal_id or entity.phone or entity.email or "Sin dato principal",
+                "caption": entity.notes[:120] if entity.notes else "Ficha del contacto.",
+                "href": reverse("binncrm:entity_detail", kwargs={"pk": entity.pk}),
+                "link_label": "Abrir ficha",
+            }
+            for entity in Entity.objects.filter(is_active=True)
+            .filter(_build_entity_search_query(query, entity_fields))
+            .order_by("full_name")[:6]
+        ]
+        sections.append(
+            _build_search_section(
+                key="entities",
+                title=labels.get("entity_plural", "Contactos"),
+                empty_message="No hubo coincidencias en contactos.",
+                items=entity_items,
+                href=f"{reverse('binncrm:entities')}?{urlencode({'q': query})}",
+            )
+        )
+
+    if _can(request, PERMISSION_DEALS_VIEW):
+        deal_items = []
+        deals = (
+            Deal.objects.select_related("entity", "pipeline")
+            .filter(is_active=True)
+            .filter(Q(title__icontains=query) | _build_entity_search_query(query, entity_fields, prefix="entity__"))
+            .order_by("-updated_at")[:6]
+        )
+        for deal in deals:
+            deal_items.append(
+                {
+                    "title": deal.title,
+                    "meta": f"{deal.entity.full_name} | {deal.pipeline.name} | {deal.stage}",
+                    "caption": deal.notes[:120] if deal.notes else _format_currency_amount(deal.currency, deal.amount),
+                    "href": reverse("binncrm:deal_edit", kwargs={"pk": deal.pk}),
+                    "link_label": "Abrir deal",
+                }
+            )
+        sections.append(
+            _build_search_section(
+                key="deals",
+                title=labels.get("deal_plural", "Deals"),
+                empty_message="No hubo coincidencias en deals.",
+                items=deal_items,
+                href=f"{reverse('binncrm:index')}?{urlencode({'q': query})}",
+            )
+        )
+
+    if _can(request, PERMISSION_ACTIVITIES_VIEW):
+        activity_items = []
+        activities = (
+            Activity.objects.select_related("entity", "deal", "assigned_to")
+            .filter(
+                Q(title__icontains=query)
+                | Q(description__icontains=query)
+                | Q(entity__full_name__icontains=query)
+            )
+            .order_by("-created_at")[:6]
+        )
+        for activity in activities:
+            status_copy = _task_status(activity)["label"] if activity.activity_type == Activity.TYPE_TASK else activity.get_activity_type_display()
+            activity_items.append(
+                {
+                    "title": activity.title,
+                    "meta": f"{activity.entity.full_name} | {activity.get_activity_type_display()}",
+                    "caption": status_copy,
+                    "href": reverse("binncrm:entity_detail", kwargs={"pk": activity.entity_id}),
+                    "link_label": "Abrir ficha",
+                }
+            )
+        sections.append(
+            _build_search_section(
+                key="activities",
+                title=labels.get("activity_plural", "Actividades"),
+                empty_message="No hubo coincidencias en actividades.",
+                items=activity_items,
+                href=f"{reverse('binncrm:activities')}?{urlencode({'q': query})}",
+            )
+        )
+
+    if _can(request, PERMISSION_PROPOSALS_VIEW):
+        proposal_items = []
+        proposals = (
+            Proposal.objects.select_related("entity", "deal")
+            .filter(is_active=True)
+            .filter(
+                Q(title__icontains=query)
+                | Q(proposal_number__icontains=query)
+                | Q(entity__full_name__icontains=query)
+            )
+            .order_by("-updated_at")[:6]
+        )
+        for proposal in proposals:
+            proposal_items.append(
+                {
+                    "title": proposal.title,
+                    "meta": f"{proposal.entity.full_name} | {proposal.get_status_display()}",
+                    "caption": proposal.summary[:120] if proposal.summary else _format_currency_amount(proposal.currency, proposal.amount),
+                    "href": reverse("binncrm:proposal_edit", kwargs={"pk": proposal.pk}),
+                    "link_label": "Abrir propuesta",
+                }
+            )
+        sections.append(
+            _build_search_section(
+                key="proposals",
+                title=labels.get("proposal_plural", "Propuestas"),
+                empty_message="No hubo coincidencias en propuestas.",
+                items=proposal_items,
+                href=f"{reverse('binncrm:proposals')}?{urlencode({'q': query})}",
+            )
+        )
+
+    if _can(request, PERMISSION_COLLECTIONS_VIEW):
+        collection_items = []
+        collections = (
+            CollectionRecord.objects.select_related("entity", "deal")
+            .filter(is_active=True)
+            .filter(
+                Q(title__icontains=query)
+                | Q(reference__icontains=query)
+                | Q(entity__full_name__icontains=query)
+            )
+            .order_by("due_on", "-updated_at")[:6]
+        )
+        for collection in collections:
+            collection_items.append(
+                {
+                    "title": collection.title,
+                    "meta": f"{collection.entity.full_name} | {collection.get_status_display()}",
+                    "caption": f"Saldo {_format_currency_amount(collection.currency, collection.balance)}",
+                    "href": reverse("binncrm:collection_edit", kwargs={"pk": collection.pk}),
+                    "link_label": "Abrir cobranza",
+                }
+            )
+        sections.append(
+            _build_search_section(
+                key="collections",
+                title=labels.get("collection_plural", "Cobranzas"),
+                empty_message="No hubo coincidencias en cobranzas.",
+                items=collection_items,
+                href=f"{reverse('binncrm:collections')}?{urlencode({'q': query})}",
+            )
+        )
+
+    if _can(request, PERMISSION_DOCUMENTS_VIEW):
+        document_items = []
+        documents = (
+            Document.objects.select_related("entity", "deal")
+            .filter(is_active=True)
+            .filter(
+                Q(title__icontains=query)
+                | Q(document_type__icontains=query)
+                | Q(storage_key__icontains=query)
+                | Q(entity__full_name__icontains=query)
+            )
+            .order_by("-created_at")[:6]
+        )
+        for document in documents:
+            document_items.append(
+                {
+                    "title": document.title,
+                    "meta": getattr(document.entity, "full_name", "") or document.document_type,
+                    "caption": document.storage_key or document.external_url or "Documento registrado.",
+                    "href": reverse("binncrm:document_edit", kwargs={"pk": document.pk}),
+                    "link_label": "Abrir documento",
+                }
+            )
+        sections.append(
+            _build_search_section(
+                key="documents",
+                title=labels.get("document_plural", "Documentos"),
+                empty_message="No hubo coincidencias en documentos.",
+                items=document_items,
+                href=f"{reverse('binncrm:documents')}?{urlencode({'q': query})}",
+            )
+        )
+
+    return sections
 
 
 def _build_report_item(*, title: str, meta: str = "", caption: str = "", status: str = "", tone: str = "bg-gray-100 text-gray-700") -> dict:
@@ -951,21 +1220,25 @@ def _sync_proposal_timestamps(proposal: Proposal, *, previous_status: str | None
 def index(request):
     labels = request.tenant.tenant_config.labels
     entity_fields = get_entity_field_definitions(tenant=request.tenant)
+    active_saved_filter, saved_filter_defaults = _resolve_active_saved_filter(
+        request,
+        object_type=SavedWorkspaceFilter.OBJECT_DEAL,
+    )
     saved_views = get_saved_views(object_key="deal", tenant=request.tenant)
     current_view = resolve_saved_view(
         object_key="deal",
         tenant=request.tenant,
-        view_key=(request.GET.get("view") or "").strip(),
+        view_key=_resolve_filter_value(request, key="view", defaults=saved_filter_defaults),
     )
     pipelines = list(Pipeline.objects.filter(is_active=True).order_by("position", "name"))
     current_pipeline = None
-    pipeline_id = (request.GET.get("pipeline") or "").strip()
+    pipeline_id = _resolve_filter_value(request, key="pipeline", defaults=saved_filter_defaults)
     if pipeline_id:
         current_pipeline = next((pipeline for pipeline in pipelines if str(pipeline.pk) == pipeline_id), None)
     if current_pipeline is None and pipelines:
         current_pipeline = pipelines[0]
 
-    q = (request.GET.get("q") or "").strip()
+    q = _resolve_filter_value(request, key="q", defaults=saved_filter_defaults)
     deals = (
         Deal.objects.select_related("entity", "pipeline")
         .annotate(
@@ -1020,6 +1293,21 @@ def index(request):
         "current_pipeline": current_pipeline,
         "saved_views": saved_views,
         "current_view": current_view,
+        "saved_filters": _build_saved_filter_items(
+            request,
+            object_type=SavedWorkspaceFilter.OBJECT_DEAL,
+            route_name="binncrm:index",
+            active_filter=active_saved_filter,
+        ),
+        "active_saved_filter_id": getattr(active_saved_filter, "pk", None),
+        "saved_filter_form": SavedWorkspaceFilterForm(
+            object_type=SavedWorkspaceFilter.OBJECT_DEAL,
+            initial={
+                "q": q,
+                "view": current_view.get("key", ""),
+                "pipeline": str(current_pipeline.pk) if current_pipeline else "",
+            },
+        ),
         "grouped_deals": grouped_deals,
         "q": q,
         "can_create_deal": _can(request, PERMISSION_DEALS_EDIT),
@@ -1030,6 +1318,61 @@ def index(request):
     }
     template_name = "binncrm/_kanban_board.html" if _is_htmx(request) else "binncrm/index.html"
     return render(request, template_name, context)
+
+
+@login_required
+@tenant_permission_required(PERMISSION_DEALS_VIEW, capability="deals")
+@require_POST
+def deal_filter_save(request):
+    form = SavedWorkspaceFilterForm(
+        request.POST,
+        object_type=SavedWorkspaceFilter.OBJECT_DEAL,
+    )
+    params = _normalize_saved_filter_params(
+        object_type=SavedWorkspaceFilter.OBJECT_DEAL,
+        raw_params=request.POST,
+    )
+    if form.is_valid():
+        saved_filter, created = SavedWorkspaceFilter.objects.update_or_create(
+            owner=request.user,
+            object_type=SavedWorkspaceFilter.OBJECT_DEAL,
+            label=form.cleaned_data["label"],
+            defaults={
+                "params": form.cleaned_data["normalized_params"],
+                "created_by": request.user,
+                "updated_by": request.user,
+            },
+        )
+        if not created:
+            saved_filter.updated_by = request.user
+            saved_filter.params = form.cleaned_data["normalized_params"]
+            saved_filter.save(update_fields=["params", "updated_by", "updated_at"])
+        messages.success(request, f"Filtro '{saved_filter.label}' guardado para deals.")
+        return redirect(
+            _build_saved_filter_redirect(
+                "binncrm:index",
+                params=form.cleaned_data["normalized_params"],
+                saved_filter_id=saved_filter.pk,
+            )
+        )
+    messages.error(request, next(iter(form.errors.get("label", [])), "No pude guardar ese filtro."))
+    return redirect(_build_saved_filter_redirect("binncrm:index", params=params))
+
+
+@login_required
+@tenant_permission_required(PERMISSION_DEALS_VIEW, capability="deals")
+@require_POST
+def deal_filter_delete(request, pk):
+    saved_filter = get_object_or_404(
+        SavedWorkspaceFilter,
+        pk=pk,
+        owner=request.user,
+        object_type=SavedWorkspaceFilter.OBJECT_DEAL,
+    )
+    filter_label = saved_filter.label
+    saved_filter.delete()
+    messages.success(request, f"Filtro '{filter_label}' eliminado.")
+    return redirect("binncrm:index")
 
 
 @login_required
@@ -1168,13 +1511,17 @@ def pipeline_settings(request):
 @tenant_permission_required(PERMISSION_ENTITIES_VIEW, capability="entities")
 def entities(request):
     labels = request.tenant.tenant_config.labels
-    q = (request.GET.get("q") or "").strip()
     entity_fields = get_entity_field_definitions(tenant=request.tenant)
+    active_saved_filter, saved_filter_defaults = _resolve_active_saved_filter(
+        request,
+        object_type=SavedWorkspaceFilter.OBJECT_ENTITY,
+    )
+    q = _resolve_filter_value(request, key="q", defaults=saved_filter_defaults)
     saved_views = get_saved_views(object_key="entity", tenant=request.tenant)
     current_view = resolve_saved_view(
         object_key="entity",
         tenant=request.tenant,
-        view_key=(request.GET.get("view") or "").strip(),
+        view_key=_resolve_filter_value(request, key="view", defaults=saved_filter_defaults),
     )
     queryset = Entity.objects.filter(is_active=True)
     queryset = apply_entity_saved_view(queryset, view=current_view)
@@ -1199,6 +1546,20 @@ def entities(request):
         "searchable_fields": [field["label"] for field in entity_fields],
         "saved_views": saved_views,
         "current_view": current_view,
+        "saved_filters": _build_saved_filter_items(
+            request,
+            object_type=SavedWorkspaceFilter.OBJECT_ENTITY,
+            route_name="binncrm:entities",
+            active_filter=active_saved_filter,
+        ),
+        "active_saved_filter_id": getattr(active_saved_filter, "pk", None),
+        "saved_filter_form": SavedWorkspaceFilterForm(
+            object_type=SavedWorkspaceFilter.OBJECT_ENTITY,
+            initial={
+                "q": q,
+                "view": current_view.get("key", ""),
+            },
+        ),
         "q": q,
         "can_create_entity": _can(request, PERMISSION_ENTITIES_EDIT),
         "can_import_entities": _can(request, PERMISSION_ENTITIES_EDIT),
@@ -1212,6 +1573,82 @@ def entities(request):
     }
     template_name = "binncrm/_entity_table.html" if _is_htmx(request) else "binncrm/entities.html"
     return render(request, template_name, context)
+
+
+@login_required
+@tenant_permission_required(PERMISSION_ENTITIES_VIEW, capability="entities")
+@require_POST
+def entity_filter_save(request):
+    form = SavedWorkspaceFilterForm(
+        request.POST,
+        object_type=SavedWorkspaceFilter.OBJECT_ENTITY,
+    )
+    params = _normalize_saved_filter_params(
+        object_type=SavedWorkspaceFilter.OBJECT_ENTITY,
+        raw_params=request.POST,
+    )
+    if form.is_valid():
+        saved_filter, created = SavedWorkspaceFilter.objects.update_or_create(
+            owner=request.user,
+            object_type=SavedWorkspaceFilter.OBJECT_ENTITY,
+            label=form.cleaned_data["label"],
+            defaults={
+                "params": form.cleaned_data["normalized_params"],
+                "created_by": request.user,
+                "updated_by": request.user,
+            },
+        )
+        if not created:
+            saved_filter.updated_by = request.user
+            saved_filter.params = form.cleaned_data["normalized_params"]
+            saved_filter.save(update_fields=["params", "updated_by", "updated_at"])
+        messages.success(request, f"Filtro '{saved_filter.label}' guardado para contactos.")
+        return redirect(
+            _build_saved_filter_redirect(
+                "binncrm:entities",
+                params=form.cleaned_data["normalized_params"],
+                saved_filter_id=saved_filter.pk,
+            )
+        )
+    messages.error(request, next(iter(form.errors.get("label", [])), "No pude guardar ese filtro."))
+    return redirect(_build_saved_filter_redirect("binncrm:entities", params=params))
+
+
+@login_required
+@tenant_permission_required(PERMISSION_ENTITIES_VIEW, capability="entities")
+@require_POST
+def entity_filter_delete(request, pk):
+    saved_filter = get_object_or_404(
+        SavedWorkspaceFilter,
+        pk=pk,
+        owner=request.user,
+        object_type=SavedWorkspaceFilter.OBJECT_ENTITY,
+    )
+    filter_label = saved_filter.label
+    saved_filter.delete()
+    messages.success(request, f"Filtro '{filter_label}' eliminado.")
+    return redirect("binncrm:entities")
+
+
+@login_required
+def global_search(request):
+    if request.tenant.schema_name == "public":
+        return redirect("dashboard")
+    labels = request.tenant.tenant_config.labels
+    q = (request.GET.get("q") or "").strip()
+    sections = _build_global_search_sections(request, query=q)
+    total_results = sum(section["count"] for section in sections)
+    return render(
+        request,
+        "binncrm/global_search.html",
+        {
+            "labels": labels,
+            "q": q,
+            "result_sections": sections,
+            "total_results": total_results,
+            "has_query": bool(q),
+        },
+    )
 
 
 @login_required

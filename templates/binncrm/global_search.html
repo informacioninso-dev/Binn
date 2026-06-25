@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+
+{% block title %}Buscar en CRM | Binn{% endblock %}
+
+{% block head_extra %}
+<style>
+  .binn-search-shell {
+    display: grid;
+    gap: 0.9rem;
+  }
+  .binn-search-hero {
+    display: grid;
+    gap: 0.8rem;
+    border-radius: 1.2rem;
+    padding: 0.95rem;
+    background:
+      radial-gradient(circle at top right, rgba(0, 123, 255, 0.1), transparent 17rem),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.985) 0%, rgba(247, 250, 255, 0.985) 100%);
+  }
+  .binn-search-form {
+    display: grid;
+    gap: 0.55rem;
+  }
+  .binn-search-form-grid {
+    display: grid;
+    gap: 0.55rem;
+  }
+  .binn-search-copy {
+    margin: 0;
+    color: var(--binn-ink-soft);
+    font-size: 0.88rem;
+    line-height: 1.55;
+  }
+  .binn-search-note {
+    margin: 0;
+    font-size: 0.76rem;
+    color: var(--binn-ink-soft);
+  }
+  .binn-search-result-grid {
+    display: grid;
+    gap: 0.9rem;
+  }
+  .binn-search-section {
+    display: grid;
+    gap: 0.8rem;
+    border-radius: 1.15rem;
+    padding: 0.9rem;
+  }
+  .binn-search-section-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.7rem;
+  }
+  .binn-search-section-copy {
+    display: grid;
+    gap: 0.25rem;
+  }
+  .binn-search-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2rem;
+    min-height: 2rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    background: rgba(37, 99, 235, 0.1);
+    color: #1d4ed8;
+    font-size: 0.74rem;
+    font-weight: 800;
+  }
+  .binn-search-items {
+    display: grid;
+    gap: 0.65rem;
+  }
+  .binn-search-item {
+    display: grid;
+    gap: 0.35rem;
+    border-radius: 0.95rem;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    background: rgba(255, 255, 255, 0.96);
+    padding: 0.85rem 0.9rem;
+  }
+  .binn-search-item-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+  }
+  .binn-search-item-title {
+    margin: 0;
+    font-size: 0.95rem;
+    line-height: 1.35;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+  .binn-search-item-meta,
+  .binn-search-item-caption {
+    margin: 0;
+    font-size: 0.78rem;
+    line-height: 1.45;
+    color: var(--binn-ink-soft);
+  }
+  @media (min-width: 920px) {
+    .binn-search-form-grid {
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+    }
+    .binn-search-result-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+  <div class="binn-search-shell">
+    <section class="binn-panel binn-search-hero">
+      <div>
+        <span class="binn-kicker">Busqueda global</span>
+        <h1 class="binn-section-title mt-3">Busca en todo el CRM desde una sola pantalla</h1>
+        <p class="binn-search-copy mt-2">Contactos, deals, actividades, propuestas, cobranzas y documentos. Si ya sabes el nombre, referencia o contexto, deberias encontrarlo aqui sin saltar modulo por modulo.</p>
+      </div>
+
+      <form method="get" class="binn-search-form">
+        <div class="binn-search-form-grid">
+          <input
+            type="text"
+            name="q"
+            value="{{ q }}"
+            class="binn-input w-full"
+            placeholder="Ej. Acme, renovacion, POL-001, cobranza vencida"
+            autofocus
+          />
+          <button type="submit" class="binn-btn-primary">Buscar</button>
+        </div>
+      </form>
+
+      {% if has_query %}
+        <p class="binn-search-note">{{ total_results }} coincidencia{{ total_results|pluralize }} visibles para "{{ q }}".</p>
+      {% else %}
+        <p class="binn-search-note">Tip: tambien puedes abrir esta pantalla desde `Ctrl/Cmd + K` con "Buscar en CRM".</p>
+      {% endif %}
+    </section>
+
+    {% if has_query %}
+      <section class="binn-search-result-grid">
+        {% for section in result_sections %}
+          <article class="binn-panel binn-search-section">
+            <div class="binn-search-section-head">
+              <div class="binn-search-section-copy">
+                <h2 class="binn-section-title">{{ section.title }}</h2>
+                <p class="binn-search-note">{{ section.empty_message }}</p>
+              </div>
+              <div class="flex items-center gap-3">
+                <span class="binn-search-count">{{ section.count }}</span>
+                {% if section.href %}
+                  <a href="{{ section.href }}" class="binn-record-action">Abrir modulo</a>
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="binn-search-items">
+              {% for item in section.items %}
+                <article class="binn-search-item">
+                  <div class="binn-search-item-head">
+                    <h3 class="binn-search-item-title">{{ item.title }}</h3>
+                    <a href="{{ item.href }}" class="binn-record-action binn-record-action-primary">{{ item.link_label }}</a>
+                  </div>
+                  <p class="binn-search-item-meta">{{ item.meta }}</p>
+                  <p class="binn-search-item-caption">{{ item.caption }}</p>
+                </article>
+              {% empty %}
+                <div class="binn-empty text-sm">{{ section.empty_message }}</div>
+              {% endfor %}
+            </div>
+          </article>
+        {% endfor %}
+      </section>
+    {% else %}
+      <section class="binn-panel p-6">
+        <div class="binn-empty">Empieza con una palabra clave, un nombre, un numero de propuesta o una referencia de cobro.</div>
+      </section>
+    {% endif %}
+  </div>
+{% endblock %}

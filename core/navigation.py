@@ -181,6 +181,25 @@ def build_command_palette_model(request) -> tuple[CommandPaletteSection, ...]:
         navigation_section.append(CommandPaletteItem(label=item.label, href=reverse(item.route), description="Navegacion"))
 
     if tenant is not None and tenant.schema_name != "public":
+        if any(
+            _can_access(request, permission_code)
+            for permission_code in (
+                PERMISSION_ENTITIES_VIEW,
+                PERMISSION_DEALS_VIEW,
+                PERMISSION_ACTIVITIES_VIEW,
+                PERMISSION_DOCUMENTS_VIEW,
+                PERMISSION_PROPOSALS_VIEW,
+                PERMISSION_COLLECTIONS_VIEW,
+            )
+        ):
+            navigation_section.insert(
+                0,
+                CommandPaletteItem(
+                    label="Buscar en CRM",
+                    href=reverse("binncrm:global_search"),
+                    description="Buscar fichas, deals, actividades, cobranzas y documentos",
+                ),
+            )
         if getattr(tenant.tenant_config, "custom_objects", []) and _can_access(request, PERMISSION_OBJECTS_VIEW):
             create_section.append(
                 CommandPaletteItem(

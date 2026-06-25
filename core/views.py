@@ -619,6 +619,134 @@ def _load_dashboard_metrics_bundle(*, tenant, today, now):
     return bundle
 
 
+def _build_dashboard_action_sections(*, request, today, now):
+    from binncrm.models import Activity, CollectionRecord, Deal, Proposal
+
+    sections = []
+
+    if request_has_tenant_permission(request, PERMISSION_ACTIVITIES_VIEW):
+        overdue_tasks = list(
+            Activity.objects.select_related("entity", "assigned_to")
+            .filter(
+                activity_type=Activity.TYPE_TASK,
+                completed_at__isnull=True,
+                due_at__lt=now,
+            )
+            .order_by("due_at", "-created_at")[:5]
+        )
+        sections.append(
+            {
+                "title": "Tareas vencidas",
+                "subtitle": "Seguimientos que ya estan fuera de fecha y conviene cerrar o reprogramar hoy.",
+                "href": reverse("binncrm:activities"),
+                "cta": "Abrir agenda",
+                "items": [
+                    {
+                        "title": task.title,
+                        "meta": task.entity.full_name,
+                        "status": timezone.localtime(task.due_at).strftime("Vencio %d/%m/%Y %H:%M") if task.due_at else "Sin fecha",
+                        "href": reverse("binncrm:entity_detail", kwargs={"pk": task.entity_id}),
+                    }
+                    for task in overdue_tasks
+                ],
+                "empty_message": "No hay tareas vencidas ahora mismo.",
+            }
+        )
+
+    if request_has_tenant_permission(request, PERMISSION_DEALS_VIEW):
+        stale_deals = list(
+            Deal.objects.select_related("entity", "pipeline")
+            .filter(is_active=True, status=Deal.STATUS_OPEN, updated_at__lt=now - timedelta(days=14))
+            .order_by("updated_at")[:5]
+        )
+        sections.append(
+            {
+                "title": "Deals frios",
+                "subtitle": "Oportunidades abiertas sin movimiento reciente que ya piden empuje o descarte.",
+                "href": reverse("binncrm:index"),
+                "cta": "Abrir pipeline",
+                "items": [
+                    {
+                        "title": deal.title,
+                        "meta": f"{deal.entity.full_name} | {deal.pipeline.name} | {deal.stage}",
+                        "status": timezone.localtime(deal.updated_at).strftime("Ultimo movimiento %d/%m/%Y"),
+                        "href": reverse("binncrm:deal_edit", kwargs={"pk": deal.pk}),
+                    }
+                    for deal in stale_deals
+                ],
+                "empty_message": "No hay deals frios detectados en este momento.",
+            }
+        )
+
+    commitment_items = []
+    commitment_href = ""
+    commitment_cta = ""
+    if request_has_tenant_permission(request, PERMISSION_PROPOSALS_VIEW):
+        expiring_proposals = list(
+            Proposal.objects.select_related("entity")
+            .filter(
+                is_active=True,
+                status__in=[Proposal.STATUS_DRAFT, Proposal.STATUS_SENT],
+                valid_until__isnull=False,
+                valid_until__lte=today + timedelta(days=7),
+            )
+            .order_by("valid_until", "-updated_at")[:3]
+        )
+        for proposal in expiring_proposals:
+            commitment_items.append(
+                {
+                    "title": proposal.title,
+                    "meta": f"{proposal.entity.full_name} | {proposal.get_status_display()}",
+                    "status": proposal.valid_until.strftime("Vence %d/%m/%Y") if proposal.valid_until else "Sin fecha",
+                    "href": reverse("binncrm:proposal_edit", kwargs={"pk": proposal.pk}),
+                }
+            )
+        if expiring_proposals:
+            commitment_href = reverse("binncrm:proposals")
+            commitment_cta = "Abrir propuestas"
+
+    if request_has_tenant_permission(request, PERMISSION_COLLECTIONS_VIEW):
+        urgent_collections = list(
+            CollectionRecord.objects.select_related("entity")
+            .filter(is_active=True)
+            .exclude(status=CollectionRecord.STATUS_PAID)
+            .filter(Q(due_on__lt=today) | Q(promised_for__lte=today))
+            .order_by("due_on", "promised_for", "-updated_at")[:3]
+        )
+        for collection in urgent_collections:
+            commitment_items.append(
+                {
+                    "title": collection.title,
+                    "meta": f"{collection.entity.full_name} | {collection.get_status_display()}",
+                    "status": (
+                        collection.due_on.strftime("Vencio %d/%m/%Y")
+                        if collection.due_on and collection.due_on < today
+                        else collection.promised_for.strftime("Prometida %d/%m/%Y")
+                        if collection.promised_for
+                        else "Cobranza abierta"
+                    ),
+                    "href": reverse("binncrm:collection_edit", kwargs={"pk": collection.pk}),
+                }
+            )
+        if urgent_collections and not commitment_href:
+            commitment_href = reverse("binncrm:collections")
+            commitment_cta = "Abrir cobranzas"
+
+    if request_has_tenant_permission(request, PERMISSION_PROPOSALS_VIEW) or request_has_tenant_permission(request, PERMISSION_COLLECTIONS_VIEW):
+        sections.append(
+            {
+                "title": "Compromisos por mover",
+                "subtitle": "Propuestas por vencer y cobranzas que ya quedaron sobre la mesa.",
+                "href": commitment_href,
+                "cta": commitment_cta,
+                "items": commitment_items[:6],
+                "empty_message": "No hay propuestas o cobranzas urgentes en este momento.",
+            }
+        )
+
+    return sections
+
+
 @login_required
 def dashboard(request):
     tenant = getattr(request, "tenant", None)
@@ -725,6 +853,7 @@ def dashboard(request):
                 else [],
                 "recent_activities": recent_activities,
                 "recent_conversations": recent_conversations,
+                "action_sections": _build_dashboard_action_sections(request=request, today=today, now=now),
                 "today": today,
             }
         )

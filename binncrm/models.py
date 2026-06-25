@@ -186,6 +186,31 @@ class TimelineEvent(models.Model):
         return f"{self.kind_label}: {self.title}"
 
 
+class SavedWorkspaceFilter(AuditModel):
+    OBJECT_ENTITY = "entity"
+    OBJECT_DEAL = "deal"
+    OBJECT_CHOICES = [
+        (OBJECT_ENTITY, "Contactos"),
+        (OBJECT_DEAL, "Deals"),
+    ]
+
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        related_name="binn_saved_workspace_filters",
+        on_delete=models.CASCADE,
+    )
+    object_type = models.CharField(max_length=20, choices=OBJECT_CHOICES)
+    label = models.CharField(max_length=80)
+    params = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ["object_type", "label", "id"]
+        unique_together = ("owner", "object_type", "label")
+
+    def __str__(self):
+        return f"{self.get_object_type_display()}: {self.label}"
+
+
 class Entity(AuditModel):
     full_name = models.CharField("Nombre", max_length=180)
     legal_id = models.CharField("RUC/Cedula", max_length=20, blank=True)

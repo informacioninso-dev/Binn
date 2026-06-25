@@ -12,7 +12,7 @@ from .document_blueprints import (
     build_document_type_choices,
     get_document_blueprint_map,
 )
-from .models import Activity, CollectionRecord, Deal, Document, Entity, ObjectRecord, Pipeline, Proposal
+from .models import Activity, CollectionRecord, Deal, Document, Entity, ObjectRecord, Pipeline, Proposal, SavedWorkspaceFilter
 from .object_engine import (
     get_entity_field_definitions,
     get_object_record_field_definitions,
@@ -122,6 +122,46 @@ class PipelineTemplateEditorForm(forms.Form):
             self.add_error("label", "Ya existe otro pipeline con ese nombre o clave interna.")
         cleaned["pipeline_key"] = key
         cleaned["stages"] = cleaned.get("stages_text", [])
+        return cleaned
+
+
+class SavedWorkspaceFilterForm(forms.ModelForm):
+    q = forms.CharField(required=False, widget=forms.HiddenInput())
+    view = forms.CharField(required=False, widget=forms.HiddenInput())
+    pipeline = forms.CharField(required=False, widget=forms.HiddenInput())
+
+    class Meta:
+        model = SavedWorkspaceFilter
+        fields = ["label"]
+        widgets = {
+            "label": forms.TextInput(
+                attrs={
+                    **INPUT,
+                    "placeholder": "Ej. Deals frios, contacto sin telefono",
+                    "maxlength": 80,
+                }
+            ),
+        }
+
+    def __init__(self, *args, object_type: str, **kwargs):
+        self.object_type = object_type
+        super().__init__(*args, **kwargs)
+
+    def clean_label(self):
+        value = (self.cleaned_data.get("label") or "").strip()
+        if not value:
+            raise ValidationError("Pon un nombre corto para identificar este filtro.")
+        return value
+
+    def clean(self):
+        cleaned = super().clean()
+        params = {
+            "q": (cleaned.get("q") or "").strip(),
+            "view": (cleaned.get("view") or "").strip(),
+        }
+        if self.object_type == SavedWorkspaceFilter.OBJECT_DEAL:
+            params["pipeline"] = (cleaned.get("pipeline") or "").strip()
+        cleaned["normalized_params"] = {key: value for key, value in params.items() if value}
         return cleaned
 
 

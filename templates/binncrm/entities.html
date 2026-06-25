@@ -107,6 +107,79 @@
     justify-content: center;
     text-align: center;
   }
+  .binn-entities-saved-stack {
+    display: grid;
+    gap: 0.55rem;
+    margin-top: 0.15rem;
+  }
+  .binn-entities-saved-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    align-items: center;
+  }
+  .binn-entities-saved-row .binn-module-tools-label {
+    margin: 0;
+    white-space: nowrap;
+  }
+  .binn-entities-saved-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+  .binn-entities-filter-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.18rem 0.22rem 0.18rem 0.18rem;
+    border-radius: 999px;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    background: rgba(255, 255, 255, 0.92);
+  }
+  .binn-entities-filter-pill.is-active {
+    border-color: rgba(37, 99, 235, 0.22);
+    background: rgba(37, 99, 235, 0.08);
+  }
+  .binn-entities-filter-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 32px;
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    text-decoration: none;
+    color: var(--binn-ink);
+    font-size: 0.74rem;
+    font-weight: 700;
+  }
+  .binn-entities-filter-delete {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.7rem;
+    height: 1.7rem;
+    border-radius: 999px;
+    border: 0;
+    background: transparent;
+    color: #64748b;
+    font-weight: 800;
+  }
+  .binn-entities-filter-save-form {
+    display: grid;
+    gap: 0.45rem;
+  }
+  .binn-entities-filter-save-grid {
+    display: grid;
+    gap: 0.45rem;
+  }
+  .binn-entities-filter-save-grid .binn-input {
+    min-height: 44px;
+  }
+  @media (min-width: 1200px) {
+    .binn-entities-filter-save-grid {
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+    }
+  }
   @media (min-width: 1200px) {
     .binn-entities-toolbar-grid {
       grid-template-columns: minmax(0, 1fr) 248px;
@@ -177,6 +250,35 @@
                   </div>
                 </div>
               {% endif %}
+            </div>
+
+            <div class="binn-entities-saved-stack">
+              <div class="binn-entities-saved-row">
+                <span class="binn-module-tools-label">Filtros guardados</span>
+                <div class="binn-entities-saved-list">
+                  {% for saved_filter in saved_filters %}
+                    <span class="binn-entities-filter-pill {% if saved_filter.is_active %}is-active{% endif %}">
+                      <a href="{{ saved_filter.href }}" class="binn-entities-filter-link">{{ saved_filter.label }}</a>
+                      <form method="post" action="{% url 'binncrm:entity_filter_delete' saved_filter.pk %}">
+                        {% csrf_token %}
+                        <button type="submit" class="binn-entities-filter-delete" aria-label="Eliminar filtro">×</button>
+                      </form>
+                    </span>
+                  {% empty %}
+                    <p class="binn-entities-inline-note">Guarda una combinacion de vista y busqueda para reusar tus cortes mas frecuentes.</p>
+                  {% endfor %}
+                </div>
+              </div>
+
+              <form method="post" action="{% url 'binncrm:entity_filter_save' %}" class="binn-entities-filter-save-form">
+                {% csrf_token %}
+                <input type="hidden" name="q" value="{{ q }}" />
+                <input type="hidden" name="view" value="{{ current_view.key }}" />
+                <div class="binn-entities-filter-save-grid">
+                  {{ saved_filter_form.label }}
+                  <button type="submit" class="binn-btn-secondary binn-btn-compact">Guardar filtro actual</button>
+                </div>
+              </form>
             </div>
           </form>
         </div>
