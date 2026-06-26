@@ -1,3 +1,4 @@
+from copy import deepcopy
 import json
 import re
 
@@ -37,6 +38,26 @@ _JSON_TEXTAREA = {
     "class": "binn-input w-full rounded-lg border px-3 py-2 font-mono text-xs",
     "rows": 10,
     "spellcheck": "false",
+}
+
+
+_MODULE_FEATURE_CHOICES = [(key, label) for key, label in MODULE_ORDER_LABELS.items()]
+_EXTRA_FEATURE_CHOICES = [
+    ("kanban", "Kanban de oportunidades"),
+    ("fiscal_lookup", "Consulta fiscal / RUC"),
+]
+_ROLE_MODE_CHOICES = [
+    ("full", "Acceso total"),
+    ("custom", "Personalizado"),
+]
+_ROLE_PERMISSION_CHOICES = [(code, label) for code, label in ROLE_PERMISSION_LABELS.items()]
+_SIMPLE_LABEL_FIELD_MAP = {
+    "brand_name": "brand_name",
+    "dashboard_title": "dashboard_title",
+    "entity_singular": "entity_singular",
+    "entity_plural": "entity_plural",
+    "deal_singular": "deal_singular",
+    "deal_plural": "deal_plural",
 }
 
 
@@ -550,6 +571,7 @@ class TenantCreateForm(forms.Form):
 
 
 class TenantEditForm(forms.ModelForm):
+    structured_admin_surface = forms.CharField(required=False, initial="structured", widget=forms.HiddenInput())
     profile = forms.ChoiceField(
         label="Modo CRM activo",
         choices=PROFILE_CHOICES,
@@ -561,6 +583,101 @@ class TenantEditForm(forms.ModelForm):
         required=False,
         help_text="Sobrescribe labels, feature flags, campos flexibles y pipelines con los defaults del perfil elegido.",
         widget=forms.CheckboxInput(attrs={"class": "h-4 w-4 rounded border-gray-300"}),
+    )
+    enabled_modules = forms.MultipleChoiceField(
+        label="Modulos visibles",
+        required=False,
+        choices=_MODULE_FEATURE_CHOICES,
+        help_text="Activa o apaga las areas funcionales que esta empresa vera en el menu principal.",
+        widget=forms.CheckboxSelectMultiple,
+    )
+    extra_features = forms.MultipleChoiceField(
+        label="Extras operativos",
+        required=False,
+        choices=_EXTRA_FEATURE_CHOICES,
+        help_text="Activa capacidades transversales que no siempre deben estar encendidas para todos los tenants.",
+        widget=forms.CheckboxSelectMultiple,
+    )
+    module_order_csv = forms.CharField(
+        label="Orden del menu",
+        required=False,
+        help_text="Usa claves separadas por coma. Ejemplo: entities, deals, documents, reports.",
+        widget=forms.TextInput(
+            attrs={
+                **_INPUT,
+                "placeholder": "entities, deals, documents, reports",
+            }
+        ),
+    )
+    dashboard_widgets_selected = forms.MultipleChoiceField(
+        label="Bloques del dashboard",
+        required=False,
+        choices=[(key, label) for key, label in DASHBOARD_WIDGET_LABELS.items()],
+        help_text="Selecciona que paneles aparezcan en la portada del CRM.",
+        widget=forms.CheckboxSelectMultiple,
+    )
+    brand_name = forms.CharField(
+        label="Marca visible",
+        required=False,
+        widget=forms.TextInput(attrs=_INPUT),
+        help_text="Nombre corto que Binn mostrara como marca de la empresa dentro del tenant.",
+    )
+    dashboard_title = forms.CharField(
+        label="Titulo del dashboard",
+        required=False,
+        widget=forms.TextInput(attrs=_INPUT),
+        help_text="Encabezado principal de la portada operativa del tenant.",
+    )
+    entity_singular = forms.CharField(
+        label="Nombre singular de entidad",
+        required=False,
+        widget=forms.TextInput(attrs=_INPUT),
+    )
+    entity_plural = forms.CharField(
+        label="Nombre plural de entidad",
+        required=False,
+        widget=forms.TextInput(attrs=_INPUT),
+    )
+    deal_singular = forms.CharField(
+        label="Nombre singular de deal",
+        required=False,
+        widget=forms.TextInput(attrs=_INPUT),
+    )
+    deal_plural = forms.CharField(
+        label="Nombre plural de deal",
+        required=False,
+        widget=forms.TextInput(attrs=_INPUT),
+    )
+    manager_access_mode = forms.ChoiceField(
+        label="Alcance del manager",
+        required=False,
+        choices=_ROLE_MODE_CHOICES,
+        widget=forms.Select(attrs=_INPUT),
+        help_text="Puedes dejar acceso total o personalizar lo que puede operar este rol.",
+    )
+    manager_permissions = forms.MultipleChoiceField(
+        label="Permisos manager",
+        required=False,
+        choices=_ROLE_PERMISSION_CHOICES,
+        widget=forms.CheckboxSelectMultiple,
+    )
+    operator_permissions = forms.MultipleChoiceField(
+        label="Permisos operator",
+        required=False,
+        choices=_ROLE_PERMISSION_CHOICES,
+        widget=forms.CheckboxSelectMultiple,
+    )
+    analyst_permissions = forms.MultipleChoiceField(
+        label="Permisos analyst",
+        required=False,
+        choices=_ROLE_PERMISSION_CHOICES,
+        widget=forms.CheckboxSelectMultiple,
+    )
+    viewer_permissions = forms.MultipleChoiceField(
+        label="Permisos viewer",
+        required=False,
+        choices=_ROLE_PERMISSION_CHOICES,
+        widget=forms.CheckboxSelectMultiple,
     )
     feature_flags_json = forms.CharField(
         label="Feature flags JSON",
@@ -607,29 +724,21 @@ class TenantEditForm(forms.ModelForm):
     document_blueprints_json = forms.CharField(
         label="Document blueprints JSON",
         required=False,
-        help_text='Lista JSON para extender o sobreescribir tipos documentales del tenant.',
+        help_text="Lista JSON para extender o sobreescribir tipos documentales del tenant.",
         widget=forms.Textarea(attrs={**_JSON_TEXTAREA, "rows": 10}),
     )
     pipeline_templates_json = forms.CharField(
         label="Pipelines y etapas (JSON)",
         required=False,
         help_text=(
-            'Aqui defines las columnas del tablero de oportunidades. '
+            "Aqui defines las columnas del tablero de oportunidades. "
             'Ejemplo: [{"key": "ventas", "label": "Ventas", "stages": ["Nuevo", "Contactado", "Propuesta", "Ganado"]}]'
         ),
         widget=forms.Textarea(
             attrs={
                 **_JSON_TEXTAREA,
                 "rows": 12,
-                "placeholder": (
-                    '[\n'
-                    '  {\n'
-                    '    "key": "ventas",\n'
-                    '    "label": "Ventas",\n'
-                    '    "stages": ["Nuevo", "Contactado", "Propuesta", "Ganado"]\n'
-                    "  }\n"
-                    "]"
-                ),
+                "placeholder": '[{"key": "ventas", "label": "Ventas", "stages": ["Nuevo", "Contactado", "Propuesta", "Ganado"]}]',
             }
         ),
     )
@@ -660,16 +769,52 @@ class TenantEditForm(forms.ModelForm):
         self.fields["storage_quota_mb"].help_text = "Tope administrativo de almacenamiento operativo visible para esta empresa."
         if self.instance.pk:
             config = self.instance.tenant_config
+            feature_flags = config.feature_flags or {}
+            labels = config.labels or {}
+            module_order = resolve_module_order(config.module_order)
+            dashboard_widgets = resolve_dashboard_widgets(config.dashboard_widgets)
+            role_policies = resolve_role_policies(config.role_policies)
+            visible_modules = [key for key in module_order if feature_flags.get(key, False)]
+
             self.fields["profile"].initial = config.profile
+            self.fields["enabled_modules"].initial = visible_modules
+            self.fields["extra_features"].initial = [
+                key for key, _label in _EXTRA_FEATURE_CHOICES if feature_flags.get(key, False)
+            ]
+            self.fields["module_order_csv"].initial = ", ".join(visible_modules)
+            self.fields["dashboard_widgets_selected"].initial = dashboard_widgets
+            self.fields["brand_name"].initial = labels.get("brand_name", "")
+            self.fields["dashboard_title"].initial = labels.get("dashboard_title", "")
+            self.fields["entity_singular"].initial = labels.get("entity_singular", "")
+            self.fields["entity_plural"].initial = labels.get("entity_plural", "")
+            self.fields["deal_singular"].initial = labels.get("deal_singular", "")
+            self.fields["deal_plural"].initial = labels.get("deal_plural", "")
+            self.fields["manager_access_mode"].initial = "full" if "*" in role_policies["manager"] else "custom"
+            self.fields["manager_permissions"].initial = (
+                list(ROLE_PERMISSION_LABELS)
+                if "*" in role_policies["manager"]
+                else role_policies["manager"]
+            )
+            self.fields["operator_permissions"].initial = role_policies["operator"]
+            self.fields["analyst_permissions"].initial = role_policies["analyst"]
+            self.fields["viewer_permissions"].initial = role_policies["viewer"]
             self.fields["feature_flags_json"].initial = _pretty_json(config.feature_flags)
             self.fields["labels_json"].initial = _pretty_json(config.labels)
             self.fields["entity_fields_json"].initial = _pretty_json(config.entity_fields)
             self.fields["custom_objects_json"].initial = _pretty_json(config.custom_objects)
-            self.fields["module_order_json"].initial = _pretty_json(resolve_module_order(config.module_order))
-            self.fields["dashboard_widgets_json"].initial = _pretty_json(resolve_dashboard_widgets(config.dashboard_widgets))
-            self.fields["role_policies_json"].initial = _pretty_json(resolve_role_policies(config.role_policies))
+            self.fields["module_order_json"].initial = _pretty_json(module_order)
+            self.fields["dashboard_widgets_json"].initial = _pretty_json(dashboard_widgets)
+            self.fields["role_policies_json"].initial = _pretty_json(role_policies)
             self.fields["document_blueprints_json"].initial = _pretty_json(config.document_blueprints)
             self.fields["pipeline_templates_json"].initial = _pretty_json(config.pipeline_templates)
+
+    def _current_config_value(self, key, defaults):
+        if self.instance.pk:
+            return deepcopy(getattr(self.instance.tenant_config, key))
+        return deepcopy(defaults[key])
+
+    def _structured_surface_submitted(self):
+        return (self.data.get("structured_admin_surface") or "").strip() == "structured"
 
     def clean_feature_flags_json(self):
         return _clean_feature_flags(self.cleaned_data.get("feature_flags_json"))
@@ -698,11 +843,35 @@ class TenantEditForm(forms.ModelForm):
     def clean_pipeline_templates_json(self):
         return _clean_pipeline_templates(self.cleaned_data.get("pipeline_templates_json"))
 
+    def clean_module_order_csv(self):
+        raw_value = (self.cleaned_data.get("module_order_csv") or "").strip()
+        if not raw_value:
+            return []
+
+        cleaned = []
+        seen_keys = set()
+        for index, item in enumerate(re.split(r"[,\n]+", raw_value), start=1):
+            key = str(item).strip().lower()
+            if not key:
+                continue
+            if key not in MODULE_ORDER_LABELS:
+                raise ValidationError(
+                    f"El modulo #{index} no es valido para el orden visible. Usa claves como: {', '.join(sorted(MODULE_ORDER_LABELS))}."
+                )
+            if key in seen_keys:
+                raise ValidationError(f"El modulo '{key}' esta repetido dentro del orden visible.")
+            cleaned.append(key)
+            seen_keys.add(key)
+        return cleaned
+
     def clean(self):
         cleaned = super().clean()
         profile = cleaned.get("profile")
-        if cleaned.get("reset_to_profile_defaults") and profile:
-            defaults = get_profile_defaults(profile)
+        if not profile:
+            return cleaned
+
+        defaults = get_profile_defaults(profile)
+        if cleaned.get("reset_to_profile_defaults"):
             cleaned["feature_flags_json"] = defaults["feature_flags"]
             cleaned["labels_json"] = defaults["labels"]
             cleaned["entity_fields_json"] = defaults["entity_fields"]
@@ -712,6 +881,87 @@ class TenantEditForm(forms.ModelForm):
             cleaned["role_policies_json"] = defaults["role_policies"]
             cleaned["document_blueprints_json"] = defaults["document_blueprints"]
             cleaned["pipeline_templates_json"] = defaults["pipeline_templates"]
+            return cleaned
+
+        if not self._structured_surface_submitted():
+            return cleaned
+
+        module_controls_changed = any(
+            field_name in self.changed_data
+            for field_name in ("enabled_modules", "extra_features", "module_order_csv")
+        )
+        dashboard_controls_changed = "dashboard_widgets_selected" in self.changed_data
+        role_controls_changed = any(
+            field_name in self.changed_data
+            for field_name in (
+                "manager_access_mode",
+                "manager_permissions",
+                "operator_permissions",
+                "analyst_permissions",
+                "viewer_permissions",
+            )
+        )
+        label_controls_changed = any(field_name in self.changed_data for field_name in _SIMPLE_LABEL_FIELD_MAP)
+
+        if module_controls_changed or "feature_flags_json" not in self.changed_data or not self.instance.pk:
+            selected_modules = list(dict.fromkeys(cleaned.get("enabled_modules") or []))
+            if not selected_modules:
+                self.add_error("enabled_modules", "Selecciona al menos un modulo visible para esta empresa.")
+            feature_flags = cleaned.get("feature_flags_json") or self._current_config_value("feature_flags", defaults)
+            feature_flags = deepcopy(feature_flags)
+            for key in MODULE_ORDER_LABELS:
+                feature_flags[key] = key in selected_modules
+            extra_features = set(cleaned.get("extra_features") or [])
+            for key, _label in _EXTRA_FEATURE_CHOICES:
+                feature_flags[key] = key in extra_features
+            cleaned["feature_flags_json"] = feature_flags
+
+        if module_controls_changed or "module_order_json" not in self.changed_data or not self.instance.pk:
+            selected_modules = list(dict.fromkeys(cleaned.get("enabled_modules") or []))
+            requested_order = [key for key in (cleaned.get("module_order_csv") or []) if key in MODULE_ORDER_LABELS]
+            ordered_modules = [key for key in requested_order if key in selected_modules]
+            for key in selected_modules:
+                if key not in ordered_modules:
+                    ordered_modules.append(key)
+            if not ordered_modules and selected_modules:
+                ordered_modules = list(selected_modules)
+            cleaned["module_order_json"] = resolve_module_order(ordered_modules)
+
+        if dashboard_controls_changed or "dashboard_widgets_json" not in self.changed_data or not self.instance.pk:
+            selected_widgets = list(dict.fromkeys(cleaned.get("dashboard_widgets_selected") or []))
+            if not selected_widgets:
+                self.add_error("dashboard_widgets_selected", "Selecciona al menos un bloque del dashboard.")
+                cleaned["dashboard_widgets_json"] = self._current_config_value("dashboard_widgets", defaults)
+            else:
+                cleaned["dashboard_widgets_json"] = resolve_dashboard_widgets(selected_widgets)
+
+        if label_controls_changed or "labels_json" not in self.changed_data or not self.instance.pk:
+            labels = cleaned.get("labels_json") or self._current_config_value("labels", defaults)
+            labels = deepcopy(labels)
+            for field_name, label_key in _SIMPLE_LABEL_FIELD_MAP.items():
+                value = str(cleaned.get(field_name) or "").strip()
+                if value:
+                    labels[label_key] = value
+            cleaned["labels_json"] = labels
+
+        if role_controls_changed or "role_policies_json" not in self.changed_data or not self.instance.pk:
+            role_policies = cleaned.get("role_policies_json") or self._current_config_value("role_policies", defaults)
+            role_policies = resolve_role_policies(role_policies)
+
+            manager_mode = (cleaned.get("manager_access_mode") or "custom").strip().lower()
+            manager_permissions = list(dict.fromkeys(cleaned.get("manager_permissions") or []))
+            if manager_mode != "full" and not manager_permissions:
+                self.add_error("manager_permissions", "Selecciona permisos para manager o deja acceso total.")
+            role_policies["manager"] = ["*"] if manager_mode == "full" else manager_permissions
+
+            for role in ("operator", "analyst", "viewer"):
+                permissions = list(dict.fromkeys(cleaned.get(f"{role}_permissions") or []))
+                if not permissions:
+                    self.add_error(f"{role}_permissions", f"Selecciona al menos un permiso para {role}.")
+                role_policies[role] = permissions
+
+            cleaned["role_policies_json"] = resolve_role_policies(role_policies)
+
         return cleaned
 
     def save(self, commit=True):

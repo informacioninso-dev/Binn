@@ -18,7 +18,14 @@ from core.runtime_services import get_runtime_services_status, is_runtime_health
 from governance.models import CorporateGroup, GroupMembership
 from governance.services import resolve_group_tenant_detail_access
 from identity.security import evaluate_login_throttle, register_login_failure, reset_login_throttle
-from .defaults import PROFILE_CHOICES, build_profile_launchpad
+from .defaults import (
+    MODULE_ORDER_LABELS,
+    PROFILE_CHOICES,
+    resolve_dashboard_widgets,
+    resolve_module_order,
+    resolve_role_policies,
+    build_profile_launchpad,
+)
 from .forms import (
     AddMemberForm,
     TenantAuthenticationForm,
@@ -521,24 +528,59 @@ class TenantEditView(LoginRequiredMixin, SuperAdminRequiredMixin, UpdateView):
         messages.success(self.request, f"Tenant '{self.object.name}' actualizado.")
         return self.object.get_absolute_url()
 
-    def _serialize_change_value(self, field, previous_values, previous_config):
-        config = self.object.tenant_config
-        if field == "profile":
-            return previous_config["profile"] if previous_config is not None else config.profile
-        if field in {
-            "feature_flags_json",
-            "labels_json",
-            "entity_fields_json",
-            "custom_objects_json",
-            "module_order_json",
-            "dashboard_widgets_json",
-            "role_policies_json",
-            "document_blueprints_json",
-            "pipeline_templates_json",
-        }:
-            source = previous_config[field] if previous_config is not None else getattr(config, field.replace("_json", ""))
-            return json.dumps(source, ensure_ascii=True, sort_keys=isinstance(source, dict))
-        return str(previous_values.get(field, "")) if previous_values is not None else str(getattr(self.object, field, ""))
+def _serialize_change_value(self, field, previous_values, previous_config):
+    config = self.object.tenant_config
+    label_field_map = {
+        "brand_name": "brand_name",
+        "dashboard_title": "dashboard_title",
+        "entity_singular": "entity_singular",
+        "entity_plural": "entity_plural",
+        "deal_singular": "deal_singular",
+        "deal_plural": "deal_plural",
+    }
+    if field == "profile":
+        return previous_config["profile"] if previous_config is not None else config.profile
+    if field in {
+        "feature_flags_json",
+        "labels_json",
+        "entity_fields_json",
+        "custom_objects_json",
+        "module_order_json",
+        "dashboard_widgets_json",
+        "role_policies_json",
+        "document_blueprints_json",
+        "pipeline_templates_json",
+    }:
+        source = previous_config[field] if previous_config is not None else getattr(config, field.replace("_json", ""))
+        return json.dumps(source, ensure_ascii=True, sort_keys=isinstance(source, dict))
+    if field == "enabled_modules":
+        source_flags = previous_config["feature_flags_json"] if previous_config is not None else config.feature_flags
+        enabled = [key for key in MODULE_ORDER_LABELS if source_flags.get(key, False)]
+        return json.dumps(enabled, ensure_ascii=True)
+    if field == "extra_features":
+        source_flags = previous_config["feature_flags_json"] if previous_config is not None else config.feature_flags
+        enabled = [key for key in ("kanban", "fiscal_lookup") if source_flags.get(key, False)]
+        return json.dumps(enabled, ensure_ascii=True)
+    if field == "module_order_csv":
+        source_order = previous_config["module_order_json"] if previous_config is not None else config.module_order
+        source_flags = previous_config["feature_flags_json"] if previous_config is not None else config.feature_flags
+        visible_order = [key for key in resolve_module_order(source_order) if source_flags.get(key, False)]
+        return json.dumps(visible_order, ensure_ascii=True)
+    if field == "dashboard_widgets_selected":
+        source_widgets = previous_config["dashboard_widgets_json"] if previous_config is not None else config.dashboard_widgets
+        return json.dumps(resolve_dashboard_widgets(source_widgets), ensure_ascii=True)
+    if field in label_field_map:
+        source_labels = previous_config["labels_json"] if previous_config is not None else config.labels
+        return str(source_labels.get(label_field_map[field], ""))
+    if field == "manager_access_mode":
+        source_policies = previous_config["role_policies_json"] if previous_config is not None else config.role_policies
+        return "full" if "*" in resolve_role_policies(source_policies)["manager"] else "custom"
+    if field.endswith("_permissions"):
+        source_policies = previous_config["role_policies_json"] if previous_config is not None else config.role_policies
+        role_key = field.replace("_permissions", "")
+        return json.dumps(resolve_role_policies(source_policies)[role_key], ensure_ascii=True)
+    return str(previous_values.get(field, "")) if previous_values is not None else str(getattr(self.object, field, ""))
+
 
 
 class TenantDetailView(LoginRequiredMixin, SuperAdminRequiredMixin, View):

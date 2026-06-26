@@ -48,27 +48,28 @@
 {% endblock %}
 
 {% block content %}
-  <div class="mx-auto max-w-5xl">
+  <div class="mx-auto max-w-6xl">
     <section class="binn-panel rounded-3xl p-6 sm:p-8">
       <div class="mb-6">
         <h1 class="text-3xl font-bold tracking-tight">Editar empresa</h1>
-        <p class="mt-2 text-sm text-gray-600">Ajusta modulos, nombres, permisos y flujos de esta empresa sin salir del panel administrativo.</p>
+        <p class="mt-2 text-sm text-gray-600">Ajusta modulos, nomenclatura, widgets y permisos del tenant desde un panel mas operativo y menos tecnico.</p>
       </div>
 
       <form method="post" class="space-y-6">
         {% csrf_token %}
+        {{ form.structured_admin_surface }}
         {% if form.non_field_errors %}
           <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {{ form.non_field_errors }}
           </div>
         {% endif %}
 
-        <div class="grid grid-cols-1 gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+        <div class="grid grid-cols-1 gap-6 xl:grid-cols-[0.95fr_1.05fr]">
           <div class="space-y-6">
             <div class="rounded-3xl border border-black/5 bg-gray-50 p-5">
               <div class="mb-4">
                 <h2 class="text-lg font-semibold">Base de la empresa</h2>
-                <p class="mt-1 text-sm text-gray-500">Nombre comercial, plan y modo CRM activo que define la cara del tenant.</p>
+                <p class="mt-1 text-sm text-gray-500">Nombre comercial, plan, limites y modo CRM activo que define la cara del tenant.</p>
               </div>
               <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
                 {% for field in form %}
@@ -103,9 +104,8 @@
             <div class="rounded-3xl border border-black/5 bg-gray-50 p-5">
               <div class="mb-4">
                 <h2 class="text-lg font-semibold">Modos CRM disponibles</h2>
-                <p class="mt-1 text-sm text-gray-500">El selector de arriba activa uno de estos verticales. Si marcas “Reaplicar defaults del perfil”, Binn resiembra su base operativa.</p>
+                <p class="mt-1 text-sm text-gray-500">Haz clic en una tarjeta para cambiar el vertical visible del tenant antes de guardar.</p>
               </div>
-              <p class="mb-3 text-xs font-medium text-blue-700">Haz clic en una tarjeta para cambiar el modo CRM activo antes de guardar.</p>
               <div class="space-y-3">
                 {% for preview in profile_previews %}
                   <div
@@ -133,14 +133,116 @@
             </div>
 
             <div class="rounded-3xl border border-black/5 bg-gray-50 p-5">
-              <h2 class="text-lg font-semibold">Guia rapida</h2>
-              <div class="mt-4 space-y-3 text-sm text-gray-600">
-                <p>Estos campos controlan lo que la empresa vera en su CRM. Si desactivas un modulo, desaparece del menu y del inicio.</p>
-                <p><strong>Module order</strong> cambia el orden del menu. <strong>Dashboard widgets</strong> prende o apaga bloques completos de la pantalla inicial.</p>
-                <p><strong>Role policies</strong> define que puede ver o hacer cada rol, por ejemplo crear, mover o completar tareas.</p>
-                <p><strong>Document blueprints</strong> sirve para personalizar tipos de documento por empresa sin tocar codigo.</p>
-                <p>Si cambias el perfil y activas "Reaplicar defaults del perfil", Binn vuelve a sembrar nombres, campos y flujos base para ese tipo de negocio.</p>
-                <p>Los pipelines se sincronizan al guardar. Si ya existe historial en un flujo viejo, Binn lo conserva para no perder datos anteriores.</p>
+              <div class="mb-4">
+                <h2 class="text-lg font-semibold">Operacion visible</h2>
+                <p class="mt-1 text-sm text-gray-500">Desde aqui decides que modulos, extras y widgets vera la empresa sin tocar JSON.</p>
+              </div>
+
+              <div class="space-y-5">
+                <div>
+                  <div class="mb-2 flex items-center justify-between gap-3">
+                    <label class="text-xs text-gray-500">{{ form.enabled_modules.label }}</label>
+                    <span class="text-xs text-gray-400">{{ form.enabled_modules.help_text }}</span>
+                  </div>
+                  <div class="grid gap-3 sm:grid-cols-2">
+                    {% for checkbox in form.enabled_modules %}
+                      <label class="flex items-start gap-3 rounded-2xl border border-black/5 bg-white px-4 py-3 text-sm text-gray-700">
+                        {{ checkbox.tag }}
+                        <span class="font-medium text-gray-900">{{ checkbox.choice_label }}</span>
+                      </label>
+                    {% endfor %}
+                  </div>
+                  {% for error in form.enabled_modules.errors %}
+                    <p class="mt-1 text-xs text-red-600">{{ error }}</p>
+                  {% endfor %}
+                </div>
+
+                <div>
+                  <div class="mb-2 flex items-center justify-between gap-3">
+                    <label class="text-xs text-gray-500">{{ form.extra_features.label }}</label>
+                    <span class="text-xs text-gray-400">{{ form.extra_features.help_text }}</span>
+                  </div>
+                  <div class="grid gap-3 sm:grid-cols-2">
+                    {% for checkbox in form.extra_features %}
+                      <label class="flex items-start gap-3 rounded-2xl border border-black/5 bg-white px-4 py-3 text-sm text-gray-700">
+                        {{ checkbox.tag }}
+                        <span class="font-medium text-gray-900">{{ checkbox.choice_label }}</span>
+                      </label>
+                    {% endfor %}
+                  </div>
+                  {% for error in form.extra_features.errors %}
+                    <p class="mt-1 text-xs text-red-600">{{ error }}</p>
+                  {% endfor %}
+                </div>
+
+                <div>
+                  <label class="mb-1 block text-xs text-gray-500">{{ form.module_order_csv.label }}</label>
+                  {{ form.module_order_csv }}
+                  <p class="mt-1 text-xs text-gray-400">{{ form.module_order_csv.help_text }}</p>
+                  <p class="mt-2 text-xs text-gray-400">Claves disponibles: entities, objects, deals, proposals, collections, activities, collab, documents, reports.</p>
+                  {% for error in form.module_order_csv.errors %}
+                    <p class="mt-1 text-xs text-red-600">{{ error }}</p>
+                  {% endfor %}
+                </div>
+
+                <div>
+                  <div class="mb-2 flex items-center justify-between gap-3">
+                    <label class="text-xs text-gray-500">{{ form.dashboard_widgets_selected.label }}</label>
+                    <span class="text-xs text-gray-400">{{ form.dashboard_widgets_selected.help_text }}</span>
+                  </div>
+                  <div class="grid gap-3 sm:grid-cols-2">
+                    {% for checkbox in form.dashboard_widgets_selected %}
+                      <label class="flex items-start gap-3 rounded-2xl border border-black/5 bg-white px-4 py-3 text-sm text-gray-700">
+                        {{ checkbox.tag }}
+                        <span class="font-medium text-gray-900">{{ checkbox.choice_label }}</span>
+                      </label>
+                    {% endfor %}
+                  </div>
+                  {% for error in form.dashboard_widgets_selected.errors %}
+                    <p class="mt-1 text-xs text-red-600">{{ error }}</p>
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
+
+            <div class="rounded-3xl border border-black/5 bg-gray-50 p-5">
+              <div class="mb-4">
+                <h2 class="text-lg font-semibold">Nombres base del tenant</h2>
+                <p class="mt-1 text-sm text-gray-500">Cambia la forma en la que este cliente percibe su CRM sin editar labels completos.</p>
+              </div>
+              <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                  <label class="mb-1 block text-xs text-gray-500">{{ form.brand_name.label }}</label>
+                  {{ form.brand_name }}
+                  {% if form.brand_name.help_text %}<p class="mt-1 text-xs text-gray-400">{{ form.brand_name.help_text }}</p>{% endif %}
+                  {% for error in form.brand_name.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+                </div>
+                <div>
+                  <label class="mb-1 block text-xs text-gray-500">{{ form.dashboard_title.label }}</label>
+                  {{ form.dashboard_title }}
+                  {% if form.dashboard_title.help_text %}<p class="mt-1 text-xs text-gray-400">{{ form.dashboard_title.help_text }}</p>{% endif %}
+                  {% for error in form.dashboard_title.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+                </div>
+                <div>
+                  <label class="mb-1 block text-xs text-gray-500">{{ form.entity_singular.label }}</label>
+                  {{ form.entity_singular }}
+                  {% for error in form.entity_singular.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+                </div>
+                <div>
+                  <label class="mb-1 block text-xs text-gray-500">{{ form.entity_plural.label }}</label>
+                  {{ form.entity_plural }}
+                  {% for error in form.entity_plural.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+                </div>
+                <div>
+                  <label class="mb-1 block text-xs text-gray-500">{{ form.deal_singular.label }}</label>
+                  {{ form.deal_singular }}
+                  {% for error in form.deal_singular.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+                </div>
+                <div>
+                  <label class="mb-1 block text-xs text-gray-500">{{ form.deal_plural.label }}</label>
+                  {{ form.deal_plural }}
+                  {% for error in form.deal_plural.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+                </div>
               </div>
             </div>
           </div>
@@ -148,99 +250,172 @@
           <div class="space-y-6">
             <div class="rounded-3xl border border-black/5 bg-gray-50 p-5">
               <div class="mb-4">
-                <h2 class="text-lg font-semibold">Modulos y nombres</h2>
-                <p class="mt-1 text-sm text-gray-500">Controla que modulos existen, como se llaman en pantalla y que puede hacer cada rol.</p>
+                <h2 class="text-lg font-semibold">Permisos por rol</h2>
+                <p class="mt-1 text-sm text-gray-500">Ajusta que puede ver o hacer cada rol sin editar policies manuales.</p>
               </div>
+
+              <div class="mb-4 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+                <strong>Owner</strong> sigue siendo acceso total del tenant. Aqui personalizas manager, operator, analyst y viewer.
+              </div>
+
               <div class="space-y-4">
-                {% for field in form %}
-                  {% if field.name == "feature_flags_json" or field.name == "labels_json" or field.name == "role_policies_json" %}
-                    <div>
-                      <label class="mb-1 block text-xs text-gray-500">{{ field.label }}</label>
-                      {{ field }}
-                      {% if field.help_text %}
-                        <p class="mt-1 text-xs text-gray-400">{{ field.help_text }}</p>
-                      {% endif %}
-                      {% for error in field.errors %}
-                        <p class="mt-1 text-xs text-red-600">{{ error }}</p>
-                      {% endfor %}
-                    </div>
-                  {% endif %}
-                {% endfor %}
+                <div class="rounded-2xl border border-black/5 bg-white p-4">
+                  <div class="mb-3">
+                    <h3 class="font-semibold text-gray-900">Manager</h3>
+                    <p class="mt-1 text-sm text-gray-500">Coordina la operacion del tenant y puede quedar con acceso total o controlado.</p>
+                  </div>
+                  <label class="mb-1 block text-xs text-gray-500">{{ form.manager_access_mode.label }}</label>
+                  {{ form.manager_access_mode }}
+                  {% if form.manager_access_mode.help_text %}<p class="mt-1 text-xs text-gray-400">{{ form.manager_access_mode.help_text }}</p>{% endif %}
+                  {% for error in form.manager_access_mode.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+                  <div class="mt-4 grid gap-2 md:grid-cols-2">
+                    {% for checkbox in form.manager_permissions %}
+                      <label class="flex items-start gap-3 rounded-2xl border border-black/5 px-3 py-3 text-sm text-gray-700">
+                        {{ checkbox.tag }}
+                        <span>{{ checkbox.choice_label }}</span>
+                      </label>
+                    {% endfor %}
+                  </div>
+                  {% for error in form.manager_permissions.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+                </div>
+
+                <div class="rounded-2xl border border-black/5 bg-white p-4">
+                  <div class="mb-3">
+                    <h3 class="font-semibold text-gray-900">Operator</h3>
+                    <p class="mt-1 text-sm text-gray-500">Rol para ejecucion comercial u operativa diaria.</p>
+                  </div>
+                  <div class="grid gap-2 md:grid-cols-2">
+                    {% for checkbox in form.operator_permissions %}
+                      <label class="flex items-start gap-3 rounded-2xl border border-black/5 px-3 py-3 text-sm text-gray-700">
+                        {{ checkbox.tag }}
+                        <span>{{ checkbox.choice_label }}</span>
+                      </label>
+                    {% endfor %}
+                  </div>
+                  {% for error in form.operator_permissions.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+                </div>
+
+                <div class="rounded-2xl border border-black/5 bg-white p-4">
+                  <div class="mb-3">
+                    <h3 class="font-semibold text-gray-900">Analyst</h3>
+                    <p class="mt-1 text-sm text-gray-500">Rol para lectura, seguimiento y analitica con acceso acotado.</p>
+                  </div>
+                  <div class="grid gap-2 md:grid-cols-2">
+                    {% for checkbox in form.analyst_permissions %}
+                      <label class="flex items-start gap-3 rounded-2xl border border-black/5 px-3 py-3 text-sm text-gray-700">
+                        {{ checkbox.tag }}
+                        <span>{{ checkbox.choice_label }}</span>
+                      </label>
+                    {% endfor %}
+                  </div>
+                  {% for error in form.analyst_permissions.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+                </div>
+
+                <div class="rounded-2xl border border-black/5 bg-white p-4">
+                  <div class="mb-3">
+                    <h3 class="font-semibold text-gray-900">Viewer</h3>
+                    <p class="mt-1 text-sm text-gray-500">Rol para consulta basica con visibilidad estrictamente controlada.</p>
+                  </div>
+                  <div class="grid gap-2 md:grid-cols-2">
+                    {% for checkbox in form.viewer_permissions %}
+                      <label class="flex items-start gap-3 rounded-2xl border border-black/5 px-3 py-3 text-sm text-gray-700">
+                        {{ checkbox.tag }}
+                        <span>{{ checkbox.choice_label }}</span>
+                      </label>
+                    {% endfor %}
+                  </div>
+                  {% for error in form.viewer_permissions.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+                </div>
               </div>
             </div>
 
             <div class="rounded-3xl border border-black/5 bg-gray-50 p-5">
               <div class="mb-4">
-                <h2 class="text-lg font-semibold">Ficha de clientes y orden del menu</h2>
-                <p class="mt-1 text-sm text-gray-500">Define campos extra para la ficha y el orden visible del CRM dentro de esta empresa.</p>
+                <h2 class="text-lg font-semibold">Ficha de clientes y objetos custom</h2>
+                <p class="mt-1 text-sm text-gray-500">Sigue siendo configurable por JSON porque define estructura flexible del tenant.</p>
               </div>
               <div class="space-y-4">
-                {% for field in form %}
-                  {% if field.name == "entity_fields_json" or field.name == "custom_objects_json" or field.name == "module_order_json" or field.name == "dashboard_widgets_json" %}
-                    <div>
-                      <label class="mb-1 block text-xs text-gray-500">{{ field.label }}</label>
-                      {{ field }}
-                      {% if field.help_text %}
-                        <p class="mt-1 text-xs text-gray-400">{{ field.help_text }}</p>
-                      {% endif %}
-                      {% for error in field.errors %}
-                        <p class="mt-1 text-xs text-red-600">{{ error }}</p>
-                      {% endfor %}
-                    </div>
-                  {% endif %}
-                {% endfor %}
+                <div>
+                  <label class="mb-1 block text-xs text-gray-500">{{ form.entity_fields_json.label }}</label>
+                  {{ form.entity_fields_json }}
+                  {% if form.entity_fields_json.help_text %}<p class="mt-1 text-xs text-gray-400">{{ form.entity_fields_json.help_text }}</p>{% endif %}
+                  {% for error in form.entity_fields_json.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+                </div>
+                <div>
+                  <label class="mb-1 block text-xs text-gray-500">{{ form.custom_objects_json.label }}</label>
+                  {{ form.custom_objects_json }}
+                  {% if form.custom_objects_json.help_text %}<p class="mt-1 text-xs text-gray-400">{{ form.custom_objects_json.help_text }}</p>{% endif %}
+                  {% for error in form.custom_objects_json.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+                </div>
               </div>
             </div>
 
             <div class="rounded-3xl border border-black/5 bg-gray-50 p-5" id="pipeline-stages">
               <div class="mb-4">
-                <h2 class="text-lg font-semibold">Pipeline y etapas del tablero</h2>
-                <p class="mt-1 text-sm text-gray-500">Las etapas que pongas aqui se convierten en las columnas visibles de Oportunidades: por ejemplo Nuevo, Contactado, Propuesta o Ganado.</p>
+                <h2 class="text-lg font-semibold">Pipeline y etapas</h2>
+                <p class="mt-1 text-sm text-gray-500">Las etapas que pongas aqui se convierten en columnas visibles de Oportunidades.</p>
               </div>
-              <div class="space-y-4">
-                {% for field in form %}
-                  {% if field.name == "pipeline_templates_json" %}
-                    <div>
-                      <div class="rounded-2xl border border-black/5 bg-white px-4 py-3 text-sm text-gray-600">
-                        <strong class="text-gray-900">Ejemplo rapido:</strong>
-                        <span class="mt-1 block">Si tu proceso comercial usa <em>Nuevo -> Contactado -> Propuesta -> Ganado</em>, esas seran las columnas del kanban.</span>
-                      </div>
-                      <label class="mb-1 mt-4 block text-xs text-gray-500">{{ field.label }}</label>
-                      {{ field }}
-                      {% if field.help_text %}
-                        <p class="mt-1 text-xs text-gray-400">{{ field.help_text }}</p>
-                      {% endif %}
-                      {% for error in field.errors %}
-                        <p class="mt-1 text-xs text-red-600">{{ error }}</p>
-                      {% endfor %}
-                    </div>
-                  {% endif %}
-                {% endfor %}
+              <div class="rounded-2xl border border-black/5 bg-white px-4 py-3 text-sm text-gray-600">
+                <strong class="text-gray-900">Ejemplo rapido:</strong>
+                <span class="mt-1 block">Si tu flujo usa Nuevo -> Contactado -> Propuesta -> Ganado, esas seran las columnas del kanban.</span>
+              </div>
+              <div class="mt-4">
+                <label class="mb-1 block text-xs text-gray-500">{{ form.pipeline_templates_json.label }}</label>
+                {{ form.pipeline_templates_json }}
+                {% if form.pipeline_templates_json.help_text %}<p class="mt-1 text-xs text-gray-400">{{ form.pipeline_templates_json.help_text }}</p>{% endif %}
+                {% for error in form.pipeline_templates_json.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
               </div>
             </div>
 
             <div class="rounded-3xl border border-black/5 bg-gray-50 p-5">
               <div class="mb-4">
                 <h2 class="text-lg font-semibold">Tipos de documento</h2>
-                <p class="mt-1 text-sm text-gray-500">Ajusta los documentos disponibles segun el tipo de negocio y lo que realmente necesita operar.</p>
+                <p class="mt-1 text-sm text-gray-500">Ajusta documentos disponibles segun el tipo de negocio y el flujo real de operacion.</p>
               </div>
-              <div class="space-y-4">
-                {% for field in form %}
-                  {% if field.name == "document_blueprints_json" %}
-                    <div>
-                      <label class="mb-1 block text-xs text-gray-500">{{ field.label }}</label>
-                      {{ field }}
-                      {% if field.help_text %}
-                        <p class="mt-1 text-xs text-gray-400">{{ field.help_text }}</p>
-                      {% endif %}
-                      {% for error in field.errors %}
-                        <p class="mt-1 text-xs text-red-600">{{ error }}</p>
-                      {% endfor %}
-                    </div>
-                  {% endif %}
-                {% endfor %}
+              <div>
+                <label class="mb-1 block text-xs text-gray-500">{{ form.document_blueprints_json.label }}</label>
+                {{ form.document_blueprints_json }}
+                {% if form.document_blueprints_json.help_text %}<p class="mt-1 text-xs text-gray-400">{{ form.document_blueprints_json.help_text }}</p>{% endif %}
+                {% for error in form.document_blueprints_json.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
               </div>
             </div>
+
+            <details class="rounded-3xl border border-black/5 bg-gray-50 p-5">
+              <summary class="cursor-pointer text-lg font-semibold text-gray-900">Configuracion avanzada (JSON)</summary>
+              <p class="mt-3 text-sm text-gray-500">Esta capa sirve para ajustes finos. Si editas lo estructurado y el JSON del mismo bloque, Binn prioriza los controles estructurados.</p>
+              <div class="mt-4 space-y-4">
+                <div>
+                  <label class="mb-1 block text-xs text-gray-500">{{ form.feature_flags_json.label }}</label>
+                  {{ form.feature_flags_json }}
+                  {% if form.feature_flags_json.help_text %}<p class="mt-1 text-xs text-gray-400">{{ form.feature_flags_json.help_text }}</p>{% endif %}
+                  {% for error in form.feature_flags_json.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+                </div>
+                <div>
+                  <label class="mb-1 block text-xs text-gray-500">{{ form.module_order_json.label }}</label>
+                  {{ form.module_order_json }}
+                  {% if form.module_order_json.help_text %}<p class="mt-1 text-xs text-gray-400">{{ form.module_order_json.help_text }}</p>{% endif %}
+                  {% for error in form.module_order_json.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+                </div>
+                <div>
+                  <label class="mb-1 block text-xs text-gray-500">{{ form.dashboard_widgets_json.label }}</label>
+                  {{ form.dashboard_widgets_json }}
+                  {% if form.dashboard_widgets_json.help_text %}<p class="mt-1 text-xs text-gray-400">{{ form.dashboard_widgets_json.help_text }}</p>{% endif %}
+                  {% for error in form.dashboard_widgets_json.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+                </div>
+                <div>
+                  <label class="mb-1 block text-xs text-gray-500">{{ form.role_policies_json.label }}</label>
+                  {{ form.role_policies_json }}
+                  {% if form.role_policies_json.help_text %}<p class="mt-1 text-xs text-gray-400">{{ form.role_policies_json.help_text }}</p>{% endif %}
+                  {% for error in form.role_policies_json.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+                </div>
+                <div>
+                  <label class="mb-1 block text-xs text-gray-500">{{ form.labels_json.label }}</label>
+                  {{ form.labels_json }}
+                  {% if form.labels_json.help_text %}<p class="mt-1 text-xs text-gray-400">{{ form.labels_json.help_text }}</p>{% endif %}
+                  {% for error in form.labels_json.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+                </div>
+              </div>
+            </details>
           </div>
         </div>
 

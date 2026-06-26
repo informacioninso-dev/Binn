@@ -94,6 +94,73 @@ class TenantEditFormTests(SimpleTestCase):
         self.assertEqual(form.cleaned_data["dashboard_widgets_json"], defaults["dashboard_widgets"])
         self.assertEqual(form.cleaned_data["role_policies_json"], defaults["role_policies"])
 
+    def test_structured_admin_controls_sync_runtime_configuration(self):
+        data = self._base_data()
+        data.update(
+            {
+                "structured_admin_surface": "structured",
+                "enabled_modules": ["reports", "documents", "entities"],
+                "extra_features": ["fiscal_lookup"],
+                "module_order_csv": "reports, documents, entities",
+                "dashboard_widgets_selected": ["summary_cards", "quick_actions"],
+                "brand_name": "Binn Broker",
+                "dashboard_title": "Mesa operativa de renovaciones",
+                "entity_singular": "Cuenta",
+                "entity_plural": "Cuentas",
+                "deal_singular": "Caso",
+                "deal_plural": "Casos",
+                "manager_access_mode": "custom",
+                "manager_permissions": ["dashboard.view", "reports.view"],
+                "operator_permissions": ["dashboard.view", "entities.view", "entities.edit"],
+                "analyst_permissions": ["dashboard.view", "reports.view"],
+                "viewer_permissions": ["dashboard.view"],
+            }
+        )
+        form = TenantEditForm(
+            data=data,
+            instance=Client(name="Tenant Demo", plan=Client.PLAN_SHARED, is_active=True),
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data["module_order_json"][:3], ["reports", "documents", "entities"])
+        self.assertEqual(form.cleaned_data["dashboard_widgets_json"], ["summary_cards", "quick_actions"])
+        self.assertTrue(form.cleaned_data["feature_flags_json"]["reports"])
+        self.assertTrue(form.cleaned_data["feature_flags_json"]["documents"])
+        self.assertTrue(form.cleaned_data["feature_flags_json"]["entities"])
+        self.assertFalse(form.cleaned_data["feature_flags_json"]["deals"])
+        self.assertTrue(form.cleaned_data["feature_flags_json"]["fiscal_lookup"])
+        self.assertFalse(form.cleaned_data["feature_flags_json"]["kanban"])
+        self.assertEqual(form.cleaned_data["labels_json"]["brand_name"], "Binn Broker")
+        self.assertEqual(form.cleaned_data["labels_json"]["deal_plural"], "Casos")
+        self.assertEqual(form.cleaned_data["role_policies_json"]["manager"], ["dashboard.view", "reports.view"])
+        self.assertEqual(form.cleaned_data["role_policies_json"]["operator"], ["dashboard.view", "entities.view", "entities.edit"])
+        self.assertEqual(form.cleaned_data["role_policies_json"]["analyst"], ["dashboard.view", "reports.view"])
+        self.assertEqual(form.cleaned_data["role_policies_json"]["viewer"], ["dashboard.view"])
+
+    def test_structured_admin_controls_require_at_least_one_visible_module(self):
+        data = self._base_data()
+        data.update(
+            {
+                "structured_admin_surface": "structured",
+                "enabled_modules": [],
+                "extra_features": [],
+                "module_order_csv": "",
+                "dashboard_widgets_selected": ["summary_cards"],
+                "manager_access_mode": "full",
+                "manager_permissions": [],
+                "operator_permissions": ["dashboard.view"],
+                "analyst_permissions": ["dashboard.view"],
+                "viewer_permissions": ["dashboard.view"],
+            }
+        )
+        form = TenantEditForm(
+            data=data,
+            instance=Client(name="Tenant Demo", plan=Client.PLAN_SHARED, is_active=True),
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("enabled_modules", form.errors)
+
     def test_rejects_duplicated_pipeline_keys(self):
         data = self._base_data()
         data["pipeline_templates_json"] = (
