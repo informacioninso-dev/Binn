@@ -272,6 +272,7 @@ class Deal(AuditModel):
 
 class Activity(AuditModel):
     TYPE_CALL = "call"
+    TYPE_MEETING = "meeting"
     TYPE_WHATSAPP = "whatsapp"
     TYPE_NOTE = "note"
     TYPE_EMAIL = "email"
@@ -279,6 +280,7 @@ class Activity(AuditModel):
     TYPE_CLAIM = "claim"
     TYPE_CHOICES = [
         (TYPE_CALL, "Llamada"),
+        (TYPE_MEETING, "Reunion"),
         (TYPE_WHATSAPP, "WhatsApp"),
         (TYPE_NOTE, "Nota"),
         (TYPE_EMAIL, "Correo"),

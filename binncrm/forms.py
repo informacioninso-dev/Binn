@@ -29,6 +29,7 @@ def _build_dynamic_field(field_definition: dict):
     field_type = field_definition.get("type", "text")
     label = field_definition.get("label", field_definition.get("key", "Campo"))
     required = bool(field_definition.get("required", False))
+    choices = [(choice["value"], choice["label"]) for choice in field_definition.get("choices", [])]
 
     if field_type == "textarea":
         return forms.CharField(label=label, required=required, widget=forms.Textarea(attrs=TEXTAREA))
@@ -40,6 +41,13 @@ def _build_dynamic_field(field_definition: dict):
         return forms.DateField(label=label, required=required, widget=forms.DateInput(attrs={**INPUT, "type": "date"}))
     if field_type == "boolean":
         return forms.BooleanField(label=label, required=False)
+    if field_type == "select":
+        return forms.ChoiceField(
+            label=label,
+            required=required,
+            choices=[("", "Selecciona")] + choices,
+            widget=forms.Select(attrs=INPUT),
+        )
     return forms.CharField(label=label, required=required, widget=forms.TextInput(attrs=INPUT))
 
 
@@ -188,7 +196,7 @@ class EntityForm(forms.ModelForm):
         for field_definition in field_definitions:
             field_name = f"extra__{field_definition['key']}"
             field = _build_dynamic_field(field_definition)
-            field.initial = data_extra.get(field_definition["key"])
+            field.initial = data_extra.get(field_definition["key"], field_definition.get("default"))
             self.fields[field_name] = field
             self.extra_field_names.append(field_name)
 
@@ -298,6 +306,8 @@ class ActivityForm(forms.ModelForm):
             self.add_error("deal", "El deal seleccionado no pertenece a la entidad elegida.")
         if cleaned.get("activity_type") == Activity.TYPE_TASK and not cleaned.get("due_at"):
             self.add_error("due_at", "Las tareas deben tener fecha y hora de vencimiento.")
+        if cleaned.get("activity_type") == Activity.TYPE_MEETING and not cleaned.get("due_at"):
+            self.add_error("due_at", "Las reuniones deben tener fecha y hora agendada.")
         return cleaned
 
 

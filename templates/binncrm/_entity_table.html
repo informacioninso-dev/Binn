@@ -22,6 +22,16 @@
                 {% if row.instance.phone %} | {{ row.instance.phone }}{% endif %}
                 {% if row.instance.email %} | {{ row.instance.email }}{% endif %}
               </p>
+              {% if row.broker_lifecycle %}
+                <div class="binn-meta-strip mt-2">
+                  <span class="binn-pill {{ row.broker_lifecycle.tone }}">{{ row.broker_lifecycle.label }}</span>
+                </div>
+              {% endif %}
+              {% if row.service_lifecycle %}
+                <div class="binn-meta-strip mt-2">
+                  <span class="binn-pill {{ row.service_lifecycle.tone }}">{{ row.service_lifecycle.label }}</span>
+                </div>
+              {% endif %}
             </div>
           </div>
 
@@ -57,6 +67,7 @@
           {% endif %}
           {% if can_manage_related.activities %}
             <a href="{% url 'binncrm:activity_create' %}?entity={{ row.instance.pk }}" class="binn-record-action">Nueva actividad</a>
+            <a href="{% url 'binncrm:activity_create' %}?entity={{ row.instance.pk }}&activity_type=meeting&title=Reunion+de+seguimiento" class="binn-record-action">Nueva reunion</a>
           {% endif %}
           {% if can_manage_related.documents %}
             <a href="{% url 'binncrm:document_create' %}?entity={{ row.instance.pk }}" class="binn-record-action">Nuevo {{ labels.document_singular|default:"documento" }}</a>

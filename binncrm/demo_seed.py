@@ -380,6 +380,9 @@ def _build_commercial_demo(tenant, *, profile: str) -> dict:
                 "servicio_principal": "Acompanamiento comercial",
                 "cargo": "Fundadora",
                 "retainer_mensual": 950,
+                "service_stage": "cliente_activo" if profile == PROFILE_SERVICIOS else "",
+                "renewal_on": str(timezone.localdate() + timedelta(days=42)) if profile == PROFILE_SERVICIOS else "",
+                "delivery_owner": "Andrea Leon" if profile == PROFILE_SERVICIOS else "",
             },
         ),
         _entity_payload(
@@ -399,6 +402,8 @@ def _build_commercial_demo(tenant, *, profile: str) -> dict:
                 "servicio_principal": "Implementacion CRM",
                 "cargo": "Gerente comercial",
                 "retainer_mensual": 3200,
+                "service_stage": "prospecto" if profile == PROFILE_SERVICIOS else "",
+                "delivery_owner": "Mateo Ruiz" if profile == PROFILE_SERVICIOS else "",
             },
         ),
         _entity_payload(
@@ -418,6 +423,7 @@ def _build_commercial_demo(tenant, *, profile: str) -> dict:
                 "servicio_principal": "Activacion comercial",
                 "cargo": "Directora",
                 "retainer_mensual": 1800,
+                "service_stage": "prospecto" if profile == PROFILE_SERVICIOS else "",
             },
         ),
         _entity_payload(
@@ -437,6 +443,9 @@ def _build_commercial_demo(tenant, *, profile: str) -> dict:
                 "servicio_principal": "Capacitacion comercial",
                 "cargo": "Gerente general",
                 "retainer_mensual": 1200,
+                "service_stage": "renovacion_upsell" if profile == PROFILE_SERVICIOS else "",
+                "renewal_on": str(timezone.localdate() + timedelta(days=18)) if profile == PROFILE_SERVICIOS else "",
+                "delivery_owner": "Valentina Mena" if profile == PROFILE_SERVICIOS else "",
             },
         ),
         _entity_payload(
@@ -456,6 +465,9 @@ def _build_commercial_demo(tenant, *, profile: str) -> dict:
                 "servicio_principal": "Seguimiento comercial",
                 "cargo": "Administradora",
                 "retainer_mensual": 780,
+                "service_stage": "cliente_activo" if profile == PROFILE_SERVICIOS else "",
+                "renewal_on": str(timezone.localdate() + timedelta(days=55)) if profile == PROFILE_SERVICIOS else "",
+                "delivery_owner": "Luis Rojas" if profile == PROFILE_SERVICIOS else "",
             },
         ),
         _entity_payload(
@@ -527,6 +539,16 @@ def _build_commercial_demo(tenant, *, profile: str) -> dict:
             {
                 "entity_key": "carlos-montalvo",
                 "deal_key": "deal-carlos",
+                "activity_type": Activity.TYPE_MEETING,
+                "title": "Discovery comercial",
+                "description": "Sesion con el gerente comercial para mapear proceso, objeciones y responsables.",
+                "due_in_hours": 30,
+                "assign_actor": True,
+                "age_days": 0,
+            },
+            {
+                "entity_key": "carlos-montalvo",
+                "deal_key": "deal-carlos",
                 "activity_type": Activity.TYPE_TASK,
                 "title": "Revisar feedback de la propuesta",
                 "description": "Volver a llamar y confirmar si el alcance sigue igual o necesita ajuste.",
@@ -552,6 +574,16 @@ def _build_commercial_demo(tenant, *, profile: str) -> dict:
                 "description": "Paola respondio bien al mensaje, pero quedo pendiente la aprobacion final.",
                 "completed_hours_ago": 18,
                 "age_days": 1,
+            },
+            {
+                "entity_key": "diego-almeida",
+                "deal_key": "deal-diego",
+                "activity_type": Activity.TYPE_MEETING,
+                "title": "Kickoff operativo",
+                "description": "Reunion inicial con el cliente y el equipo de delivery para confirmar alcance, calendario y entregables.",
+                "due_in_hours": 12,
+                "assign_actor": True,
+                "age_days": 0,
             },
             {
                 "entity_key": "diego-almeida",
@@ -1252,7 +1284,9 @@ def _build_demo_object_records(*, profile: str) -> list[dict]:
                 "data": {
                     "nombre": "Workshop discovery comercial",
                     "cliente": "Flores & Co",
+                    "tipo_entregable": "Workshop",
                     "estado": "En curso",
+                    "responsable": "Andrea Leon",
                     "fecha_entrega": str(today + timedelta(days=2)),
                 },
                 "age_days": 1,
@@ -1262,7 +1296,9 @@ def _build_demo_object_records(*, profile: str) -> list[dict]:
                 "data": {
                     "nombre": "Playbook de seguimiento Q2",
                     "cliente": "Distribuidora Andina",
+                    "tipo_entregable": "Playbook",
                     "estado": "Por validar",
+                    "responsable": "Mateo Ruiz",
                     "fecha_entrega": str(today + timedelta(days=5)),
                 },
                 "age_days": 3,

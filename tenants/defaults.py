@@ -343,6 +343,17 @@ PROFILE_DEFAULTS = {
             "pipeline_label": "Estado de emision",
         },
         "entity_fields": [
+            {
+                "key": "lifecycle_stage",
+                "label": "Etapa broker",
+                "type": "select",
+                "default": "lead",
+                "choices": [
+                    {"value": "lead", "label": "Lead"},
+                    {"value": "asegurado", "label": "Asegurado"},
+                    {"value": "renovacion", "label": "Renovacion"},
+                ],
+            },
             {"key": "placa", "label": "Placa", "type": "text"},
             {"key": "aseguradora", "label": "Aseguradora", "type": "text"},
             {"key": "poliza", "label": "Numero de poliza", "type": "text"},
@@ -432,10 +443,23 @@ PROFILE_DEFAULTS = {
             "pipeline_label": "Pipeline comercial",
         },
         "entity_fields": [
+            {
+                "key": "service_stage",
+                "label": "Etapa servicios",
+                "type": "select",
+                "default": "prospecto",
+                "choices": [
+                    {"value": "prospecto", "label": "Prospecto"},
+                    {"value": "cliente_activo", "label": "Cliente activo"},
+                    {"value": "renovacion_upsell", "label": "Renovacion / upsell"},
+                ],
+            },
             {"key": "empresa", "label": "Empresa", "type": "text"},
             {"key": "servicio_principal", "label": "Servicio principal", "type": "text"},
             {"key": "cargo", "label": "Cargo del contacto", "type": "text"},
             {"key": "retainer_mensual", "label": "Retainer mensual", "type": "number"},
+            {"key": "renewal_on", "label": "Fecha de renovacion", "type": "date"},
+            {"key": "delivery_owner", "label": "Responsable delivery", "type": "text"},
         ],
         "custom_objects": [
             {
@@ -446,7 +470,9 @@ PROFILE_DEFAULTS = {
                 "fields": [
                     {"key": "nombre", "label": "Nombre", "type": "text", "required": True},
                     {"key": "cliente", "label": "Cliente", "type": "text", "required": True},
+                    {"key": "tipo_entregable", "label": "Tipo", "type": "text"},
                     {"key": "estado", "label": "Estado", "type": "text"},
+                    {"key": "responsable", "label": "Responsable", "type": "text"},
                     {"key": "fecha_entrega", "label": "Fecha de entrega", "type": "date"},
                 ],
             }

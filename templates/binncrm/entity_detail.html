@@ -253,6 +253,12 @@
           <h1 class="binn-entity-title">{{ entity.full_name }}</h1>
           <p class="binn-entity-subline">{{ entity.legal_id|default:"Sin identificación" }} · {{ entity.phone|default:"Sin teléfono" }}</p>
           <div class="binn-entity-meta">
+            {% if broker_lifecycle %}
+              <span class="binn-pill {{ broker_lifecycle.tone }}">{{ broker_lifecycle.label }}</span>
+            {% endif %}
+            {% if service_lifecycle %}
+              <span class="binn-pill {{ service_lifecycle.tone }}">{{ service_lifecycle.label }}</span>
+            {% endif %}
             {% if entity.email %}
               <span class="binn-pill">{{ entity.email }}</span>
             {% endif %}
@@ -278,6 +284,7 @@
           {% if can_create_activity %}
             <a href="{% url 'binncrm:activity_create' %}?entity={{ entity.pk }}" class="binn-btn-secondary binn-btn-compact">Nueva {{ labels.activity_singular|default:"actividad" }}</a>
             <a href="{% url 'binncrm:activity_create' %}?entity={{ entity.pk }}&activity_type=task" class="binn-btn-secondary binn-btn-compact">Nueva tarea</a>
+            <a href="{% url 'binncrm:activity_create' %}?entity={{ entity.pk }}&activity_type=meeting&title=Reunion+de+seguimiento" class="binn-btn-secondary binn-btn-compact">Nueva reunion</a>
           {% endif %}
           {% if can_create_document and request.tenant.tenant_config.feature_flags.documents %}
             <a href="{% url 'binncrm:document_create' %}?entity={{ entity.pk }}" class="binn-btn-secondary binn-btn-compact">Nuevo {{ labels.document_singular|default:"documento" }}</a>
@@ -377,6 +384,37 @@
           </article>
         {% endif %}
 
+        {% if services_handoff.items %}
+          <article class="binn-panel binn-entity-card">
+            <div class="binn-entity-section-head">
+              <div>
+                <h2 class="binn-section-title">Handoff servicio</h2>
+                <p class="binn-entity-section-copy">Traspaso comercial a delivery con contrato, kickoff, backlog y renovacion visibles.</p>
+              </div>
+              <span class="binn-pill {{ services_handoff.status_tone }}">{{ services_handoff.status_label }}</span>
+            </div>
+            <div class="binn-entity-chip-row">
+              {% for item in services_handoff.items %}
+                <span class="binn-pill {{ item.tone }}">{{ item.label }}: {{ item.status }}</span>
+              {% endfor %}
+            </div>
+            <div class="binn-entity-inline-actions mt-4">
+              {% if can_create_activity %}
+                <a href="{% url 'binncrm:activity_create' %}?entity={{ entity.pk }}&activity_type=meeting&title=Kickoff" class="binn-record-action">Agendar kickoff</a>
+              {% endif %}
+              {% if can_create_document %}
+                <a href="{% url 'binncrm:document_create' %}?entity={{ entity.pk }}&document_type=contrato_servicio" class="binn-record-action">Subir contrato</a>
+                <a href="{% url 'binncrm:document_create' %}?entity={{ entity.pk }}&document_type=kickoff" class="binn-record-action">Subir kickoff</a>
+              {% endif %}
+              {% if can_edit_objects and has_deliverable_object %}
+                <a href="{% url 'binncrm:custom_object_record_create' 'entregable' %}?cliente={{ entity.data_extra.empresa|default:entity.full_name|urlencode }}" class="binn-record-action">Nuevo entregable</a>
+              {% elif can_view_objects and has_deliverable_object %}
+                <a href="{% url 'binncrm:custom_object_records' 'entregable' %}" class="binn-record-action">Ver entregables</a>
+              {% endif %}
+            </div>
+          </article>
+        {% endif %}
+
         {% if can_view_deals %}
           <article class="binn-panel binn-entity-card">
             <div class="binn-entity-section-head">
@@ -465,6 +503,39 @@
                 </article>
               {% empty %}
                 <div class="binn-empty text-sm">Sin tareas abiertas para esta ficha.</div>
+              {% endfor %}
+            </div>
+          </article>
+        {% endif %}
+
+        {% if can_view_activities and recent_meetings %}
+          <article class="binn-panel binn-entity-card">
+            <div class="binn-entity-section-head">
+              <div>
+                <h2 class="binn-section-title">Reuniones</h2>
+                <p class="binn-entity-section-copy">Discovery, kickoff y seguimientos recientes ligados a esta cuenta.</p>
+              </div>
+              {% if can_create_activity %}
+                <a href="{% url 'binncrm:activity_create' %}?entity={{ entity.pk }}&activity_type=meeting&title=Reunion+de+seguimiento" class="binn-record-action binn-record-action-primary">Nueva reunion</a>
+              {% endif %}
+            </div>
+            <div class="binn-entity-list">
+              {% for activity in recent_meetings %}
+                <article class="binn-entity-item">
+                  <div class="binn-entity-item-head">
+                    <div>
+                      <p class="binn-entity-item-title">{{ activity.title }}</p>
+                      <p class="binn-entity-item-meta">
+                        {% if activity.assigned_to %}{{ activity.assigned_to.username }}{% else %}Sin responsable{% endif %}
+                        {% if activity.deal %} Â· {{ activity.deal.title }}{% endif %}
+                        {% if activity.due_at %} Â· {{ activity.due_at|date:"d/m/Y H:i" }}{% endif %}
+                      </p>
+                      {% if activity.description %}
+                        <p class="binn-entity-item-copy">{{ activity.description }}</p>
+                      {% endif %}
+                    </div>
+                  </div>
+                </article>
               {% endfor %}
             </div>
           </article>

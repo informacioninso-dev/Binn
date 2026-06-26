@@ -25,6 +25,8 @@ from access.permissions import (
     request_has_tenant_permission,
 )
 from tenants.defaults import resolve_module_order
+from tenants.defaults import PROFILE_BROKER
+from tenants.defaults import PROFILE_SERVICIOS
 
 
 @dataclass(frozen=True)
@@ -119,10 +121,33 @@ def build_navigation_model(request) -> NavigationModel:
         return NavigationModel(role_label=role_label, primary_items=primary_items, utility_items=utility_items)
 
     labels = tenant.tenant_config.labels
+    profile = getattr(getattr(tenant, "tenant_config", None), "profile", "")
     module_order = _module_order_for_tenant(tenant)
     primary_items: list[NavigationItem] = [
         _nav_item("Inicio", "dashboard", current_namespace, current_url_name, icon="home", url_names=("dashboard",)),
     ]
+    if profile == PROFILE_BROKER and tenant.has_capability("reports") and _can_access(request, PERMISSION_REPORTS_VIEW):
+        primary_items.append(
+            _nav_item(
+                "Broker",
+                "binncrm:broker_hub",
+                current_namespace,
+                current_url_name,
+                icon="chart",
+                url_names=("broker_hub",),
+            )
+        )
+    if profile == PROFILE_SERVICIOS and tenant.has_capability("reports") and _can_access(request, PERMISSION_REPORTS_VIEW):
+        primary_items.append(
+            _nav_item(
+                "Servicios",
+                "binncrm:services_hub",
+                current_namespace,
+                current_url_name,
+                icon="chart",
+                url_names=("services_hub",),
+            )
+        )
 
     primary_item_map: dict[str, NavigationItem] = {}
     if tenant.has_capability("entities") and _can_access(request, PERMISSION_ENTITIES_VIEW):

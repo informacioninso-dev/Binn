@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block title %}Servicios | Binn{% endblock %}
+
+{% block head_extra %}
+<style>
+  .binn-services-workspace { display: flex; flex-direction: column; gap: 0.85rem; }
+  .binn-services-toolbar { display: grid; gap: 0.7rem; border-radius: 1.15rem; padding: 0.8rem; background: radial-gradient(circle at top right, rgba(0,123,255,0.08), transparent 16rem), linear-gradient(180deg, rgba(255,255,255,0.985) 0%, rgba(247,250,255,0.985) 100%); }
+  .binn-services-toolbar-grid { display: grid; gap: 0.8rem; }
+  .binn-services-control-card, .binn-services-action-card { display: grid; gap: 0.6rem; padding: 0.8rem 0.85rem; border-radius: 1rem; border: 1px solid rgba(15,23,42,0.06); background: rgba(255,255,255,0.9); box-shadow: 0 8px 18px rgba(15,23,42,0.04); }
+  .binn-services-headline-row { display: grid; gap: 0.55rem; }
+  .binn-services-toolbar-copy { display: flex; align-items: center; gap: 0.55rem; min-height: 42px; }
+  .binn-services-toolbar-copy .binn-kicker { padding: 0.34rem 0.64rem; font-size: 0.68rem; }
+  .binn-services-inline-note { margin: 0; font-size: 0.74rem; line-height: 1.4; color: var(--binn-ink-soft); }
+  .binn-services-actions { display: flex; flex-wrap: wrap; gap: 0.45rem; }
+  .binn-services-actions a { justify-content: center; }
+  .binn-services-focus-row { display: flex; flex-wrap: wrap; gap: 0.45rem; }
+  @media (min-width: 1200px) {
+    .binn-services-toolbar-grid { grid-template-columns: minmax(0, 1fr) 360px; }
+    .binn-services-headline-row { grid-template-columns: 210px minmax(0, 1fr); align-items: center; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+  <div class="binn-services-workspace">
+    <section class="binn-panel binn-services-toolbar">
+      <div class="binn-services-toolbar-grid">
+        <div class="binn-services-control-card">
+          <div class="binn-services-headline-row">
+            <div class="binn-services-toolbar-copy">
+              <span class="binn-kicker">Servicios hub</span>
+            </div>
+            <p class="binn-services-inline-note">Generado {{ generated_at|date:"d/m/Y H:i" }} | mira primero propuestas, reuniones y handoffs que pueden romper la experiencia del cliente.</p>
+          </div>
+          <div>
+            <h1 class="text-2xl font-semibold tracking-tight">{{ workspace_pack.title }}</h1>
+            <p class="mt-2 text-sm text-gray-600">{{ workspace_pack.subtitle }}</p>
+          </div>
+          <div class="binn-services-focus-row">
+            {% for item in workspace_pack.report_focus %}
+              <span class="binn-pill">{{ item }}</span>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="binn-services-action-card">
+          <p class="binn-services-inline-note">Este cockpit junta comercial y delivery sin convertir Binn en otro PM tool. Decide aqui y ejecuta en el modulo correcto.</p>
+          {% if quick_actions %}
+            <div class="binn-services-actions">
+              {% for action in quick_actions %}
+                <a href="{{ action.href }}" class="{% if forloop.first %}binn-btn-primary{% else %}binn-btn-secondary{% endif %} binn-btn-compact">{{ action.label }}</a>
+              {% endfor %}
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </section>
+
+    {% if summary_cards %}
+      <section class="space-y-3">
+        <div class="binn-module-metric-grid" style="grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));">
+          {% for card in summary_cards %}
+            <article class="binn-panel binn-record-card">
+              <span class="rounded-full px-3 py-1 text-xs font-medium {{ card.tone }}">{{ card.label }}</span>
+              <p class="mt-4 text-4xl font-bold tracking-tight">{{ card.value }}</p>
+              <p class="mt-3 text-sm text-gray-600">{{ card.caption }}</p>
+              {% if card.href %}<a href="{{ card.href }}" class="mt-4 inline-flex text-sm font-semibold text-slate-900 hover:underline">Abrir modulo</a>{% endif %}
+            </article>
+          {% endfor %}
+        </div>
+      </section>
+    {% endif %}
+
+    <section class="grid grid-cols-1 gap-4 xl:grid-cols-[1.05fr_0.95fr]">
+      <article class="binn-panel binn-record-card">
+        <h2 class="text-lg font-semibold">Cadencia sugerida</h2>
+        <div class="mt-4 space-y-3">
+          {% for item in workspace_pack.rituals %}
+            <div class="rounded-2xl border border-black/5 px-4 py-3 text-sm text-gray-700">{{ item }}</div>
+          {% endfor %}
+        </div>
+      </article>
+      <article class="binn-panel binn-record-card">
+        <h2 class="text-lg font-semibold">Foco del vertical</h2>
+        <div class="mt-4 space-y-3">
+          {% for item in workspace_pack.pillars %}
+            <div class="rounded-2xl border border-black/5 px-4 py-3 text-sm text-gray-700">{{ item }}</div>
+          {% endfor %}
+        </div>
+      </article>
+    </section>
+
+    <section class="grid grid-cols-1 gap-6 xl:grid-cols-2">
+      {% for section in services_sections %}
+        <article class="binn-panel binn-record-card">
+          <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <h2 class="text-lg font-semibold">{{ section.title }}</h2>
+              <p class="mt-2 text-sm text-gray-600">{{ section.subtitle }}</p>
+            </div>
+            {% if section.href %}<a href="{{ section.href }}" class="text-sm font-medium text-slate-900 hover:underline">{{ section.cta|default:"Abrir" }}</a>{% endif %}
+          </div>
+          <div class="mt-5 space-y-3">
+            {% for item in section.items %}
+              <div class="rounded-2xl border border-black/5 px-4 py-3">
+                <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <p class="font-medium">{{ item.title }}</p>
+                    {% if item.meta %}<p class="mt-1 text-xs text-gray-500">{{ item.meta }}</p>{% endif %}
+                    {% if item.caption %}<p class="mt-2 text-sm text-gray-600">{{ item.caption }}</p>{% endif %}
+                  </div>
+                  {% if item.status %}<span class="rounded-full px-3 py-1 text-xs font-medium {{ item.tone }}">{{ item.status }}</span>{% endif %}
+                </div>
+              </div>
+            {% empty %}
+              <div class="rounded-2xl border border-dashed px-4 py-6 text-sm text-gray-500">{{ section.empty_message }}</div>
+            {% endfor %}
+          </div>
+        </article>
+      {% endfor %}
+    </section>
+  </div>
+{% endblock %}

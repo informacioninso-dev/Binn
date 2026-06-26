@@ -7,6 +7,43 @@ from django_tenants.utils import schema_context
 
 from .models import ObjectField, ObjectRecord, ObjectSchema, ObjectView
 
+FIELD_TYPE_SELECT = "select"
+
+BROKER_LIFECYCLE_FIELD = {
+    "key": "lifecycle_stage",
+    "label": "Etapa broker",
+    "type": FIELD_TYPE_SELECT,
+    "default": "lead",
+    "choices": [
+        {"value": "lead", "label": "Lead"},
+        {"value": "asegurado", "label": "Asegurado"},
+        {"value": "renovacion", "label": "Renovacion"},
+    ],
+}
+
+SERVICES_LIFECYCLE_FIELD = {
+    "key": "service_stage",
+    "label": "Etapa servicios",
+    "type": FIELD_TYPE_SELECT,
+    "default": "prospecto",
+    "choices": [
+        {"value": "prospecto", "label": "Prospecto"},
+        {"value": "cliente_activo", "label": "Cliente activo"},
+        {"value": "renovacion_upsell", "label": "Renovacion / upsell"},
+    ],
+}
+
+SERVICES_RENEWAL_FIELD = {
+    "key": "renewal_on",
+    "label": "Fecha de renovacion",
+    "type": ObjectField.TYPE_DATE,
+}
+
+SERVICES_DELIVERY_OWNER_FIELD = {
+    "key": "delivery_owner",
+    "label": "Responsable delivery",
+    "type": ObjectField.TYPE_TEXT,
+}
 
 DEFAULT_OBJECT_SCHEMAS = (
     {
@@ -130,6 +167,7 @@ SUPPORTED_FIELD_TYPES = {
     ObjectField.TYPE_EMAIL,
     ObjectField.TYPE_DATE,
     ObjectField.TYPE_BOOLEAN,
+    FIELD_TYPE_SELECT,
 }
 
 SYSTEM_OBJECT_KEYS = {definition["key"] for definition in DEFAULT_OBJECT_SCHEMAS}
@@ -156,7 +194,7 @@ def get_object_field_definitions(*, object_key: str, tenant=None) -> list[dict]:
     if object_schema is None:
         return fallback
 
-    return [
+    stored_definitions = [
         _normalize_field_definition(
             {
                 "key": field.key,
@@ -172,6 +210,19 @@ def get_object_field_definitions(*, object_key: str, tenant=None) -> list[dict]:
             start=1,
         )
     ]
+
+    if object_key != "entity" or not fallback:
+        return stored_definitions
+
+    stored_keys = {field_definition["key"] for field_definition in stored_definitions}
+    merged_definitions = list(stored_definitions)
+    next_position = len(merged_definitions) + 1
+    for field_definition in fallback:
+        if field_definition["key"] in stored_keys:
+            continue
+        merged_definitions.append(_normalize_field_definition(field_definition, position=next_position))
+        next_position += 1
+    return merged_definitions
 
 
 def get_object_schema_catalog(*, tenant=None) -> list[dict]:
@@ -496,9 +547,19 @@ def _build_default_custom_object_views(definition: dict[str, Any]) -> list[dict[
 def _fallback_field_definitions(*, object_key: str, tenant=None) -> list[dict]:
     if object_key != "entity":
         return []
+    configured_fields = list(getattr(tenant, "entity_fields", []) or [])
+    profile = getattr(getattr(tenant, "tenant_config", tenant), "profile", "")
+    if profile == "broker" and not any(str(field.get("key", "")).strip().lower() == BROKER_LIFECYCLE_FIELD["key"] for field in configured_fields):
+        configured_fields = [BROKER_LIFECYCLE_FIELD, *configured_fields]
+    if profile == "servicios":
+        existing_keys = {str(field.get("key", "")).strip().lower() for field in configured_fields}
+        services_fields = [SERVICES_LIFECYCLE_FIELD, SERVICES_RENEWAL_FIELD, SERVICES_DELIVERY_OWNER_FIELD]
+        missing_fields = [field for field in services_fields if field["key"] not in existing_keys]
+        if missing_fields:
+            configured_fields = [*missing_fields, *configured_fields]
     return [
         _normalize_field_definition(field_definition, position=index)
-        for index, field_definition in enumerate(getattr(tenant, "entity_fields", []) or [], start=1)
+        for index, field_definition in enumerate(configured_fields, start=1)
     ]
 
 
@@ -534,6 +595,8 @@ def _normalize_field_definition(field_definition: dict[str, Any], *, position: i
     normalized["type"] = field_type
     normalized["required"] = bool(field_definition.get("required", False))
     normalized["position"] = position
+    normalized["choices"] = _normalize_choice_definitions(field_definition.get("choices"))
+    normalized["default"] = field_definition.get("default")
     return normalized
 
 
@@ -543,4 +606,32 @@ def _format_object_record_value(value, field_definition: dict[str, Any]) -> str:
     field_type = field_definition.get("type", ObjectField.TYPE_TEXT)
     if field_type == ObjectField.TYPE_BOOLEAN:
         return "Si" if bool(value) else "No"
+    if field_type == FIELD_TYPE_SELECT:
+        resolved_label = _resolve_choice_label(value, field_definition.get("choices"))
+        return resolved_label or str(value)
     return str(value)
+
+
+def _normalize_choice_definitions(raw_choices) -> list[dict[str, str]]:
+    normalized = []
+    for choice in list(raw_choices or []):
+        if isinstance(choice, dict):
+            value = str(choice.get("value", "")).strip()
+            label = str(choice.get("label", value)).strip()
+        else:
+            value = str(choice).strip()
+            label = value
+        if not value:
+            continue
+        normalized.append({"value": value, "label": label or value})
+    return normalized
+
+
+def _resolve_choice_label(value, raw_choices) -> str:
+    current_value = str(value or "").strip()
+    if not current_value:
+        return ""
+    for choice in _normalize_choice_definitions(raw_choices):
+        if choice["value"] == current_value:
+            return choice["label"]
+    return ""

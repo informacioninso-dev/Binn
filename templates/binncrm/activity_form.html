@@ -6,10 +6,12 @@
   <div class="mx-auto max-w-4xl">
     <section class="binn-panel rounded-3xl p-6 sm:p-8">
       <div class="mb-6">
-        <h1 class="text-3xl font-bold tracking-tight">{% if is_task_mode %}Nueva tarea{% else %}Nueva actividad{% endif %}</h1>
+        <h1 class="text-3xl font-bold tracking-tight">{% if is_task_mode %}Nueva tarea{% elif is_meeting_mode %}Nueva reunion{% else %}Nueva actividad{% endif %}</h1>
         <p class="mt-2 text-sm text-gray-600">
           {% if is_task_mode %}
             Crea una tarea con responsable y vencimiento para que nada se quede sin seguimiento.
+          {% elif is_meeting_mode %}
+            Agenda discovery, kickoff o seguimiento con fecha clara para que el handoff no se rompa.
           {% else %}
             Registra seguimiento comercial, cobranza o comunicacion directa.
           {% endif %}

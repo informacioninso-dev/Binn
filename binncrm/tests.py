@@ -13,15 +13,17 @@ from .document_blueprints import (
     get_document_type_label,
 )
 from .demo_seed import build_demo_scenario
-from .forms import CollectionRecordForm, EntityForm, ObjectRecordForm, PipelineTemplateEditorForm, ProposalForm, SavedWorkspaceFilterForm
+from .forms import ActivityForm, CollectionRecordForm, EntityForm, ObjectRecordForm, PipelineTemplateEditorForm, ProposalForm, SavedWorkspaceFilterForm
 from .importers import import_entities_from_csv
-from .models import CollectionRecord, Document, ObjectSchema, Proposal, SavedWorkspaceFilter
+from .models import CollectionRecord, Document, Entity, ObjectSchema, Proposal, SavedWorkspaceFilter
 from .object_engine import get_entity_field_definitions, resolve_object_record_title
 from .view_engine import apply_deal_saved_view, apply_entity_saved_view, get_saved_views, resolve_saved_view
 from .views import (
     _build_broker_document_checklist,
     _build_document_access_url,
     _build_entity_timeline,
+    _build_services_handoff,
+    _broker_lifecycle_state,
     _collection_status,
     _build_extra_values,
     _build_entity_search_query,
@@ -29,6 +31,7 @@ from .views import (
     _format_extra_value,
     _normalize_saved_filter_params,
     _proposal_status,
+    _services_lifecycle_state,
     _task_status,
 )
 from tenants.defaults import PROFILE_BROKER, PROFILE_MARKETING, PROFILE_RETAIL_MODA, PROFILE_SERVICIOS
@@ -81,6 +84,36 @@ class EntityFormTests(SimpleTestCase):
                 "aseguradora": "Binn Seguros",
             },
         )
+
+    def test_broker_lifecycle_field_builds_as_select_with_choices(self):
+        tenant = SimpleNamespace(
+            entity_fields=[
+                {
+                    "key": "lifecycle_stage",
+                    "label": "Etapa broker",
+                    "type": "select",
+                    "choices": [
+                        {"value": "lead", "label": "Lead"},
+                        {"value": "asegurado", "label": "Asegurado"},
+                        {"value": "renovacion", "label": "Renovacion"},
+                    ],
+                }
+            ]
+        )
+        entity = Entity(pk=1, data_extra={"lifecycle_stage": "asegurado"})
+
+        form = EntityForm(instance=entity, tenant=tenant)
+
+        self.assertEqual(
+            form.fields["extra__lifecycle_stage"].choices,
+            [
+                ("", "Selecciona"),
+                ("lead", "Lead"),
+                ("asegurado", "Asegurado"),
+                ("renovacion", "Renovacion"),
+            ],
+        )
+        self.assertEqual(form.fields["extra__lifecycle_stage"].initial, "asegurado")
 
 
 class PipelineTemplateEditorFormTests(SimpleTestCase):
@@ -287,6 +320,19 @@ class EntityHelperTests(SimpleTestCase):
         self.assertEqual(_format_extra_value(True, {"type": "boolean"}), "Si")
         self.assertEqual(_format_extra_value(False, {"type": "boolean"}), "No")
         self.assertEqual(_format_extra_value(date(2026, 4, 24), {"type": "date"}), "24/04/2026")
+        self.assertEqual(
+            _format_extra_value(
+                "renovacion",
+                {
+                    "type": "select",
+                    "choices": [
+                        {"value": "lead", "label": "Lead"},
+                        {"value": "renovacion", "label": "Renovacion"},
+                    ],
+                },
+            ),
+            "Renovacion",
+        )
 
     def test_build_extra_values_formats_dynamic_fields(self):
         entity = SimpleNamespace(
@@ -381,6 +427,38 @@ class EntityHelperTests(SimpleTestCase):
         self.assertTrue(any(item["kind"] == "deal" for item in timeline))
         self.assertTrue(any(item["kind"] == "activity" for item in timeline))
 
+    def test_broker_lifecycle_state_uses_explicit_or_inferred_stage(self):
+        field_definitions = [
+            {
+                "key": "lifecycle_stage",
+                "label": "Etapa broker",
+                "type": "select",
+                "choices": [
+                    {"value": "lead", "label": "Lead"},
+                    {"value": "asegurado", "label": "Asegurado"},
+                    {"value": "renovacion", "label": "Renovacion"},
+                ],
+            }
+        ]
+
+        explicit = _broker_lifecycle_state(
+            SimpleNamespace(data_extra={"lifecycle_stage": "asegurado"}, open_deal_count=0, deal_count=0),
+            field_definitions=field_definitions,
+        )
+        inferred_policy = _broker_lifecycle_state(
+            SimpleNamespace(data_extra={"poliza": "POL-001"}, open_deal_count=0, deal_count=0),
+            field_definitions=field_definitions,
+        )
+        inferred_renewal = _broker_lifecycle_state(
+            SimpleNamespace(data_extra={}, open_deal_count=1, deal_count=1),
+            field_definitions=field_definitions,
+        )
+
+        self.assertEqual(explicit["key"], "asegurado")
+        self.assertEqual(explicit["label"], "Asegurado")
+        self.assertEqual(inferred_policy["key"], "asegurado")
+        self.assertEqual(inferred_renewal["key"], "renovacion")
+
 
 class _FakeQuerySet(list):
     def all(self):
@@ -433,6 +511,28 @@ class ProposalAndCollectionFormTests(SimpleTestCase):
         form.clean()
 
         self.assertIn("promised_for", errors)
+
+    @patch("binncrm.forms.get_tenant_user_queryset")
+    @patch("binncrm.forms.Deal.objects.filter")
+    @patch("binncrm.forms.Entity.objects.filter")
+    def test_activity_form_requires_due_at_for_meeting(self, entity_filter, deal_filter, user_queryset):
+        entity_filter.return_value = _FakeQuerySet()
+        deal_filter.return_value = _FakeQuerySet()
+        user_queryset.return_value = _FakeQuerySet()
+        form = ActivityForm()
+        entity = SimpleNamespace(id=3)
+        errors = {}
+        form.cleaned_data = {
+            "entity": entity,
+            "deal": None,
+            "activity_type": "meeting",
+            "due_at": None,
+        }
+        form.add_error = lambda field, message: errors.setdefault(field, []).append(message)
+
+        form.clean()
+
+        self.assertIn("due_at", errors)
 
 
 class EntityImporterTests(SimpleTestCase):
@@ -620,6 +720,55 @@ class DocumentAccessAndChecklistTests(SimpleTestCase):
 
         self.assertIn("Matricula", missing)
         self.assertIn("Inspeccion", missing)
+
+    def test_services_handoff_marks_missing_items(self):
+        entity = SimpleNamespace(data_extra={"renewal_on": ""})
+        handoff = _build_services_handoff(
+            entity,
+            activities=[SimpleNamespace(activity_type="meeting", title="Kickoff inicial")],
+            documents=[SimpleNamespace(document_type="contrato_servicio")],
+            deliverables=[],
+        )
+
+        self.assertEqual(handoff["missing_count"], 2)
+        self.assertIn("Handoff pendiente", handoff["status_label"])
+
+
+class ServicesLifecycleTests(SimpleTestCase):
+    def test_services_lifecycle_uses_explicit_and_inferred_states(self):
+        field_definitions = [
+            {
+                "key": "service_stage",
+                "label": "Etapa servicios",
+                "type": "select",
+                "choices": [
+                    {"value": "prospecto", "label": "Prospecto"},
+                    {"value": "cliente_activo", "label": "Cliente activo"},
+                    {"value": "renovacion_upsell", "label": "Renovacion / upsell"},
+                ],
+            }
+        ]
+
+        explicit = _services_lifecycle_state(
+            SimpleNamespace(data_extra={"service_stage": "cliente_activo"}, open_deal_count=0, deal_count=1, won_deal_count=1),
+            field_definitions=field_definitions,
+            today=date(2026, 6, 26),
+        )
+        inferred_active = _services_lifecycle_state(
+            SimpleNamespace(data_extra={}, open_deal_count=0, deal_count=1, won_deal_count=1),
+            field_definitions=field_definitions,
+            today=date(2026, 6, 26),
+        )
+        inferred_renewal = _services_lifecycle_state(
+            SimpleNamespace(data_extra={"renewal_on": "2026-07-10"}, open_deal_count=0, deal_count=1, won_deal_count=1),
+            field_definitions=field_definitions,
+            today=date(2026, 6, 26),
+        )
+
+        self.assertEqual(explicit["key"], "cliente_activo")
+        self.assertEqual(explicit["label"], "Cliente activo")
+        self.assertEqual(inferred_active["key"], "cliente_activo")
+        self.assertEqual(inferred_renewal["key"], "renovacion_upsell")
 
 
 class DemoSeedScenarioTests(SimpleTestCase):
