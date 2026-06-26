@@ -475,6 +475,11 @@ class TenantEditView(LoginRequiredMixin, SuperAdminRequiredMixin, UpdateView):
     form_class = TenantEditForm
     template_name = "tenants/tenant_edit.html"
 
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["profile_previews"] = _profile_previews()
+        return ctx
+
     def form_valid(self, form):
         previous_values = {field: getattr(self.object, field, "") for field in form.changed_data if hasattr(self.object, field)}
         previous_config = {

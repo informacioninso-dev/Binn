@@ -144,28 +144,37 @@ class TenantLaunchpadTests(SimpleTestCase):
         self.assertTrue(any(widget["key"] == "summary_cards" for widget in launchpad["dashboard_widgets"]))
         self.assertTrue(any(policy["role"] == "owner" for policy in launchpad["role_policies"]))
 
-    def test_condominio_launchpad_hides_documents_and_keeps_collection_copy(self):
+    def test_condominio_launchpad_enables_documents_and_operational_objects(self):
         launchpad = build_profile_launchpad(PROFILE_CONDOMINIO)
 
-        self.assertTrue(any(item["key"] == "documents" for item in launchpad["hidden_capabilities"]))
+        self.assertTrue(any(item["key"] == "documents" for item in launchpad["enabled_capabilities"]))
         self.assertTrue(any(item["key"] == "proposals" for item in launchpad["hidden_capabilities"]))
         self.assertTrue(any(item["key"] == "collections" for item in launchpad["enabled_capabilities"]))
         self.assertEqual(launchpad["labels"]["entity_plural"], "Residentes")
         self.assertEqual(launchpad["pipelines"][0]["label"], "Recaudacion")
+        self.assertTrue(any(item["key"] == "incidencia" for item in launchpad["custom_objects"]))
+        self.assertTrue(any(item["key"] == "comunicado" for item in launchpad["custom_objects"]))
 
     def test_services_launchpad_enables_reports_and_b2b_pipeline(self):
         launchpad = build_profile_launchpad(PROFILE_SERVICIOS)
 
         self.assertTrue(any(item["key"] == "reports" for item in launchpad["enabled_capabilities"]))
+        self.assertTrue(any(item["key"] == "objects" for item in launchpad["enabled_capabilities"]))
         self.assertTrue(any(pipeline["key"] == "servicios_b2b" for pipeline in launchpad["pipelines"]))
         self.assertEqual(launchpad["labels"]["entity_plural"], "Clientes")
+        self.assertTrue(any(field["key"] == "service_line" for field in launchpad["entity_fields"]))
+        self.assertTrue(any(item["key"] == "proyecto" for item in launchpad["custom_objects"]))
         self.assertTrue(any(item["key"] == "entregable" for item in launchpad["custom_objects"]))
+        self.assertEqual(launchpad["module_order"][1]["key"], "objects")
 
     def test_retail_launchpad_exposes_clienteling_fields(self):
         launchpad = build_profile_launchpad(PROFILE_RETAIL_MODA)
 
         self.assertTrue(any(item["key"] == "reports" for item in launchpad["enabled_capabilities"]))
+        self.assertTrue(any(item["key"] == "objects" for item in launchpad["enabled_capabilities"]))
+        self.assertTrue(any(field["key"] == "client_segment" for field in launchpad["entity_fields"]))
         self.assertTrue(any(field["key"] == "talla" for field in launchpad["entity_fields"]))
+        self.assertTrue(any(item["key"] == "wishlist" for item in launchpad["custom_objects"]))
         self.assertEqual(launchpad["pipelines"][0]["label"], "Clienteling")
 
 

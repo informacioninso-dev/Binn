@@ -71,6 +71,61 @@
       </section>
     {% endif %}
 
+    {% if analytics_cards or analytics_sections %}
+      <section class="space-y-4">
+        <div class="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <span class="binn-kicker">Analitica B2B</span>
+            <h2 class="mt-3 text-xl font-semibold tracking-tight">Lectura de cartera, delivery y activacion</h2>
+            <p class="mt-2 text-sm text-gray-600">Esta capa te deja ver ingresos, riesgo, capacidad del equipo y tiempo real entre venta y ejecucion.</p>
+          </div>
+        </div>
+        {% if analytics_cards %}
+          <div class="binn-module-metric-grid" style="grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));">
+            {% for card in analytics_cards %}
+              <article class="binn-panel binn-record-card">
+                <span class="rounded-full px-3 py-1 text-xs font-medium {{ card.tone }}">{{ card.label }}</span>
+                <p class="mt-4 text-3xl font-bold tracking-tight">{{ card.value }}</p>
+                <p class="mt-3 text-sm text-gray-600">{{ card.caption }}</p>
+              </article>
+            {% endfor %}
+          </div>
+        {% endif %}
+        {% if analytics_sections %}
+          <div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
+            {% for section in analytics_sections %}
+              <article class="binn-panel binn-record-card">
+                <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <h2 class="text-lg font-semibold">{{ section.title }}</h2>
+                    <p class="mt-2 text-sm text-gray-600">{{ section.subtitle }}</p>
+                  </div>
+                  {% if section.href %}<a href="{{ section.href }}" class="text-sm font-medium text-slate-900 hover:underline">{{ section.cta|default:"Abrir" }}</a>{% endif %}
+                </div>
+                <div class="mt-5 space-y-3">
+                  {% for item in section.items %}
+                    <div class="rounded-2xl border border-black/5 px-4 py-3">
+                      <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                        <div>
+                          <p class="font-medium">{{ item.title }}</p>
+                          {% if item.meta %}<p class="mt-1 text-xs text-gray-500">{{ item.meta }}</p>{% endif %}
+                          {% if item.caption %}<p class="mt-2 text-sm text-gray-600">{{ item.caption }}</p>{% endif %}
+                          {% if item.href %}<a href="{{ item.href }}" class="mt-3 inline-flex text-xs font-semibold text-slate-900 hover:underline">{{ item.cta|default:"Abrir detalle" }}</a>{% endif %}
+                        </div>
+                        {% if item.status %}<span class="rounded-full px-3 py-1 text-xs font-medium {{ item.tone }}">{{ item.status }}</span>{% endif %}
+                      </div>
+                    </div>
+                  {% empty %}
+                    <div class="rounded-2xl border border-dashed px-4 py-6 text-sm text-gray-500">{{ section.empty_message }}</div>
+                  {% endfor %}
+                </div>
+              </article>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </section>
+    {% endif %}
+
     <section class="grid grid-cols-1 gap-4 xl:grid-cols-[1.05fr_0.95fr]">
       <article class="binn-panel binn-record-card">
         <h2 class="text-lg font-semibold">Cadencia sugerida</h2>
@@ -108,6 +163,7 @@
                     <p class="font-medium">{{ item.title }}</p>
                     {% if item.meta %}<p class="mt-1 text-xs text-gray-500">{{ item.meta }}</p>{% endif %}
                     {% if item.caption %}<p class="mt-2 text-sm text-gray-600">{{ item.caption }}</p>{% endif %}
+                    {% if item.href %}<a href="{{ item.href }}" class="mt-3 inline-flex text-xs font-semibold text-slate-900 hover:underline">{{ item.cta|default:"Abrir detalle" }}</a>{% endif %}
                   </div>
                   {% if item.status %}<span class="rounded-full px-3 py-1 text-xs font-medium {{ item.tone }}">{{ item.status }}</span>{% endif %}
                 </div>

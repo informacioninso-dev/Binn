@@ -478,10 +478,10 @@ class TenantCreateForm(forms.Form):
     )
     plan = forms.ChoiceField(label="Plan", choices=Client.PLAN_CHOICES, widget=forms.Select(attrs=_INPUT))
     profile = forms.ChoiceField(
-        label="Perfil",
+        label="Modo CRM activo",
         choices=PROFILE_CHOICES,
         widget=forms.Select(attrs=_INPUT),
-        help_text="Preconfigura etiquetas, campos flexibles y pipeline inicial.",
+        help_text="Activa el vertical base del tenant y precarga modulos, etiquetas, campos flexibles y flujo inicial.",
     )
 
     admin_username = forms.CharField(
@@ -550,7 +550,12 @@ class TenantCreateForm(forms.Form):
 
 
 class TenantEditForm(forms.ModelForm):
-    profile = forms.ChoiceField(label="Perfil", choices=PROFILE_CHOICES, widget=forms.Select(attrs=_INPUT))
+    profile = forms.ChoiceField(
+        label="Modo CRM activo",
+        choices=PROFILE_CHOICES,
+        widget=forms.Select(attrs=_INPUT),
+        help_text="Cambia el vertical visible del tenant. Si reaplicas defaults, Binn vuelve a sembrar la base de ese tipo de CRM.",
+    )
     reset_to_profile_defaults = forms.BooleanField(
         label="Reaplicar defaults del perfil",
         required=False,

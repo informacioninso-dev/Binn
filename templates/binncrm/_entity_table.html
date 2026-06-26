@@ -32,6 +32,16 @@
                   <span class="binn-pill {{ row.service_lifecycle.tone }}">{{ row.service_lifecycle.label }}</span>
                 </div>
               {% endif %}
+              {% if row.condo_status %}
+                <div class="binn-meta-strip mt-2">
+                  <span class="binn-pill {{ row.condo_status.tone }}">{{ row.condo_status.label }}</span>
+                </div>
+              {% endif %}
+              {% if row.retail_segment %}
+                <div class="binn-meta-strip mt-2">
+                  <span class="binn-pill {{ row.retail_segment.tone }}">{{ row.retail_segment.label }}</span>
+                </div>
+              {% endif %}
             </div>
           </div>
 

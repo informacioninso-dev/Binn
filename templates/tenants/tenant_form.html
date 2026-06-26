@@ -2,6 +2,52 @@
 
 {% block title %}Nueva empresa | Binn{% endblock %}
 
+{% block head_extra %}
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const profileSelect = document.querySelector('select[name="profile"]');
+    const cards = Array.from(document.querySelectorAll("[data-profile-card]"));
+    if (!profileSelect || !cards.length) {
+      return;
+    }
+
+    const syncCards = function () {
+      cards.forEach(function (card) {
+        const isActive = card.dataset.profileCard === profileSelect.value;
+        card.classList.toggle("border-blue-300", isActive);
+        card.classList.toggle("bg-blue-50/60", isActive);
+        card.classList.toggle("shadow-sm", isActive);
+        card.classList.toggle("border-black/5", !isActive);
+        card.classList.toggle("bg-white", !isActive);
+        card.setAttribute("aria-pressed", isActive ? "true" : "false");
+        const badge = card.querySelector("[data-profile-badge]");
+        if (badge) {
+          badge.classList.toggle("hidden", !isActive);
+        }
+      });
+    };
+
+    cards.forEach(function (card) {
+      const activateCard = function () {
+        profileSelect.value = card.dataset.profileCard;
+        profileSelect.dispatchEvent(new Event("change", { bubbles: true }));
+        syncCards();
+      };
+      card.addEventListener("click", activateCard);
+      card.addEventListener("keydown", function (event) {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          activateCard();
+        }
+      });
+    });
+
+    profileSelect.addEventListener("change", syncCards);
+    syncCards();
+  });
+</script>
+{% endblock %}
+
 {% block content %}
   <div class="mx-auto max-w-6xl space-y-6">
     <section class="grid grid-cols-1 gap-6 xl:grid-cols-[1.05fr_0.95fr]">
@@ -44,17 +90,26 @@
       <aside class="space-y-6">
         <section class="binn-panel rounded-3xl p-6">
           <h2 class="text-lg font-semibold">Perfiles disponibles</h2>
-          <p class="mt-2 text-sm text-gray-600">Cada perfil prepara la empresa con modulos, campos y flujos distintos desde el primer guardado.</p>
+          <p class="mt-2 text-sm text-gray-600">Haz clic en una tarjeta para activar ese modo CRM en el selector de arriba. Cada perfil prepara modulos, campos y flujos distintos desde el primer guardado.</p>
         </section>
 
         {% for preview in profile_previews %}
-          <section class="binn-panel rounded-3xl p-6">
+          <section
+            class="binn-panel rounded-3xl border border-black/5 bg-white p-6 transition hover:border-blue-200 hover:bg-blue-50/30 hover:shadow-sm"
+            data-profile-card="{{ preview.key }}"
+            role="button"
+            tabindex="0"
+            aria-pressed="false"
+          >
             <div class="flex items-start justify-between gap-4">
               <div>
                 <h3 class="text-lg font-semibold">{{ preview.label }}</h3>
                 <p class="mt-2 text-sm text-gray-600">{{ preview.summary }}</p>
               </div>
-              <span class="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">{{ preview.headline }}</span>
+              <div class="flex flex-col items-end gap-2">
+                <span class="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">{{ preview.headline }}</span>
+                <span data-profile-badge class="hidden rounded-full bg-blue-600 px-3 py-1 text-xs font-medium text-white">Seleccionado</span>
+              </div>
             </div>
 
             <div class="mt-4">

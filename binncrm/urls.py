@@ -7,7 +7,9 @@ app_name = "binncrm"
 
 urlpatterns = [
     path("", views.index, name="index"),
+    path("condominio/", views.condominio_hub, name="condominio_hub"),
     path("broker/", views.broker_hub, name="broker_hub"),
+    path("retail/", views.retail_hub, name="retail_hub"),
     path("servicios/", views.services_hub, name="services_hub"),
     path("search/", views.global_search, name="global_search"),
     path("pipelines/", views.pipeline_settings, name="pipeline_settings"),

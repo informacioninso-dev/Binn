@@ -259,6 +259,12 @@
             {% if service_lifecycle %}
               <span class="binn-pill {{ service_lifecycle.tone }}">{{ service_lifecycle.label }}</span>
             {% endif %}
+            {% if condo_status %}
+              <span class="binn-pill {{ condo_status.tone }}">{{ condo_status.label }}</span>
+            {% endif %}
+            {% if retail_segment %}
+              <span class="binn-pill {{ retail_segment.tone }}">{{ retail_segment.label }}</span>
+            {% endif %}
             {% if entity.email %}
               <span class="binn-pill">{{ entity.email }}</span>
             {% endif %}
@@ -384,6 +390,178 @@
           </article>
         {% endif %}
 
+        {% if condo_summary_items %}
+          <article class="binn-panel binn-entity-card">
+            <div class="binn-entity-section-head">
+              <div>
+                <h2 class="binn-section-title">Operacion condominio</h2>
+                <p class="binn-entity-section-copy">Unidad, cartera, incidencias y adjuntos clave del residente en una sola lectura.</p>
+              </div>
+              {% if condo_status %}
+                <span class="binn-pill {{ condo_status.tone }}">{{ condo_status.label }}</span>
+              {% endif %}
+            </div>
+            <div class="binn-entity-chip-row">
+              {% for item in condo_summary_items %}
+                <span class="binn-pill {{ item.tone }}">{{ item.label }}: {{ item.value }}</span>
+              {% endfor %}
+            </div>
+            {% if condo_recent_incidents or condo_recent_communications %}
+              <div class="binn-entity-list mt-4">
+                {% for record in condo_recent_incidents %}
+                  <article class="binn-entity-item">
+                    <div class="binn-entity-item-head">
+                      <div>
+                        <p class="binn-entity-item-title">{{ record.title }}</p>
+                        <p class="binn-entity-item-meta">{{ record.data.codigo_unidad|default:"Sin unidad" }}{% if record.data.residente %} · {{ record.data.residente }}{% endif %}</p>
+                        {% if record.data.comentario %}
+                          <p class="binn-entity-item-copy">{{ record.data.comentario }}</p>
+                        {% endif %}
+                      </div>
+                      <div class="binn-entity-item-side">
+                        <span class="binn-pill {% if record.data.estado == 'resuelta' %}bg-green-50 text-green-700{% else %}bg-amber-50 text-amber-700{% endif %}">{{ record.data.estado|default:"abierta"|title }}</span>
+                      </div>
+                    </div>
+                  </article>
+                {% endfor %}
+                {% for record in condo_recent_communications %}
+                  <article class="binn-entity-item">
+                    <div class="binn-entity-item-head">
+                      <div>
+                        <p class="binn-entity-item-title">{{ record.title }}</p>
+                        <p class="binn-entity-item-meta">{{ record.data.dirigido_a|default:"Sin destinatario" }}{% if record.data.canal %} · {{ record.data.canal|title }}{% endif %}</p>
+                        {% if record.data.comentario %}
+                          <p class="binn-entity-item-copy">{{ record.data.comentario }}</p>
+                        {% endif %}
+                      </div>
+                      <div class="binn-entity-item-side">
+                        <span class="binn-pill bg-blue-50 text-blue-700">{{ record.data.estado|default:"enviado"|title }}</span>
+                      </div>
+                    </div>
+                  </article>
+                {% endfor %}
+              </div>
+            {% endif %}
+            <div class="binn-entity-inline-actions mt-4">
+              {% if can_create_document and request.tenant.tenant_config.feature_flags.documents %}
+                <a href="{% url 'binncrm:document_create' %}?entity={{ entity.pk }}&document_type=estado_cuenta" class="binn-record-action">Subir estado de cuenta</a>
+                <a href="{% url 'binncrm:document_create' %}?entity={{ entity.pk }}&document_type=comprobante_pago" class="binn-record-action">Subir comprobante</a>
+              {% endif %}
+              {% if can_edit_objects and has_condo_incident_object %}
+                <a href="{% url 'binncrm:custom_object_record_create' 'incidencia' %}?codigo_unidad={{ entity.data_extra.departamento|default:''|urlencode }}&residente={{ entity.full_name|urlencode }}" class="binn-record-action">Nueva incidencia</a>
+              {% endif %}
+              {% if can_edit_objects and has_condo_communication_object %}
+                <a href="{% url 'binncrm:custom_object_record_create' 'comunicado' %}?codigo_unidad={{ entity.data_extra.departamento|default:''|urlencode }}&dirigido_a={{ entity.full_name|urlencode }}" class="binn-record-action">Nuevo comunicado</a>
+              {% endif %}
+              {% if can_view_objects and has_condo_unit_object %}
+                <a href="{% url 'binncrm:custom_object_records' 'unidad' %}" class="binn-record-action">Ver unidades</a>
+              {% endif %}
+            </div>
+          </article>
+        {% endif %}
+
+        {% if retail_summary_items %}
+          <article class="binn-panel binn-entity-card">
+            <div class="binn-entity-section-head">
+              <div>
+                <h2 class="binn-section-title">Clienteling retail</h2>
+                <p class="binn-entity-section-copy">Segmento, recompra y piezas deseadas de esta clienta en un solo bloque operativo.</p>
+              </div>
+              {% if retail_segment %}
+                <span class="binn-pill {{ retail_segment.tone }}">{{ retail_segment.label }}</span>
+              {% endif %}
+            </div>
+            <div class="binn-entity-chip-row">
+              {% for item in retail_summary_items %}
+                <span class="binn-pill {{ item.tone }}">{{ item.label }}: {{ item.value }}</span>
+              {% endfor %}
+            </div>
+            {% if retail_wishlist_records %}
+              <div class="binn-entity-list mt-4">
+                {% for record in retail_wishlist_records %}
+                  <article class="binn-entity-item">
+                    <div class="binn-entity-item-head">
+                      <div>
+                        <p class="binn-entity-item-title">{{ record.data.pieza|default:record.title }}</p>
+                        <p class="binn-entity-item-meta">
+                          {{ record.data.cliente|default:entity.full_name }}
+                          {% if record.data.categoria %} | {{ record.data.categoria }}{% endif %}
+                          {% if record.data.talla %} | Talla {{ record.data.talla }}{% endif %}
+                        </p>
+                        <p class="binn-entity-item-copy">
+                          {% if record.data.prioridad %}Prioridad {{ record.data.prioridad|title }}{% else %}Sin prioridad{% endif %}
+                          {% if record.data.fecha_followup %} | Follow-up {{ record.data.fecha_followup }}{% endif %}
+                        </p>
+                      </div>
+                      <div class="binn-entity-item-side">
+                        <span class="binn-pill {% if record.data.vigente %}bg-fuchsia-50 text-fuchsia-700{% else %}bg-slate-100 text-slate-700{% endif %}">
+                          {% if record.data.vigente %}Wishlist activa{% else %}Historico{% endif %}
+                        </span>
+                      </div>
+                    </div>
+                  </article>
+                {% endfor %}
+              </div>
+            {% endif %}
+            <div class="binn-entity-inline-actions mt-4">
+              {% if entity.whatsapp_url %}
+                <a href="{{ entity.whatsapp_url }}" target="_blank" rel="noreferrer" class="binn-record-action">Escribir por WhatsApp</a>
+              {% elif can_create_activity %}
+                <a href="{% url 'binncrm:activity_create' %}?entity={{ entity.pk }}&activity_type=whatsapp&title=Follow-up+WhatsApp" class="binn-record-action">Registrar WhatsApp</a>
+              {% endif %}
+              {% if can_edit_objects and has_retail_wishlist_object %}
+                <a href="{% url 'binncrm:custom_object_record_create' 'wishlist' %}?cliente={{ entity.full_name|urlencode }}" class="binn-record-action">Nueva wishlist</a>
+              {% elif can_view_objects and has_retail_wishlist_object %}
+                <a href="{% url 'binncrm:custom_object_records' 'wishlist' %}" class="binn-record-action">Ver wishlists</a>
+              {% endif %}
+            </div>
+          </article>
+        {% endif %}
+
+        {% if services_project_items %}
+          <article class="binn-panel binn-entity-card">
+            <div class="binn-entity-section-head">
+              <div>
+                <h2 class="binn-section-title">Proyectos activos</h2>
+                <p class="binn-entity-section-copy">Lectura rapida de ejecucion, backlog y fechas objetivo para esta cuenta.</p>
+              </div>
+            </div>
+            <div class="binn-entity-list">
+              {% for item in services_project_items %}
+                <article class="binn-entity-item">
+                  <div class="binn-entity-item-head">
+                    <div>
+                      <p class="binn-entity-item-title">{{ item.title }}</p>
+                      {% if item.meta %}<p class="binn-entity-item-meta">{{ item.meta }}</p>{% endif %}
+                      {% if item.caption %}<p class="binn-entity-item-copy">{{ item.caption }}</p>{% endif %}
+                      {% if item.href or item.deliverable_href %}
+                        <div class="mt-3 flex flex-wrap gap-2">
+                          {% if item.href %}
+                            <a href="{{ item.href }}" class="binn-record-action">Ver proyecto</a>
+                          {% endif %}
+                          {% if item.deliverable_href %}
+                            <a href="{{ item.deliverable_href }}" class="binn-record-action">Nuevo entregable</a>
+                          {% endif %}
+                        </div>
+                      {% endif %}
+                    </div>
+                    <div class="binn-entity-item-side">
+                      <span class="binn-pill {{ item.tone }}">{{ item.status }}</span>
+                    </div>
+                  </div>
+                </article>
+              {% endfor %}
+            </div>
+            <div class="binn-entity-inline-actions mt-4">
+              {% if can_edit_objects and has_project_object %}
+                <a href="{% url 'binncrm:custom_object_record_create' 'proyecto' %}?cliente={{ entity.data_extra.empresa|default:entity.full_name|urlencode }}" class="binn-record-action">Nuevo proyecto</a>
+              {% elif can_view_objects and has_project_object %}
+                <a href="{% url 'binncrm:custom_object_records' 'proyecto' %}" class="binn-record-action">Ver proyectos</a>
+              {% endif %}
+            </div>
+          </article>
+        {% endif %}
+
         {% if services_handoff.items %}
           <article class="binn-panel binn-entity-card">
             <div class="binn-entity-section-head">
@@ -405,6 +583,11 @@
               {% if can_create_document %}
                 <a href="{% url 'binncrm:document_create' %}?entity={{ entity.pk }}&document_type=contrato_servicio" class="binn-record-action">Subir contrato</a>
                 <a href="{% url 'binncrm:document_create' %}?entity={{ entity.pk }}&document_type=kickoff" class="binn-record-action">Subir kickoff</a>
+              {% endif %}
+              {% if can_edit_objects and has_project_object %}
+                <a href="{% url 'binncrm:custom_object_record_create' 'proyecto' %}?cliente={{ entity.data_extra.empresa|default:entity.full_name|urlencode }}" class="binn-record-action">Nuevo proyecto</a>
+              {% elif can_view_objects and has_project_object %}
+                <a href="{% url 'binncrm:custom_object_records' 'proyecto' %}" class="binn-record-action">Ver proyectos</a>
               {% endif %}
               {% if can_edit_objects and has_deliverable_object %}
                 <a href="{% url 'binncrm:custom_object_record_create' 'entregable' %}?cliente={{ entity.data_extra.empresa|default:entity.full_name|urlencode }}" class="binn-record-action">Nuevo entregable</a>

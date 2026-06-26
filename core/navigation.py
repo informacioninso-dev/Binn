@@ -26,6 +26,8 @@ from access.permissions import (
 )
 from tenants.defaults import resolve_module_order
 from tenants.defaults import PROFILE_BROKER
+from tenants.defaults import PROFILE_CONDOMINIO
+from tenants.defaults import PROFILE_RETAIL_MODA
 from tenants.defaults import PROFILE_SERVICIOS
 
 
@@ -126,6 +128,17 @@ def build_navigation_model(request) -> NavigationModel:
     primary_items: list[NavigationItem] = [
         _nav_item("Inicio", "dashboard", current_namespace, current_url_name, icon="home", url_names=("dashboard",)),
     ]
+    if profile == PROFILE_CONDOMINIO and tenant.has_capability("reports") and _can_access(request, PERMISSION_REPORTS_VIEW):
+        primary_items.append(
+            _nav_item(
+                "Condominio",
+                "binncrm:condominio_hub",
+                current_namespace,
+                current_url_name,
+                icon="chart",
+                url_names=("condominio_hub",),
+            )
+        )
     if profile == PROFILE_BROKER and tenant.has_capability("reports") and _can_access(request, PERMISSION_REPORTS_VIEW):
         primary_items.append(
             _nav_item(
@@ -146,6 +159,17 @@ def build_navigation_model(request) -> NavigationModel:
                 current_url_name,
                 icon="chart",
                 url_names=("services_hub",),
+            )
+        )
+    if profile == PROFILE_RETAIL_MODA and tenant.has_capability("reports") and _can_access(request, PERMISSION_REPORTS_VIEW):
+        primary_items.append(
+            _nav_item(
+                "Retail",
+                "binncrm:retail_hub",
+                current_namespace,
+                current_url_name,
+                icon="chart",
+                url_names=("retail_hub",),
             )
         )
 

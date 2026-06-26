@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from copy import deepcopy
 
@@ -274,7 +274,7 @@ PROFILE_DEFAULTS = {
     PROFILE_CONDOMINIO: {
         "feature_flags": {
             **DEFAULT_FEATURE_FLAGS,
-            "documents": False,
+            "documents": True,
             "proposals": False,
             "collections": True,
         },
@@ -291,6 +291,17 @@ PROFILE_DEFAULTS = {
             "pipeline_label": "Estado de recaudacion",
         },
         "entity_fields": [
+            {
+                "key": "resident_status",
+                "label": "Estado del residente",
+                "type": "select",
+                "choices": [
+                    {"value": "al_dia", "label": "Al dia"},
+                    {"value": "seguimiento", "label": "En seguimiento"},
+                    {"value": "promesa_pago", "label": "Promesa de pago"},
+                    {"value": "cartera_vencida", "label": "Cartera vencida"},
+                ],
+            },
             {"key": "departamento", "label": "Departamento", "type": "text"},
             {"key": "torre", "label": "Torre o bloque", "type": "text"},
             {"key": "alicuota", "label": "Alicuota", "type": "number"},
@@ -300,16 +311,105 @@ PROFILE_DEFAULTS = {
                 "key": "unidad",
                 "label": "Unidades",
                 "description": "Inventario flexible de departamentos, parqueos o bodegas sin tocar el esquema.",
-                "settings": {"primary_field": "codigo_unidad", "subtitle_field": "propietario"},
+                "settings": {"primary_field": "codigo_unidad", "subtitle_field": "residente_actual"},
                 "fields": [
                     {"key": "codigo_unidad", "label": "Codigo de unidad", "type": "text", "required": True},
                     {"key": "torre", "label": "Torre", "type": "text"},
                     {"key": "propietario", "label": "Propietario", "type": "text"},
+                    {"key": "residente_actual", "label": "Residente actual", "type": "text"},
+                    {
+                        "key": "estado_ocupacion",
+                        "label": "Estado de ocupacion",
+                        "type": "select",
+                        "choices": [
+                            {"value": "ocupada", "label": "Ocupada"},
+                            {"value": "vacia", "label": "Vacia"},
+                            {"value": "arriendo", "label": "Arriendo"},
+                        ],
+                    },
                     {"key": "metros_cuadrados", "label": "Metros cuadrados", "type": "number"},
+                ],
+            },
+            {
+                "key": "incidencia",
+                "label": "Incidencias",
+                "description": "Requerimientos, novedades o casos operativos del condominio ligados a residente o unidad.",
+                "settings": {"primary_field": "asunto", "subtitle_field": "codigo_unidad"},
+                "fields": [
+                    {"key": "asunto", "label": "Asunto", "type": "text", "required": True},
+                    {"key": "codigo_unidad", "label": "Codigo de unidad", "type": "text"},
+                    {"key": "residente", "label": "Residente", "type": "text"},
+                    {
+                        "key": "tipo",
+                        "label": "Tipo",
+                        "type": "select",
+                        "choices": [
+                            {"value": "mantenimiento", "label": "Mantenimiento"},
+                            {"value": "convivencia", "label": "Convivencia"},
+                            {"value": "seguridad", "label": "Seguridad"},
+                            {"value": "cartera", "label": "Cartera"},
+                            {"value": "otro", "label": "Otro"},
+                        ],
+                    },
+                    {
+                        "key": "prioridad",
+                        "label": "Prioridad",
+                        "type": "select",
+                        "choices": [
+                            {"value": "alta", "label": "Alta"},
+                            {"value": "media", "label": "Media"},
+                            {"value": "baja", "label": "Baja"},
+                        ],
+                    },
+                    {
+                        "key": "estado",
+                        "label": "Estado",
+                        "type": "select",
+                        "choices": [
+                            {"value": "abierta", "label": "Abierta"},
+                            {"value": "en_gestion", "label": "En gestion"},
+                            {"value": "resuelta", "label": "Resuelta"},
+                        ],
+                    },
+                    {"key": "reportada_en", "label": "Reportada en", "type": "date"},
+                    {"key": "comentario", "label": "Comentario", "type": "textarea"},
+                ],
+            },
+            {
+                "key": "comunicado",
+                "label": "Comunicados",
+                "description": "Avisos y trazabilidad de mensajes enviados a residentes, bloques o unidades.",
+                "settings": {"primary_field": "asunto", "subtitle_field": "fecha_envio"},
+                "fields": [
+                    {"key": "asunto", "label": "Asunto", "type": "text", "required": True},
+                    {"key": "codigo_unidad", "label": "Codigo de unidad", "type": "text"},
+                    {"key": "dirigido_a", "label": "Dirigido a", "type": "text"},
+                    {
+                        "key": "canal",
+                        "label": "Canal",
+                        "type": "select",
+                        "choices": [
+                            {"value": "whatsapp", "label": "WhatsApp"},
+                            {"value": "email", "label": "Email"},
+                            {"value": "cartelera", "label": "Cartelera"},
+                        ],
+                    },
+                    {
+                        "key": "estado",
+                        "label": "Estado",
+                        "type": "select",
+                        "choices": [
+                            {"value": "borrador", "label": "Borrador"},
+                            {"value": "enviado", "label": "Enviado"},
+                            {"value": "confirmado", "label": "Confirmado"},
+                        ],
+                    },
+                    {"key": "fecha_envio", "label": "Fecha de envio", "type": "date"},
+                    {"key": "comentario", "label": "Comentario", "type": "textarea"},
                 ],
             }
         ],
-        "module_order": ["entities", "collections", "deals", "activities", "documents", "proposals"],
+        "module_order": ["entities", "objects", "collections", "activities", "documents", "deals", "reports", "proposals"],
         "dashboard_widgets": list(DEFAULT_DASHBOARD_WIDGETS),
         "role_policies": deepcopy(DEFAULT_ROLE_POLICIES),
         "document_blueprints": [],
@@ -455,13 +555,72 @@ PROFILE_DEFAULTS = {
                 ],
             },
             {"key": "empresa", "label": "Empresa", "type": "text"},
+            {
+                "key": "service_line",
+                "label": "Linea de servicio",
+                "type": "select",
+                "choices": [
+                    {"value": "consultoria", "label": "Consultoria"},
+                    {"value": "implementacion", "label": "Implementacion"},
+                    {"value": "automatizacion", "label": "Automatizacion"},
+                    {"value": "capacitacion", "label": "Capacitacion"},
+                    {"value": "soporte", "label": "Soporte"},
+                ],
+            },
             {"key": "servicio_principal", "label": "Servicio principal", "type": "text"},
             {"key": "cargo", "label": "Cargo del contacto", "type": "text"},
             {"key": "retainer_mensual", "label": "Retainer mensual", "type": "number"},
+            {
+                "key": "account_health",
+                "label": "Salud de la cuenta",
+                "type": "select",
+                "choices": [
+                    {"value": "estable", "label": "Estable"},
+                    {"value": "seguimiento", "label": "Seguimiento"},
+                    {"value": "riesgo", "label": "En riesgo"},
+                    {"value": "expansion", "label": "Expansion"},
+                ],
+            },
+            {"key": "started_on", "label": "Inicio de servicio", "type": "date"},
             {"key": "renewal_on", "label": "Fecha de renovacion", "type": "date"},
             {"key": "delivery_owner", "label": "Responsable delivery", "type": "text"},
         ],
         "custom_objects": [
+            {
+                "key": "proyecto",
+                "label": "Proyectos",
+                "description": "Seguimiento reusable de cuentas activas, implementaciones y consultorias sin meter una app de PM completa.",
+                "settings": {"primary_field": "nombre", "subtitle_field": "cliente"},
+                "fields": [
+                    {"key": "nombre", "label": "Nombre", "type": "text", "required": True},
+                    {"key": "cliente", "label": "Cliente", "type": "text", "required": True},
+                    {"key": "linea_servicio", "label": "Linea de servicio", "type": "text"},
+                    {
+                        "key": "estado",
+                        "label": "Estado",
+                        "type": "select",
+                        "choices": [
+                            {"value": "kickoff", "label": "Kickoff"},
+                            {"value": "en_ejecucion", "label": "En ejecucion"},
+                            {"value": "en_revision", "label": "En revision"},
+                            {"value": "cerrado", "label": "Cerrado"},
+                        ],
+                    },
+                    {"key": "responsable", "label": "Responsable", "type": "text"},
+                    {"key": "fecha_inicio", "label": "Fecha inicio", "type": "date"},
+                    {"key": "fecha_cierre_objetivo", "label": "Fecha cierre objetivo", "type": "date"},
+                    {
+                        "key": "prioridad",
+                        "label": "Prioridad",
+                        "type": "select",
+                        "choices": [
+                            {"value": "alta", "label": "Alta"},
+                            {"value": "media", "label": "Media"},
+                            {"value": "baja", "label": "Baja"},
+                        ],
+                    },
+                ],
+            },
             {
                 "key": "entregable",
                 "label": "Entregables",
@@ -470,14 +629,37 @@ PROFILE_DEFAULTS = {
                 "fields": [
                     {"key": "nombre", "label": "Nombre", "type": "text", "required": True},
                     {"key": "cliente", "label": "Cliente", "type": "text", "required": True},
+                    {"key": "proyecto", "label": "Proyecto", "type": "text"},
                     {"key": "tipo_entregable", "label": "Tipo", "type": "text"},
-                    {"key": "estado", "label": "Estado", "type": "text"},
+                    {
+                        "key": "estado",
+                        "label": "Estado",
+                        "type": "select",
+                        "choices": [
+                            {"value": "por_iniciar", "label": "Por iniciar"},
+                            {"value": "en_curso", "label": "En curso"},
+                            {"value": "por_validar", "label": "Por validar"},
+                            {"value": "entregado", "label": "Entregado"},
+                            {"value": "bloqueado", "label": "Bloqueado"},
+                        ],
+                    },
                     {"key": "responsable", "label": "Responsable", "type": "text"},
+                    {
+                        "key": "prioridad",
+                        "label": "Prioridad",
+                        "type": "select",
+                        "choices": [
+                            {"value": "alta", "label": "Alta"},
+                            {"value": "media", "label": "Media"},
+                            {"value": "baja", "label": "Baja"},
+                        ],
+                    },
                     {"key": "fecha_entrega", "label": "Fecha de entrega", "type": "date"},
+                    {"key": "fecha_revision", "label": "Fecha de revision", "type": "date"},
                 ],
             }
         ],
-        "module_order": ["entities", "deals", "proposals", "collections", "activities", "documents", "reports"],
+        "module_order": ["entities", "objects", "deals", "proposals", "collections", "activities", "documents", "reports"],
         "dashboard_widgets": list(DEFAULT_DASHBOARD_WIDGETS),
         "role_policies": deepcopy(DEFAULT_ROLE_POLICIES),
         "document_blueprints": [],
@@ -507,8 +689,31 @@ PROFILE_DEFAULTS = {
             "pipeline_label": "Flujo de recompra",
         },
         "entity_fields": [
+            {
+                "key": "client_segment",
+                "label": "Segmento cliente",
+                "type": "select",
+                "choices": [
+                    {"value": "vip", "label": "VIP"},
+                    {"value": "frecuente", "label": "Frecuente"},
+                    {"value": "ocasional", "label": "Ocasional"},
+                    {"value": "inactiva", "label": "Inactiva"},
+                ],
+            },
             {"key": "talla", "label": "Talla preferida", "type": "text"},
             {"key": "estilo", "label": "Estilo favorito", "type": "text"},
+            {
+                "key": "canal_preferido",
+                "label": "Canal preferido",
+                "type": "select",
+                "choices": [
+                    {"value": "whatsapp", "label": "WhatsApp"},
+                    {"value": "instagram", "label": "Instagram"},
+                    {"value": "tienda", "label": "Tienda"},
+                    {"value": "email", "label": "Email"},
+                ],
+            },
+            {"key": "color_favorito", "label": "Color favorito", "type": "text"},
             {"key": "instagram", "label": "Instagram", "type": "text"},
             {"key": "ultima_compra", "label": "Ultima compra", "type": "date"},
         ],
@@ -521,12 +726,24 @@ PROFILE_DEFAULTS = {
                 "fields": [
                     {"key": "cliente", "label": "Cliente", "type": "text", "required": True},
                     {"key": "pieza", "label": "Pieza", "type": "text", "required": True},
+                    {"key": "categoria", "label": "Categoria", "type": "text"},
                     {"key": "talla", "label": "Talla", "type": "text"},
+                    {
+                        "key": "prioridad",
+                        "label": "Prioridad",
+                        "type": "select",
+                        "choices": [
+                            {"value": "alta", "label": "Alta"},
+                            {"value": "media", "label": "Media"},
+                            {"value": "baja", "label": "Baja"},
+                        ],
+                    },
+                    {"key": "fecha_followup", "label": "Fecha follow-up", "type": "date"},
                     {"key": "vigente", "label": "Vigente", "type": "boolean"},
                 ],
             }
         ],
-        "module_order": ["entities", "deals", "activities", "reports", "documents", "proposals", "collections"],
+        "module_order": ["entities", "objects", "deals", "activities", "reports", "documents", "proposals", "collections"],
         "dashboard_widgets": list(DEFAULT_DASHBOARD_WIDGETS),
         "role_policies": deepcopy(DEFAULT_ROLE_POLICIES),
         "document_blueprints": [],
@@ -715,3 +932,4 @@ def build_profile_launchpad(
             for pipeline in merged["pipeline_templates"]
         ],
     }
+

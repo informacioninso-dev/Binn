@@ -498,6 +498,141 @@ def _services_lifecycle_state(entity: Entity, *, field_definitions: list[dict] |
     }
 
 
+def _condo_status_field_definition(field_definitions: list[dict]) -> dict:
+    return next((field for field in field_definitions if field.get("key") == "resident_status"), {})
+
+
+def _condo_resident_status(entity: Entity, *, field_definitions: list[dict] | None = None) -> dict:
+    field_definitions = field_definitions or []
+    status_field = _condo_status_field_definition(field_definitions)
+    raw_value = str((entity.data_extra or {}).get("resident_status", "") or "").strip().lower()
+    valid_values = {"al_dia", "seguimiento", "promesa_pago", "cartera_vencida"}
+    if raw_value not in valid_values:
+        overdue_count = int(getattr(entity, "overdue_collection_count", 0) or 0)
+        promised_count = int(getattr(entity, "promised_collection_count", 0) or 0)
+        open_collection_count = int(getattr(entity, "open_collection_count", 0) or 0)
+        if overdue_count > 0:
+            raw_value = "cartera_vencida"
+        elif promised_count > 0:
+            raw_value = "promesa_pago"
+        elif open_collection_count > 0:
+            raw_value = "seguimiento"
+        else:
+            raw_value = "al_dia"
+
+    label_map = {
+        "al_dia": "Al dia",
+        "seguimiento": "En seguimiento",
+        "promesa_pago": "Promesa de pago",
+        "cartera_vencida": "Cartera vencida",
+    }
+    tone_map = {
+        "al_dia": "bg-green-50 text-green-700",
+        "seguimiento": "bg-blue-50 text-blue-700",
+        "promesa_pago": "bg-amber-50 text-amber-700",
+        "cartera_vencida": "bg-red-50 text-red-700",
+    }
+    choice_label = _resolve_choice_label(raw_value, status_field.get("choices")) if status_field else ""
+    return {
+        "key": raw_value,
+        "label": choice_label or label_map[raw_value],
+        "tone": tone_map[raw_value],
+    }
+
+
+def _condo_reference_tokens(entity: Entity) -> set[str]:
+    data_extra = entity.data_extra or {}
+    tokens = {
+        _normalize_reference_token(entity.full_name),
+        _normalize_reference_token(data_extra.get("departamento")),
+    }
+    return {token for token in tokens if token}
+
+
+def _matching_condo_records(entity: Entity, records: list[ObjectRecord], *keys: str) -> list[ObjectRecord]:
+    entity_tokens = _condo_reference_tokens(entity)
+    if not entity_tokens:
+        return []
+    matches = []
+    for record in records:
+        record_tokens = {
+            _normalize_reference_token((record.data or {}).get(key))
+            for key in keys
+        }
+        record_tokens = {token for token in record_tokens if token}
+        if entity_tokens & record_tokens:
+            matches.append(record)
+    return matches
+
+
+def _is_condo_incident_closed(raw_status) -> bool:
+    return _normalize_reference_token(raw_status) in {"resuelta", "cerrada", "cerrado", "closed", "done"}
+
+
+def _retail_segment_field_definition(field_definitions: list[dict]) -> dict:
+    return next((field for field in field_definitions if field.get("key") == "client_segment"), {})
+
+
+def _retail_reference_tokens(entity: Entity) -> set[str]:
+    data_extra = entity.data_extra or {}
+    tokens = {
+        _normalize_reference_token(entity.full_name),
+        _normalize_reference_token(data_extra.get("instagram")),
+    }
+    return {token for token in tokens if token}
+
+
+def _matching_retail_wishlists(entity: Entity, wishlist_records: list[ObjectRecord]) -> list[ObjectRecord]:
+    tokens = _retail_reference_tokens(entity)
+    if not tokens:
+        return []
+    matches = []
+    for record in wishlist_records:
+        cliente_token = _normalize_reference_token((record.data or {}).get("cliente"))
+        if cliente_token and cliente_token in tokens:
+            matches.append(record)
+    return matches
+
+
+def _retail_clienteling_state(entity: Entity, *, field_definitions: list[dict] | None = None, today=None) -> dict:
+    field_definitions = field_definitions or []
+    today = today or timezone.localdate()
+    segment_field = _retail_segment_field_definition(field_definitions)
+    raw_value = str((entity.data_extra or {}).get("client_segment", "") or "").strip().lower()
+    valid_values = {"vip", "frecuente", "ocasional", "inactiva"}
+    ultima_compra = _parse_extra_date((entity.data_extra or {}).get("ultima_compra"))
+    if raw_value not in valid_values:
+        if ultima_compra:
+            days_since_purchase = (today - ultima_compra).days
+            if days_since_purchase >= 90:
+                raw_value = "inactiva"
+            elif days_since_purchase <= 35:
+                raw_value = "frecuente"
+            else:
+                raw_value = "ocasional"
+        else:
+            raw_value = "ocasional"
+
+    label_map = {
+        "vip": "VIP",
+        "frecuente": "Frecuente",
+        "ocasional": "Ocasional",
+        "inactiva": "Inactiva",
+    }
+    tone_map = {
+        "vip": "bg-fuchsia-50 text-fuchsia-700",
+        "frecuente": "bg-emerald-50 text-emerald-700",
+        "ocasional": "bg-blue-50 text-blue-700",
+        "inactiva": "bg-amber-50 text-amber-700",
+    }
+    choice_label = _resolve_choice_label(raw_value, segment_field.get("choices")) if segment_field else ""
+    return {
+        "key": raw_value,
+        "label": choice_label or label_map[raw_value],
+        "tone": tone_map[raw_value],
+    }
+
+
 def _build_entity_search_query(query: str, field_definitions: list[dict], *, prefix: str = "") -> Q:
     terms = [part.strip() for part in query.split() if part.strip()]
     if not terms:
@@ -702,6 +837,236 @@ def _matching_service_deliverables(entity: Entity, deliverable_records: list[Obj
         if cliente_token and cliente_token in tokens:
             matches.append(record)
     return matches
+
+
+def _matching_service_projects(entity: Entity, project_records: list[ObjectRecord]) -> list[ObjectRecord]:
+    tokens = _service_reference_tokens(entity)
+    if not tokens:
+        return []
+    matches = []
+    for record in project_records:
+        cliente_token = _normalize_reference_token((record.data or {}).get("cliente"))
+        if cliente_token and cliente_token in tokens:
+            matches.append(record)
+    return matches
+
+
+def _matching_project_deliverables(project_record: ObjectRecord, deliverable_records: list[ObjectRecord]) -> list[ObjectRecord]:
+    project_data = project_record.data or {}
+    tokens = {
+        _normalize_reference_token(project_record.title),
+        _normalize_reference_token(project_data.get("nombre")),
+    }
+    tokens = {token for token in tokens if token}
+    if not tokens:
+        return []
+    matches = []
+    for record in deliverable_records:
+        project_token = _normalize_reference_token((record.data or {}).get("proyecto"))
+        if project_token and project_token in tokens:
+            matches.append(record)
+    return matches
+
+
+def _deliverable_needs_attention(record: ObjectRecord, *, today=None) -> bool:
+    today = today or timezone.localdate()
+    data = record.data or {}
+    status = _normalize_reference_token(data.get("estado"))
+    if _is_deliverable_completed(status):
+        return False
+    delivery_on = _parse_extra_date(data.get("fecha_entrega"))
+    review_on = _parse_extra_date(data.get("fecha_revision"))
+    if status in {"bloqueado", "por_validar"}:
+        return True
+    if delivery_on and delivery_on <= today + timedelta(days=7):
+        return True
+    if review_on and review_on <= today + timedelta(days=7):
+        return True
+    return False
+
+
+def _build_service_deliverable_report_item(record: ObjectRecord, *, today=None) -> dict:
+    today = today or timezone.localdate()
+    data = record.data or {}
+    status_token = _normalize_reference_token(data.get("estado"))
+    delivery_on = _parse_extra_date(data.get("fecha_entrega"))
+    review_on = _parse_extra_date(data.get("fecha_revision"))
+    status_label = {
+        "bloqueado": "Bloqueado",
+        "por_validar": "Por validar",
+        "por_iniciar": "Por iniciar",
+        "en_curso": "En curso",
+        "entregado": "Entregado",
+    }.get(status_token, str(data.get("estado") or "Entregable").strip().title() or "Entregable")
+    attention_rank = 4
+    tone = "bg-blue-50 text-blue-700"
+    if status_token == "bloqueado":
+        status_label = "Bloqueado"
+        attention_rank = 0
+        tone = "bg-red-50 text-red-700"
+    elif delivery_on and delivery_on < today:
+        status_label = "Atrasado"
+        attention_rank = 1
+        tone = "bg-red-50 text-red-700"
+    elif status_token == "por_validar":
+        status_label = "Por validar"
+        attention_rank = 2
+        tone = "bg-amber-50 text-amber-700"
+    elif review_on and review_on <= today + timedelta(days=7):
+        status_label = "Revision"
+        attention_rank = 3
+        tone = "bg-amber-50 text-amber-700"
+    elif delivery_on and delivery_on <= today + timedelta(days=7):
+        status_label = "Por vencer"
+        attention_rank = 3
+        tone = "bg-amber-50 text-amber-700"
+
+    meta = " | ".join(
+        part for part in [
+            data.get("cliente", ""),
+            data.get("proyecto", ""),
+        ]
+        if part
+    )
+    caption_parts = []
+    if data.get("estado"):
+        caption_parts.append(str(data.get("estado")).replace("_", " ").title())
+    if delivery_on:
+        caption_parts.append(f"Entrega {delivery_on.strftime('%d/%m/%Y')}")
+    if review_on:
+        caption_parts.append(f"Revision {review_on.strftime('%d/%m/%Y')}")
+    href = ""
+    object_key = getattr(getattr(record, "object_schema", None), "key", "")
+    if object_key and getattr(record, "pk", None):
+        href = reverse("binncrm:custom_object_record_detail", kwargs={"object_key": object_key, "pk": record.pk})
+    item = _build_report_item(
+        title=data.get("nombre") or record.title or "Entregable",
+        meta=meta,
+        caption=" | ".join(caption_parts),
+        status=status_label,
+        tone=tone,
+        href=href,
+        cta="Abrir entregable",
+    )
+    item["attention_rank"] = attention_rank
+    item["sort_on"] = delivery_on or review_on or date.max
+    return item
+
+
+def _build_service_project_report_item(project_record: ObjectRecord, deliverable_records: list[ObjectRecord], *, today=None) -> dict:
+    today = today or timezone.localdate()
+    data = project_record.data or {}
+    project_name = data.get("nombre") or project_record.title or "Proyecto"
+    related_deliverables = _matching_project_deliverables(project_record, deliverable_records)
+    open_deliverables = [
+        record for record in related_deliverables
+        if not _is_deliverable_completed((record.data or {}).get("estado"))
+    ]
+    blocked_deliverables = [
+        record for record in open_deliverables
+        if _normalize_reference_token((record.data or {}).get("estado")) == "bloqueado"
+    ]
+    pending_review_deliverables = [
+        record for record in open_deliverables
+        if _normalize_reference_token((record.data or {}).get("estado")) == "por_validar"
+    ]
+    due_soon_deliverables = [
+        record for record in open_deliverables
+        if (_parse_extra_date((record.data or {}).get("fecha_entrega")) or date.max) <= today + timedelta(days=7)
+    ]
+    next_delivery = min(
+        (
+            _parse_extra_date((record.data or {}).get("fecha_entrega"))
+            for record in open_deliverables
+            if _parse_extra_date((record.data or {}).get("fecha_entrega"))
+        ),
+        default=None,
+    )
+    next_review = min(
+        (
+            _parse_extra_date((record.data or {}).get("fecha_revision"))
+            for record in open_deliverables
+            if _parse_extra_date((record.data or {}).get("fecha_revision"))
+        ),
+        default=None,
+    )
+    target_on = _parse_extra_date(data.get("fecha_cierre_objetivo"))
+    status_token = _normalize_reference_token(data.get("estado"))
+    status_label = {
+        "kickoff": "Kickoff",
+        "en_ejecucion": "En ejecucion",
+        "en_revision": "En revision",
+        "cerrado": "Cerrado",
+    }.get(status_token, str(data.get("estado") or "En ejecucion").replace("_", " ").title() or "En ejecucion")
+    attention_rank = 5
+    tone = "bg-blue-50 text-blue-700"
+    if blocked_deliverables:
+        status_label = "Bloqueado"
+        attention_rank = 0
+        tone = "bg-red-50 text-red-700"
+    elif pending_review_deliverables or status_token == "en_revision":
+        status_label = "En revision"
+        attention_rank = 1
+        tone = "bg-amber-50 text-amber-700"
+    elif due_soon_deliverables or (target_on and target_on <= today + timedelta(days=7)):
+        status_label = "Por cerrar"
+        attention_rank = 2
+        tone = "bg-amber-50 text-amber-700"
+    elif status_token == "kickoff":
+        status_label = "Kickoff"
+        attention_rank = 3
+        tone = "bg-blue-50 text-blue-700"
+    elif status_token == "cerrado":
+        status_label = "Cerrado"
+        attention_rank = 6
+        tone = "bg-green-50 text-green-700"
+    elif open_deliverables:
+        status_label = "En ejecucion"
+        attention_rank = 4
+        tone = "bg-blue-50 text-blue-700"
+
+    meta = " | ".join(
+        part for part in [
+            data.get("cliente", ""),
+            data.get("linea_servicio", ""),
+            data.get("responsable", ""),
+        ]
+        if part
+    )
+    caption_parts = []
+    if open_deliverables:
+        caption_parts.append(f"{len(open_deliverables)} entregable(s) activos")
+    else:
+        caption_parts.append("Sin entregables activos")
+    if blocked_deliverables:
+        caption_parts.append(f"{len(blocked_deliverables)} bloqueado(s)")
+    elif pending_review_deliverables:
+        caption_parts.append(f"{len(pending_review_deliverables)} por validar")
+    if next_delivery:
+        caption_parts.append(f"Entrega {next_delivery.strftime('%d/%m/%Y')}")
+    elif next_review:
+        caption_parts.append(f"Revision {next_review.strftime('%d/%m/%Y')}")
+    elif target_on:
+        caption_parts.append(f"Cierre {target_on.strftime('%d/%m/%Y')}")
+
+    href = ""
+    object_key = getattr(getattr(project_record, "object_schema", None), "key", "")
+    if object_key and getattr(project_record, "pk", None):
+        href = reverse("binncrm:custom_object_record_detail", kwargs={"object_key": object_key, "pk": project_record.pk})
+    item = _build_report_item(
+        title=project_name,
+        meta=meta,
+        caption=" | ".join(caption_parts),
+        status=status_label,
+        tone=tone,
+        href=href,
+        cta="Abrir proyecto",
+    )
+    item["attention_rank"] = attention_rank
+    item["sort_on"] = next_delivery or next_review or target_on or date.max
+    item["project_name"] = project_name
+    item["project_client"] = data.get("cliente", "")
+    return item
 
 
 def _build_services_handoff(entity: Entity, *, activities: list[Activity], documents: list[Document], deliverables: list[ObjectRecord], today=None) -> dict:
@@ -953,13 +1318,24 @@ def _build_global_search_sections(request, *, query: str) -> list[dict]:
     return sections
 
 
-def _build_report_item(*, title: str, meta: str = "", caption: str = "", status: str = "", tone: str = "bg-gray-100 text-gray-700") -> dict:
+def _build_report_item(
+    *,
+    title: str,
+    meta: str = "",
+    caption: str = "",
+    status: str = "",
+    tone: str = "bg-gray-100 text-gray-700",
+    href: str = "",
+    cta: str = "",
+) -> dict:
     return {
         "title": title,
         "meta": meta,
         "caption": caption,
         "status": status,
         "tone": tone,
+        "href": href,
+        "cta": cta,
     }
 
 
@@ -1015,6 +1391,309 @@ def _build_services_lifecycle_summary(*, entities: list[Entity], field_definitio
             "tone": "bg-amber-50 text-amber-700",
         },
     ]
+
+
+def _service_line_field_definition(field_definitions: list[dict]) -> dict:
+    return next((field for field in field_definitions if field.get("key") == "service_line"), {})
+
+
+def _service_account_health_field_definition(field_definitions: list[dict]) -> dict:
+    return next((field for field in field_definitions if field.get("key") == "account_health"), {})
+
+
+def _coerce_local_date(value):
+    if isinstance(value, datetime):
+        return timezone.localdate(value)
+    if isinstance(value, date):
+        return value
+    return None
+
+
+def _parse_numeric_amount(value) -> float:
+    raw_value = str(value or "").strip()
+    if not raw_value:
+        return 0.0
+    normalized = raw_value.replace(",", ".")
+    try:
+        return float(normalized)
+    except ValueError:
+        return 0.0
+
+
+def _service_line_label(entity: Entity, *, field_definitions: list[dict] | None = None) -> str:
+    field_definitions = field_definitions or []
+    line_field = _service_line_field_definition(field_definitions)
+    raw_value = str((entity.data_extra or {}).get("service_line", "") or "").strip()
+    return _resolve_choice_label(raw_value, line_field.get("choices")) or raw_value or "Sin linea"
+
+
+def _service_account_health_state(entity: Entity, *, field_definitions: list[dict] | None = None, today=None) -> dict:
+    field_definitions = field_definitions or []
+    today = today or timezone.localdate()
+    health_field = _service_account_health_field_definition(field_definitions)
+    raw_value = _normalize_reference_token((entity.data_extra or {}).get("account_health"))
+    valid_values = {"estable", "seguimiento", "riesgo", "expansion"}
+    if raw_value not in valid_values:
+        lifecycle = _services_lifecycle_state(entity, field_definitions=field_definitions, today=today)
+        if lifecycle["key"] == "renovacion_upsell":
+            raw_value = "expansion"
+        elif lifecycle["key"] == "cliente_activo":
+            raw_value = "estable"
+        else:
+            raw_value = "seguimiento"
+    label_map = {
+        "estable": "Estable",
+        "seguimiento": "Seguimiento",
+        "riesgo": "En riesgo",
+        "expansion": "Expansion",
+    }
+    tone_map = {
+        "estable": "bg-green-50 text-green-700",
+        "seguimiento": "bg-blue-50 text-blue-700",
+        "riesgo": "bg-red-50 text-red-700",
+        "expansion": "bg-amber-50 text-amber-700",
+    }
+    choice_label = _resolve_choice_label(raw_value, health_field.get("choices")) if health_field else ""
+    return {
+        "key": raw_value,
+        "label": choice_label or label_map[raw_value],
+        "tone": tone_map[raw_value],
+    }
+
+
+def _service_activation_snapshot(entity: Entity, *, won_deals: list, activities: list, documents: list) -> dict:
+    won_dates = [
+        _coerce_local_date(getattr(deal, "updated_at", None))
+        for deal in list(won_deals or [])
+    ]
+    won_dates = [value for value in won_dates if value]
+    kickoff_dates = []
+    for activity in list(activities or []):
+        if getattr(activity, "activity_type", "") != Activity.TYPE_MEETING:
+            continue
+        if "kickoff" not in _normalize_reference_token(getattr(activity, "title", "")):
+            continue
+        kickoff_dates.append(_coerce_local_date(getattr(activity, "due_at", None)) or _coerce_local_date(getattr(activity, "created_at", None)))
+    for document in list(documents or []):
+        if getattr(document, "document_type", "") != "kickoff":
+            continue
+        kickoff_dates.append(_coerce_local_date(getattr(document, "created_at", None)))
+    kickoff_dates = [value for value in kickoff_dates if value]
+    started_on = _parse_extra_date((entity.data_extra or {}).get("started_on"))
+    first_won_on = min(won_dates) if won_dates else None
+    kickoff_on = min(kickoff_dates) if kickoff_dates else None
+    activation_on = kickoff_on or started_on
+    lag_days = None
+    if first_won_on and activation_on and activation_on >= first_won_on:
+        lag_days = (activation_on - first_won_on).days
+    return {
+        "first_won_on": first_won_on,
+        "kickoff_on": kickoff_on,
+        "started_on": started_on,
+        "activation_on": activation_on,
+        "lag_days": lag_days,
+        "pending_kickoff": bool(first_won_on and not kickoff_on),
+    }
+
+
+def _build_services_analytics_bundle(
+    *,
+    entities: list[Entity],
+    field_definitions: list[dict],
+    project_records: list[ObjectRecord],
+    deliverable_records: list[ObjectRecord],
+    won_deals_by_entity: dict[int, list],
+    activities_by_entity: dict[int, list],
+    documents_by_entity: dict[int, list],
+    today=None,
+) -> dict:
+    today = today or timezone.localdate()
+    line_buckets: dict[str, dict] = {}
+    health_focus_items = []
+    activation_items = []
+    retainer_active_total = 0.0
+    renewal_retainer_total = 0.0
+    risk_accounts = 0
+    activation_lags = []
+
+    for entity in entities:
+        entity_pk = getattr(entity, "pk", None)
+        lifecycle = _services_lifecycle_state(entity, field_definitions=field_definitions, today=today)
+        health = _service_account_health_state(entity, field_definitions=field_definitions, today=today)
+        service_line = _service_line_label(entity, field_definitions=field_definitions)
+        retainer_value = _parse_numeric_amount((entity.data_extra or {}).get("retainer_mensual"))
+        is_active_account = lifecycle["key"] != "prospecto"
+        if is_active_account:
+            retainer_active_total += retainer_value
+        if lifecycle["key"] == "renovacion_upsell":
+            renewal_retainer_total += retainer_value
+        if health["key"] == "riesgo":
+            risk_accounts += 1
+
+        bucket = line_buckets.setdefault(
+            service_line,
+            {"label": service_line, "total": 0, "active": 0, "risk": 0, "renewal": 0, "retainer": 0.0},
+        )
+        bucket["total"] += 1
+        bucket["active"] += 1 if is_active_account else 0
+        bucket["risk"] += 1 if health["key"] == "riesgo" else 0
+        bucket["renewal"] += 1 if lifecycle["key"] == "renovacion_upsell" else 0
+        bucket["retainer"] += retainer_value
+
+        if health["key"] in {"riesgo", "expansion"} or lifecycle["key"] == "renovacion_upsell":
+            renewal_on = _parse_extra_date((entity.data_extra or {}).get("renewal_on"))
+            caption_parts = []
+            if (entity.data_extra or {}).get("servicio_principal"):
+                caption_parts.append((entity.data_extra or {}).get("servicio_principal"))
+            if renewal_on:
+                caption_parts.append(f"Renovacion {renewal_on.strftime('%d/%m/%Y')}")
+            if retainer_value:
+                caption_parts.append(_format_currency_amount("USD", retainer_value))
+            health_focus_items.append(
+                _build_report_item(
+                    title=(entity.data_extra or {}).get("empresa") or entity.full_name,
+                    meta=" | ".join(part for part in [service_line, (entity.data_extra or {}).get("delivery_owner", "")] if part),
+                    caption=" | ".join(caption_parts) or "Cuenta con lectura prioritaria para direccion.",
+                    status=health["label"],
+                    tone=health["tone"],
+                    href=reverse("binncrm:entity_detail", kwargs={"pk": entity_pk}) if entity_pk else "",
+                    cta="Abrir cuenta",
+                )
+            )
+
+        snapshot = _service_activation_snapshot(
+            entity,
+            won_deals=won_deals_by_entity.get(entity_pk, []),
+            activities=activities_by_entity.get(entity_pk, []),
+            documents=documents_by_entity.get(entity_pk, []),
+        )
+        if snapshot["lag_days"] is not None:
+            activation_lags.append(snapshot["lag_days"])
+        if snapshot["first_won_on"]:
+            if snapshot["pending_kickoff"]:
+                status_label = "Pendiente kickoff"
+                tone = "bg-red-50 text-red-700"
+            elif snapshot["lag_days"] is None:
+                status_label = "Sin medicion"
+                tone = "bg-slate-100 text-slate-700"
+            elif snapshot["lag_days"] > 14:
+                status_label = f"{snapshot['lag_days']} dias"
+                tone = "bg-red-50 text-red-700"
+            elif snapshot["lag_days"] > 7:
+                status_label = f"{snapshot['lag_days']} dias"
+                tone = "bg-amber-50 text-amber-700"
+            else:
+                status_label = f"{snapshot['lag_days']} dias"
+                tone = "bg-green-50 text-green-700"
+            activation_items.append(
+                _build_report_item(
+                    title=(entity.data_extra or {}).get("empresa") or entity.full_name,
+                    meta=" | ".join(part for part in [service_line, (entity.data_extra or {}).get("delivery_owner", "")] if part),
+                    caption=" | ".join(
+                        part for part in [
+                            f"Ganado {snapshot['first_won_on'].strftime('%d/%m/%Y')}" if snapshot["first_won_on"] else "",
+                            f"Kickoff {snapshot['kickoff_on'].strftime('%d/%m/%Y')}" if snapshot["kickoff_on"] else "Sin kickoff",
+                            f"Inicio {snapshot['started_on'].strftime('%d/%m/%Y')}" if snapshot["started_on"] else "",
+                        ]
+                        if part
+                    ),
+                    status=status_label,
+                    tone=tone,
+                    href=reverse("binncrm:entity_detail", kwargs={"pk": entity_pk}) if entity_pk else "",
+                    cta="Abrir cuenta",
+                )
+            )
+
+    avg_activation_days = round(sum(activation_lags) / len(activation_lags), 1) if activation_lags else None
+    active_project_records = [
+        record for record in project_records
+        if _normalize_reference_token((record.data or {}).get("estado")) != "cerrado"
+    ]
+    owner_buckets: dict[str, dict] = {}
+    for project_record in active_project_records:
+        data = project_record.data or {}
+        owner = data.get("responsable") or "Sin responsable"
+        bucket = owner_buckets.setdefault(owner, {"owner": owner, "total": 0, "blocked": 0, "review": 0, "due_soon": 0, "lines": set()})
+        bucket["total"] += 1
+        line_value = str(data.get("linea_servicio") or "").strip()
+        if line_value:
+            bucket["lines"].add(line_value)
+        status_token = _normalize_reference_token(data.get("estado"))
+        if status_token == "en_revision":
+            bucket["review"] += 1
+        if _build_service_project_report_item(project_record, deliverable_records, today=today)["status"] == "Bloqueado":
+            bucket["blocked"] += 1
+        target_on = _parse_extra_date(data.get("fecha_cierre_objetivo"))
+        if target_on and target_on <= today + timedelta(days=7):
+            bucket["due_soon"] += 1
+
+    analytics_cards = [
+        {"label": "Retainer activo", "value": _format_currency_amount("USD", retainer_active_total), "caption": "Ingreso mensual visible en cuentas activas o en renovacion.", "tone": "bg-blue-50 text-blue-700" if retainer_active_total else "bg-slate-100 text-slate-700"},
+        {"label": "Renovacion mensual", "value": _format_currency_amount("USD", renewal_retainer_total), "caption": "MRR expuesto en cuentas que ya piden renovacion o siguiente alcance.", "tone": "bg-amber-50 text-amber-700" if renewal_retainer_total else "bg-green-50 text-green-700"},
+        {"label": "Cuentas en riesgo", "value": risk_accounts, "caption": "Clientes que ya muestran senal clara de friccion o deterioro.", "tone": "bg-red-50 text-red-700" if risk_accounts else "bg-green-50 text-green-700"},
+        {"label": "Activacion promedio", "value": f"{avg_activation_days} dias" if avg_activation_days is not None else "s/d", "caption": "Tiempo medio desde negocio ganado hasta kickoff o arranque visible.", "tone": "bg-emerald-50 text-emerald-700" if avg_activation_days is not None and avg_activation_days <= 7 else "bg-amber-50 text-amber-700" if avg_activation_days is not None else "bg-slate-100 text-slate-700"},
+    ]
+
+    service_line_items = []
+    for bucket in sorted(line_buckets.values(), key=lambda item: (-item["active"], -item["retainer"], item["label"])):
+        if bucket["risk"] > 0:
+            status_label = "En riesgo"
+            tone = "bg-red-50 text-red-700"
+        elif bucket["renewal"] > 0:
+            status_label = "Renovacion"
+            tone = "bg-amber-50 text-amber-700"
+        elif bucket["active"] > 0:
+            status_label = "Activa"
+            tone = "bg-green-50 text-green-700"
+        else:
+            status_label = "Prospecto"
+            tone = "bg-slate-100 text-slate-700"
+        service_line_items.append(
+            _build_report_item(
+                title=bucket["label"],
+                meta=f"{bucket['total']} cuenta(s)",
+                caption=" | ".join(part for part in [f"{bucket['active']} activa(s)", f"{bucket['risk']} en riesgo" if bucket["risk"] else "", f"{bucket['renewal']} en renovacion" if bucket["renewal"] else "", _format_currency_amount("USD", bucket["retainer"]) if bucket["retainer"] else ""] if part),
+                status=status_label,
+                tone=tone,
+                href=reverse("binncrm:entities"),
+                cta="Abrir cartera",
+            )
+        )
+
+    owner_items = []
+    for bucket in sorted(owner_buckets.values(), key=lambda item: (-item["blocked"], -item["review"], -item["total"], item["owner"])):
+        if bucket["blocked"] > 0:
+            status_label = "Bloqueos"
+            tone = "bg-red-50 text-red-700"
+        elif bucket["review"] > 0:
+            status_label = "Revision"
+            tone = "bg-amber-50 text-amber-700"
+        elif bucket["due_soon"] > 0:
+            status_label = "Por cerrar"
+            tone = "bg-amber-50 text-amber-700"
+        else:
+            status_label = "Operando"
+            tone = "bg-blue-50 text-blue-700"
+        owner_items.append(
+            _build_report_item(
+                title=bucket["owner"],
+                meta=" | ".join(sorted(bucket["lines"])) or "Sin linea definida",
+                caption=" | ".join(part for part in [f"{bucket['total']} proyecto(s)", f"{bucket['blocked']} bloqueado(s)" if bucket["blocked"] else "", f"{bucket['review']} en revision" if bucket["review"] else "", f"{bucket['due_soon']} por cerrar" if bucket["due_soon"] else ""] if part),
+                status=status_label,
+                tone=tone,
+                href=reverse("binncrm:custom_object_records", kwargs={"object_key": "proyecto"}),
+                cta="Abrir proyectos",
+            )
+        )
+
+    analytics_sections = [
+        {"title": "Cartera por linea de servicio", "subtitle": "Distribucion de cuentas, retainer visible y presion operativa por tipo de servicio.", "href": reverse("binncrm:entities"), "cta": "Abrir cartera", "empty_message": "No hay cuentas de servicio registradas todavia.", "items": service_line_items},
+        {"title": "Cuentas en riesgo y expansion", "subtitle": "Fichas que merecen lectura de direccion por deterioro o por oportunidad clara de crecimiento.", "href": reverse("binncrm:entities"), "cta": "Abrir cuentas", "empty_message": "No hay cuentas marcadas en riesgo o expansion ahora mismo.", "items": sorted(health_focus_items, key=lambda item: (0 if item["status"] == "En riesgo" else 1, item["title"]))[:6]},
+        {"title": "Capacidad por responsable", "subtitle": "Carga operativa, bloqueos y cierres proximos por cada owner de delivery.", "href": reverse("binncrm:custom_object_records", kwargs={"object_key": "proyecto"}), "cta": "Abrir proyectos", "empty_message": "No hay proyectos activos para repartir capacidad todavia.", "items": owner_items[:6]},
+        {"title": "Activacion comercial -> delivery", "subtitle": "Tiempo real desde negocio ganado hasta kickoff o arranque visible por cuenta.", "href": reverse("binncrm:entities"), "cta": "Abrir cuentas", "empty_message": "No hay cuentas activadas suficientes para medir este tramo.", "items": sorted(activation_items, key=lambda item: (0 if item["status"] == "Pendiente kickoff" else 1, item["title"]))[:6]},
+    ]
+    return {"cards": analytics_cards, "sections": analytics_sections}
+
 
 
 def _build_reports_copy(profile: str, labels: dict) -> dict:
@@ -1445,6 +2124,7 @@ def _render_collection_form(request, form, *, page_title: str, submit_label: str
 
 def _render_document_form(request, form, *, page_title: str, submit_label: str, document=None):
     profile = _tenant_profile(request.tenant)
+    today = timezone.localdate()
     custom_blueprints = request.tenant.document_blueprints
     return render(
         request,
@@ -1803,6 +2483,36 @@ def entities(request):
                 distinct=True,
             ),
         )
+    elif profile == "condominio":
+        today = timezone.localdate()
+        queryset = queryset.annotate(
+            open_collection_count=Count(
+                "collections",
+                filter=Q(collections__is_active=True) & ~Q(collections__status=CollectionRecord.STATUS_PAID),
+                distinct=True,
+            ),
+            promised_collection_count=Count(
+                "collections",
+                filter=Q(collections__is_active=True, collections__status=CollectionRecord.STATUS_PROMISED),
+                distinct=True,
+            ),
+            overdue_collection_count=Count(
+                "collections",
+                filter=Q(collections__is_active=True)
+                & ~Q(collections__status=CollectionRecord.STATUS_PAID)
+                & Q(collections__due_on__lt=today),
+                distinct=True,
+            ),
+        )
+    elif profile == "retail_moda":
+        queryset = queryset.annotate(
+            deal_count=Count("deals", filter=Q(deals__is_active=True), distinct=True),
+            open_deal_count=Count(
+                "deals",
+                filter=Q(deals__is_active=True, deals__status=Deal.STATUS_OPEN),
+                distinct=True,
+            ),
+        )
     queryset = apply_entity_saved_view(queryset, view=current_view)
     if q:
         queryset = queryset.filter(_build_entity_search_query(q, entity_fields))
@@ -1815,6 +2525,8 @@ def entities(request):
             "extra_values": _build_extra_values(entity, column_definitions),
             "broker_lifecycle": _broker_lifecycle_state(entity, field_definitions=entity_fields) if profile == "broker" else None,
             "service_lifecycle": _services_lifecycle_state(entity, field_definitions=entity_fields) if profile == "servicios" else None,
+            "condo_status": _condo_resident_status(entity, field_definitions=entity_fields) if profile == "condominio" else None,
+            "retail_segment": _retail_clienteling_state(entity, field_definitions=entity_fields) if profile == "retail_moda" else None,
         }
         for entity in entity_list
     ]
@@ -2032,6 +2744,36 @@ def entity_detail(request, pk):
                 distinct=True,
             ),
         )
+    elif profile == "condominio":
+        today = timezone.localdate()
+        entity_queryset = entity_queryset.annotate(
+            open_collection_count=Count(
+                "collections",
+                filter=Q(collections__is_active=True) & ~Q(collections__status=CollectionRecord.STATUS_PAID),
+                distinct=True,
+            ),
+            promised_collection_count=Count(
+                "collections",
+                filter=Q(collections__is_active=True, collections__status=CollectionRecord.STATUS_PROMISED),
+                distinct=True,
+            ),
+            overdue_collection_count=Count(
+                "collections",
+                filter=Q(collections__is_active=True)
+                & ~Q(collections__status=CollectionRecord.STATUS_PAID)
+                & Q(collections__due_on__lt=today),
+                distinct=True,
+            ),
+        )
+    elif profile == "retail_moda":
+        entity_queryset = entity_queryset.annotate(
+            deal_count=Count("deals", filter=Q(deals__is_active=True), distinct=True),
+            open_deal_count=Count(
+                "deals",
+                filter=Q(deals__is_active=True, deals__status=Deal.STATUS_OPEN),
+                distinct=True,
+            ),
+        )
     entity = get_object_or_404(entity_queryset, pk=pk)
     entity_field_definitions = get_entity_field_definitions(tenant=request.tenant)
     extra_values = _build_extra_values(entity, entity_field_definitions)
@@ -2070,20 +2812,177 @@ def entity_detail(request, pk):
         if can_view_proposals
         else []
     )
-    recent_collections = (
-        list(entity.collections.select_related("deal").order_by("due_on", "-updated_at")[:5])
+    all_collections = (
+        list(entity.collections.select_related("deal").order_by("due_on", "-updated_at"))
         if can_view_collections
         else []
     )
+    recent_collections = all_collections[:5]
+    project_records = []
+    project_schema = None
     deliverable_records = []
     deliverable_schema = None
+    condo_unit_records = []
+    condo_incident_records = []
+    condo_communication_records = []
+    condo_unit_schema = None
+    condo_incident_schema = None
+    condo_communication_schema = None
+    retail_wishlist_records = []
+    retail_wishlist_schema = None
     if profile == "servicios" and _can(request, PERMISSION_OBJECTS_VIEW):
+        project_schema = get_object_schema_definition(object_key="proyecto")
+        if project_schema is not None and project_schema.source == ObjectSchema.SOURCE_CUSTOM:
+            project_records = _matching_service_projects(
+                entity,
+                list(ObjectRecord.objects.filter(object_schema=project_schema, is_active=True).order_by("-updated_at", "-id")),
+            )
         deliverable_schema = get_object_schema_definition(object_key="entregable")
         if deliverable_schema is not None and deliverable_schema.source == ObjectSchema.SOURCE_CUSTOM:
             deliverable_records = _matching_service_deliverables(
                 entity,
                 list(ObjectRecord.objects.filter(object_schema=deliverable_schema, is_active=True).order_by("-updated_at", "-id")),
             )
+    elif profile == "condominio" and _can(request, PERMISSION_OBJECTS_VIEW):
+        condo_unit_schema = get_object_schema_definition(object_key="unidad")
+        if condo_unit_schema is not None and condo_unit_schema.source == ObjectSchema.SOURCE_CUSTOM:
+            condo_unit_records = _matching_condo_records(
+                entity,
+                list(ObjectRecord.objects.filter(object_schema=condo_unit_schema, is_active=True).order_by("-updated_at", "-id")),
+                "codigo_unidad",
+                "residente_actual",
+                "propietario",
+            )
+        condo_incident_schema = get_object_schema_definition(object_key="incidencia")
+        if condo_incident_schema is not None and condo_incident_schema.source == ObjectSchema.SOURCE_CUSTOM:
+            condo_incident_records = _matching_condo_records(
+                entity,
+                list(ObjectRecord.objects.filter(object_schema=condo_incident_schema, is_active=True).order_by("-updated_at", "-id")),
+                "codigo_unidad",
+                "residente",
+            )
+        condo_communication_schema = get_object_schema_definition(object_key="comunicado")
+        if condo_communication_schema is not None and condo_communication_schema.source == ObjectSchema.SOURCE_CUSTOM:
+            condo_communication_records = _matching_condo_records(
+                entity,
+                list(ObjectRecord.objects.filter(object_schema=condo_communication_schema, is_active=True).order_by("-updated_at", "-id")),
+                "codigo_unidad",
+                "dirigido_a",
+            )
+    elif profile == "retail_moda" and _can(request, PERMISSION_OBJECTS_VIEW):
+        retail_wishlist_schema = get_object_schema_definition(object_key="wishlist")
+        if retail_wishlist_schema is not None and retail_wishlist_schema.source == ObjectSchema.SOURCE_CUSTOM:
+            retail_wishlist_records = _matching_retail_wishlists(
+                entity,
+                list(ObjectRecord.objects.filter(object_schema=retail_wishlist_schema, is_active=True).order_by("-updated_at", "-id")),
+            )
+    services_project_items = []
+    if profile == "servicios":
+        for record in project_records[:3]:
+            item = _build_service_project_report_item(record, deliverable_records, today=today)
+            project_name = item.get("project_name") or (record.data or {}).get("nombre") or record.title or ""
+            project_client = item.get("project_client") or (entity.data_extra or {}).get("empresa") or entity.full_name
+            item["deliverable_href"] = (
+                f"{reverse('binncrm:custom_object_record_create', kwargs={'object_key': deliverable_schema.key})}?{urlencode({'cliente': project_client, 'proyecto': project_name})}"
+                if deliverable_schema is not None and _can(request, PERMISSION_OBJECTS_EDIT)
+                else ""
+            )
+            services_project_items.append(item)
+    if profile == "condominio":
+        setattr(
+            entity,
+            "open_collection_count",
+            sum(1 for collection in all_collections if collection.status != CollectionRecord.STATUS_PAID),
+        )
+        setattr(
+            entity,
+            "promised_collection_count",
+            sum(1 for collection in all_collections if collection.status == CollectionRecord.STATUS_PROMISED),
+        )
+        setattr(
+            entity,
+            "overdue_collection_count",
+            sum(1 for collection in all_collections if _collection_status(collection)["is_overdue"]),
+        )
+    condo_status = _condo_resident_status(entity, field_definitions=entity_field_definitions) if profile == "condominio" else None
+    condo_currency = next((collection.currency for collection in all_collections if getattr(collection, "currency", "")), "USD")
+    condo_open_balance = sum((collection.balance or 0 for collection in all_collections if collection.status != CollectionRecord.STATUS_PAID), 0)
+    condo_overdue_balance = sum((collection.balance or 0 for collection in all_collections if _collection_status(collection)["is_overdue"]), 0)
+    condo_latest_statement = next((document for document in all_documents if document.document_type == "estado_cuenta"), None)
+    condo_latest_payment_proof = next((document for document in all_documents if document.document_type == "comprobante_pago"), None)
+    condo_summary_items = []
+    retail_segment = _retail_clienteling_state(entity, field_definitions=entity_field_definitions) if profile == "retail_moda" else None
+    retail_last_purchase = _parse_extra_date((entity.data_extra or {}).get("ultima_compra")) if profile == "retail_moda" else None
+    retail_open_wishlists = [record for record in retail_wishlist_records if (record.data or {}).get("vigente")]
+    retail_summary_items = []
+    if profile == "condominio":
+        condo_summary_items = [
+            {
+                "label": "Unidad",
+                "value": (entity.data_extra or {}).get("departamento")
+                or ((condo_unit_records[0].data or {}).get("codigo_unidad") if condo_unit_records else "")
+                or "Sin unidad",
+                "tone": "bg-slate-100 text-slate-700",
+            },
+            {
+                "label": "Cartera abierta",
+                "value": _format_currency_amount(condo_currency, condo_open_balance),
+                "tone": "bg-blue-50 text-blue-700" if condo_open_balance else "bg-green-50 text-green-700",
+            },
+            {
+                "label": "Cartera vencida",
+                "value": _format_currency_amount(condo_currency, condo_overdue_balance),
+                "tone": "bg-red-50 text-red-700" if condo_overdue_balance else "bg-green-50 text-green-700",
+            },
+            {
+                "label": "Incidencias",
+                "value": str(sum(1 for record in condo_incident_records if not _is_condo_incident_closed((record.data or {}).get("estado")))),
+                "tone": "bg-amber-50 text-amber-700" if condo_incident_records else "bg-slate-100 text-slate-700",
+            },
+            {
+                "label": "Estado de cuenta",
+                "value": condo_latest_statement.title if condo_latest_statement else "No cargado",
+                "tone": "bg-blue-50 text-blue-700" if condo_latest_statement else "bg-slate-100 text-slate-700",
+            },
+            {
+                "label": "Ultimo comprobante",
+                "value": condo_latest_payment_proof.title if condo_latest_payment_proof else "Sin comprobante",
+                "tone": "bg-green-50 text-green-700" if condo_latest_payment_proof else "bg-slate-100 text-slate-700",
+            },
+        ]
+    elif profile == "retail_moda":
+        retail_summary_items = [
+            {
+                "label": "Segmento",
+                "value": retail_segment["label"] if retail_segment else "Sin segmento",
+                "tone": retail_segment["tone"] if retail_segment else "bg-slate-100 text-slate-700",
+            },
+            {
+                "label": "Ultima compra",
+                "value": retail_last_purchase.strftime("%d/%m/%Y") if retail_last_purchase else "Sin compra",
+                "tone": "bg-emerald-50 text-emerald-700" if retail_last_purchase else "bg-slate-100 text-slate-700",
+            },
+            {
+                "label": "Canal preferido",
+                "value": _format_extra_value((entity.data_extra or {}).get("canal_preferido"), {"type": "select", "choices": [
+                    {"value": "whatsapp", "label": "WhatsApp"},
+                    {"value": "instagram", "label": "Instagram"},
+                    {"value": "tienda", "label": "Tienda"},
+                    {"value": "email", "label": "Email"},
+                ]}) or "Sin canal",
+                "tone": "bg-blue-50 text-blue-700",
+            },
+            {
+                "label": "Pedidos abiertos",
+                "value": str(getattr(entity, "open_deal_count", 0) or 0),
+                "tone": "bg-amber-50 text-amber-700" if (getattr(entity, "open_deal_count", 0) or 0) else "bg-slate-100 text-slate-700",
+            },
+            {
+                "label": "Wishlists activas",
+                "value": str(len(retail_open_wishlists)),
+                "tone": "bg-fuchsia-50 text-fuchsia-700" if retail_open_wishlists else "bg-slate-100 text-slate-700",
+            },
+        ]
     context = {
         "labels": request.tenant.tenant_config.labels,
         "entity": entity,
@@ -2110,6 +3009,13 @@ def entity_detail(request, pk):
         "extra_values": extra_values,
         "broker_lifecycle": _broker_lifecycle_state(entity, field_definitions=entity_field_definitions) if profile == "broker" else None,
         "service_lifecycle": _services_lifecycle_state(entity, field_definitions=entity_field_definitions) if profile == "servicios" else None,
+        "condo_status": condo_status,
+        "retail_segment": retail_segment,
+        "retail_summary_items": retail_summary_items,
+        "retail_wishlist_records": retail_wishlist_records[:4],
+        "condo_summary_items": condo_summary_items,
+        "condo_recent_incidents": condo_incident_records[:3],
+        "condo_recent_communications": condo_communication_records[:3],
         "open_task_cards": [_build_task_card(activity) for activity in open_tasks],
         "broker_document_checklist": (
             _build_broker_document_checklist(entity, all_documents, blueprint_map=blueprint_map)
@@ -2126,6 +3032,8 @@ def entity_detail(request, pk):
             if profile == "servicios"
             else {}
         ),
+        "services_project_items": services_project_items,
+        "services_project_records": project_records[:3],
         "timeline_items": _build_entity_timeline(
             entity,
             profile=profile,
@@ -2152,7 +3060,12 @@ def entity_detail(request, pk):
         "can_complete_tasks": _can(request, PERMISSION_ACTIVITIES_COMPLETE),
         "can_view_objects": _can(request, PERMISSION_OBJECTS_VIEW),
         "can_edit_objects": _can(request, PERMISSION_OBJECTS_EDIT),
+        "has_project_object": project_schema is not None,
         "has_deliverable_object": deliverable_schema is not None,
+        "has_condo_unit_object": condo_unit_schema is not None,
+        "has_condo_incident_object": condo_incident_schema is not None,
+        "has_condo_communication_object": condo_communication_schema is not None,
+        "has_retail_wishlist_object": retail_wishlist_schema is not None,
     }
     return render(request, "binncrm/entity_detail.html", context)
 
@@ -2559,6 +3472,400 @@ def collection_move(request, pk):
             "position": inserted_index if inserted_index is not None else position,
         }
     )
+
+
+@login_required
+@tenant_permission_required(PERMISSION_REPORTS_VIEW, capability="reports")
+def condominio_hub(request):
+    tenant = request.tenant
+    if _tenant_profile(tenant) != "condominio":
+        return redirect("binncrm:reports")
+
+    labels = tenant.tenant_config.labels
+    feature_flags = tenant.tenant_config.feature_flags or {}
+    workspace_pack = build_workspace_pack(
+        profile=_tenant_profile(tenant),
+        labels=labels,
+        feature_flags=feature_flags,
+    )
+    now = timezone.now()
+    today = timezone.localdate()
+    entity_field_definitions = get_entity_field_definitions(tenant=tenant)
+    custom_blueprints = tenant.document_blueprints
+    blueprint_map = get_document_blueprint_map("condominio", custom_blueprints=custom_blueprints)
+
+    can_view_entities = feature_flags.get("entities") and _can(request, PERMISSION_ENTITIES_VIEW)
+    can_view_deals = feature_flags.get("deals") and _can(request, PERMISSION_DEALS_VIEW)
+    can_view_activities = feature_flags.get("activities") and _can(request, PERMISSION_ACTIVITIES_VIEW)
+    can_view_documents = feature_flags.get("documents") and _can(request, PERMISSION_DOCUMENTS_VIEW)
+    can_view_collections = feature_flags.get("collections") and _can(request, PERMISSION_COLLECTIONS_VIEW)
+    can_view_objects = _can(request, PERMISSION_OBJECTS_VIEW)
+    can_edit_objects = _can(request, PERMISSION_OBJECTS_EDIT)
+
+    entity_qs = Entity.objects.none()
+    if can_view_entities:
+        entity_qs = Entity.objects.filter(is_active=True).annotate(
+            open_collection_count=Count(
+                "collections",
+                filter=Q(collections__is_active=True) & ~Q(collections__status=CollectionRecord.STATUS_PAID),
+                distinct=True,
+            ),
+            promised_collection_count=Count(
+                "collections",
+                filter=Q(collections__is_active=True, collections__status=CollectionRecord.STATUS_PROMISED),
+                distinct=True,
+            ),
+            overdue_collection_count=Count(
+                "collections",
+                filter=Q(collections__is_active=True)
+                & ~Q(collections__status=CollectionRecord.STATUS_PAID)
+                & Q(collections__due_on__lt=today),
+                distinct=True,
+            ),
+        )
+    collection_qs = (
+        CollectionRecord.objects.select_related("entity", "deal").filter(is_active=True)
+        if can_view_collections
+        else CollectionRecord.objects.none()
+    )
+    activity_qs = (
+        Activity.objects.select_related("entity", "deal", "assigned_to").all()
+        if can_view_activities
+        else Activity.objects.none()
+    )
+    document_qs = (
+        Document.objects.select_related("entity", "deal").filter(is_active=True)
+        if can_view_documents
+        else Document.objects.none()
+    )
+
+    entities = list(entity_qs.order_by("full_name")) if can_view_entities else []
+    resident_states = [_condo_resident_status(entity, field_definitions=entity_field_definitions) for entity in entities]
+    overdue_collections_qs = collection_qs.exclude(status=CollectionRecord.STATUS_PAID).filter(due_on__lt=today)
+    promised_collections_qs = collection_qs.filter(status=CollectionRecord.STATUS_PROMISED)
+    pending_tasks_qs = activity_qs.filter(activity_type=Activity.TYPE_TASK, completed_at__isnull=True)
+    recent_documents = list(document_qs.order_by("-created_at")[:6]) if can_view_documents else []
+    document_cards = [
+        _build_document_card(
+            document,
+            profile="condominio",
+            blueprint_map=blueprint_map,
+            custom_blueprints=custom_blueprints,
+        )
+        for document in recent_documents
+    ]
+
+    unit_schema = None
+    incident_schema = None
+    communication_schema = None
+    unit_records = []
+    incident_records = []
+    communication_records = []
+    if can_view_objects:
+        unit_schema = get_object_schema_definition(object_key="unidad")
+        if unit_schema is not None and unit_schema.source == ObjectSchema.SOURCE_CUSTOM:
+            unit_records = list(ObjectRecord.objects.filter(object_schema=unit_schema, is_active=True).order_by("-updated_at", "-id"))
+        incident_schema = get_object_schema_definition(object_key="incidencia")
+        if incident_schema is not None and incident_schema.source == ObjectSchema.SOURCE_CUSTOM:
+            incident_records = list(ObjectRecord.objects.filter(object_schema=incident_schema, is_active=True).order_by("-updated_at", "-id"))
+        communication_schema = get_object_schema_definition(object_key="comunicado")
+        if communication_schema is not None and communication_schema.source == ObjectSchema.SOURCE_CUSTOM:
+            communication_records = list(
+                ObjectRecord.objects.filter(object_schema=communication_schema, is_active=True).order_by("-updated_at", "-id")
+            )
+
+    open_incidents = [
+        record for record in incident_records
+        if not _is_condo_incident_closed((record.data or {}).get("estado"))
+    ]
+    residents_overdue_count = sum(1 for state in resident_states if state["key"] == "cartera_vencida")
+    residents_followup_count = sum(1 for state in resident_states if state["key"] in {"promesa_pago", "seguimiento"})
+
+    summary_cards = [
+        {
+            "label": "Residentes con mora",
+            "value": residents_overdue_count,
+            "caption": "Fichas con cartera vencida o gestion atrasada.",
+            "tone": "bg-red-50 text-red-700" if residents_overdue_count else "bg-green-50 text-green-700",
+            "href": reverse("binncrm:entities") if can_view_entities else "",
+        },
+        {
+            "label": "Seguimientos de cobro",
+            "value": residents_followup_count,
+            "caption": "Residentes con promesa de pago o seguimiento abierto.",
+            "tone": "bg-amber-50 text-amber-700" if residents_followup_count else "bg-green-50 text-green-700",
+            "href": reverse("binncrm:collections") if can_view_collections else reverse("binncrm:entities") if can_view_entities else "",
+        },
+        {
+            "label": "Unidades visibles",
+            "value": len(unit_records),
+            "caption": "Padron operativo de unidades sin salir del CRM.",
+            "tone": "bg-blue-50 text-blue-700" if unit_records else "bg-slate-100 text-slate-700",
+            "href": reverse("binncrm:custom_object_records", kwargs={"object_key": unit_schema.key}) if unit_schema is not None and can_view_objects else "",
+        },
+        {
+            "label": "Incidencias abiertas",
+            "value": len(open_incidents),
+            "caption": "Casos operativos que siguen en gestion o sin resolver.",
+            "tone": "bg-red-50 text-red-700" if open_incidents else "bg-green-50 text-green-700",
+            "href": reverse("binncrm:custom_object_records", kwargs={"object_key": incident_schema.key}) if incident_schema is not None and can_view_objects else "",
+        },
+    ]
+
+    quick_actions = []
+    if _can(request, PERMISSION_ENTITIES_EDIT):
+        quick_actions.append({"label": "Nuevo residente", "href": reverse("binncrm:entity_create")})
+    if _can(request, PERMISSION_COLLECTIONS_EDIT):
+        quick_actions.append({"label": "Nueva cobranza", "href": reverse("binncrm:collection_create")})
+    if _can(request, PERMISSION_ACTIVITIES_EDIT):
+        quick_actions.append(
+            {
+                "label": "Nueva tarea",
+                "href": f"{reverse('binncrm:activity_create')}?{urlencode({'activity_type': Activity.TYPE_TASK})}",
+            }
+        )
+    if can_edit_objects and communication_schema is not None:
+        quick_actions.append(
+            {
+                "label": "Nuevo comunicado",
+                "href": reverse("binncrm:custom_object_record_create", kwargs={"object_key": communication_schema.key}),
+            }
+        )
+    if can_edit_objects and incident_schema is not None:
+        quick_actions.append(
+            {
+                "label": "Nueva incidencia",
+                "href": reverse("binncrm:custom_object_record_create", kwargs={"object_key": incident_schema.key}),
+            }
+        )
+    if _can(request, PERMISSION_DOCUMENTS_EDIT):
+        quick_actions.append(
+            {
+                "label": "Subir estado de cuenta",
+                "href": f"{reverse('binncrm:document_create')}?{urlencode({'document_type': 'estado_cuenta'})}",
+            }
+        )
+
+    condo_sections = [
+        {
+            "title": "Cartera vencida",
+            "subtitle": "Lo que ya vencio y merece llamada, acuerdo o escalamiento hoy.",
+            "href": reverse("binncrm:collections") if can_view_collections else "",
+            "cta": "Abrir cartera",
+            "empty_message": "No hay cartera vencida en este momento.",
+            "items": [
+                _build_report_item(
+                    title=collection.title,
+                    meta=" | ".join(
+                        part for part in [
+                            getattr(collection.entity, "full_name", ""),
+                            (getattr(collection.entity, "data_extra", {}) or {}).get("departamento", ""),
+                        ] if part
+                    ),
+                    caption=" | ".join(
+                        part for part in [
+                            _format_currency_amount(collection.currency, collection.balance),
+                            f"Vencio {collection.due_on.strftime('%d/%m/%Y')}" if collection.due_on else "",
+                        ] if part
+                    ),
+                    status=_collection_status(collection, now=today)["label"],
+                    tone=_collection_status(collection, now=today)["tone"],
+                )
+                for collection in overdue_collections_qs.order_by("due_on", "sort_order")[:6]
+            ],
+        },
+        {
+            "title": "Promesas y seguimiento de cobro",
+            "subtitle": "Compromisos de pago y tareas abiertas para que la cobranza no se enfrie.",
+            "href": reverse("binncrm:collections") if can_view_collections else reverse("binncrm:activities") if can_view_activities else "",
+            "cta": "Abrir seguimiento",
+            "empty_message": "No hay promesas de pago ni tareas operativas pendientes.",
+            "items": [
+                *[
+                    _build_report_item(
+                        title=collection.title,
+                        meta=getattr(collection.entity, "full_name", ""),
+                        caption=" | ".join(
+                            part for part in [
+                                _format_currency_amount(collection.currency, collection.balance),
+                                f"Prometido {collection.promised_for.strftime('%d/%m/%Y')}" if collection.promised_for else "",
+                            ] if part
+                        ),
+                        status=dict(CollectionRecord.STATUS_CHOICES).get(collection.status, collection.status),
+                        tone="bg-amber-50 text-amber-700",
+                    )
+                    for collection in promised_collections_qs.order_by("promised_for", "due_on")[:3]
+                ],
+                *[
+                    _build_report_item(
+                        title=activity.title,
+                        meta=getattr(activity.entity, "full_name", ""),
+                        caption=_task_status(activity, now=now)["label"],
+                        status="Tarea",
+                        tone=_task_status(activity, now=now)["tone"],
+                    )
+                    for activity in pending_tasks_qs.order_by("due_at", "-created_at")[:3]
+                ],
+            ],
+        },
+        {
+            "title": "Incidencias simples",
+            "subtitle": "Casos operativos para mantenimiento, convivencia, seguridad o cartera.",
+            "href": reverse("binncrm:custom_object_records", kwargs={"object_key": incident_schema.key}) if incident_schema is not None and can_view_objects else "",
+            "cta": "Abrir incidencias",
+            "empty_message": "No hay incidencias abiertas ahora mismo.",
+            "items": [
+                _build_report_item(
+                    title=record.title,
+                    meta=" | ".join(
+                        part for part in [
+                            (record.data or {}).get("codigo_unidad", ""),
+                            (record.data or {}).get("residente", ""),
+                        ] if part
+                    ),
+                    caption=" | ".join(
+                        part for part in [
+                            _resolve_choice_label((record.data or {}).get("tipo"), [
+                                {"value": "mantenimiento", "label": "Mantenimiento"},
+                                {"value": "convivencia", "label": "Convivencia"},
+                                {"value": "seguridad", "label": "Seguridad"},
+                                {"value": "cartera", "label": "Cartera"},
+                                {"value": "otro", "label": "Otro"},
+                            ]),
+                            (record.data or {}).get("comentario", "")[:120],
+                        ] if part
+                    ),
+                    status=_resolve_choice_label((record.data or {}).get("estado"), [
+                        {"value": "abierta", "label": "Abierta"},
+                        {"value": "en_gestion", "label": "En gestion"},
+                        {"value": "resuelta", "label": "Resuelta"},
+                    ]) or "Incidencia",
+                    tone="bg-red-50 text-red-700" if not _is_condo_incident_closed((record.data or {}).get("estado")) else "bg-green-50 text-green-700",
+                )
+                for record in open_incidents[:6]
+            ],
+        },
+        {
+            "title": "Comunicados",
+            "subtitle": "Mensajes ya enviados o listos para residentes, bloques o unidades.",
+            "href": reverse("binncrm:custom_object_records", kwargs={"object_key": communication_schema.key}) if communication_schema is not None and can_view_objects else "",
+            "cta": "Abrir comunicados",
+            "empty_message": "Todavia no hay comunicados registrados.",
+            "items": [
+                _build_report_item(
+                    title=record.title,
+                    meta=" | ".join(
+                        part for part in [
+                            (record.data or {}).get("dirigido_a", ""),
+                            (record.data or {}).get("codigo_unidad", ""),
+                        ] if part
+                    ),
+                    caption=" | ".join(
+                        part for part in [
+                            _resolve_choice_label((record.data or {}).get("canal"), [
+                                {"value": "whatsapp", "label": "WhatsApp"},
+                                {"value": "email", "label": "Email"},
+                                {"value": "cartelera", "label": "Cartelera"},
+                            ]),
+                            _parse_extra_date((record.data or {}).get("fecha_envio")).strftime("%d/%m/%Y") if _parse_extra_date((record.data or {}).get("fecha_envio")) else "",
+                        ] if part
+                    ),
+                    status=_resolve_choice_label((record.data or {}).get("estado"), [
+                        {"value": "borrador", "label": "Borrador"},
+                        {"value": "enviado", "label": "Enviado"},
+                        {"value": "confirmado", "label": "Confirmado"},
+                    ]) or "Comunicado",
+                    tone="bg-blue-50 text-blue-700",
+                )
+                for record in communication_records[:6]
+            ],
+        },
+        {
+            "title": "Residentes y unidades",
+            "subtitle": "Padron operativo para revisar bloque, propietario y ocupacion desde una sola vista.",
+            "href": reverse("binncrm:entities") if can_view_entities else reverse("binncrm:custom_object_records", kwargs={"object_key": unit_schema.key}) if unit_schema is not None and can_view_objects else "",
+            "cta": "Abrir padron",
+            "empty_message": "No hay residentes ni unidades cargadas todavia.",
+            "items": [
+                *[
+                    _build_report_item(
+                        title=entity.full_name,
+                        meta=" | ".join(
+                            part for part in [
+                                (entity.data_extra or {}).get("departamento", ""),
+                                (entity.data_extra or {}).get("torre", ""),
+                            ] if part
+                        ),
+                        caption=_condo_resident_status(entity, field_definitions=entity_field_definitions)["label"],
+                        status="Residente",
+                        tone=_condo_resident_status(entity, field_definitions=entity_field_definitions)["tone"],
+                    )
+                    for entity in entities[:3]
+                ],
+                *[
+                    _build_report_item(
+                        title=(record.data or {}).get("codigo_unidad", record.title),
+                        meta=" | ".join(
+                            part for part in [
+                                (record.data or {}).get("torre", ""),
+                                (record.data or {}).get("propietario", ""),
+                            ] if part
+                        ),
+                        caption=" | ".join(
+                            part for part in [
+                                (record.data or {}).get("residente_actual", ""),
+                                _resolve_choice_label((record.data or {}).get("estado_ocupacion"), [
+                                    {"value": "ocupada", "label": "Ocupada"},
+                                    {"value": "vacia", "label": "Vacia"},
+                                    {"value": "arriendo", "label": "Arriendo"},
+                                ]),
+                            ] if part
+                        ),
+                        status="Unidad",
+                        tone="bg-slate-100 text-slate-700",
+                    )
+                    for record in unit_records[:3]
+                ],
+            ],
+        },
+        {
+            "title": "Documentos clave y adjuntos",
+            "subtitle": "Contratos, estados de cuenta y comprobantes visibles dentro del tenant.",
+            "href": reverse("binncrm:documents") if can_view_documents else "",
+            "cta": "Abrir documentos",
+            "empty_message": "No hay documentos clave cargados todavia.",
+            "items": [
+                _build_report_item(
+                    title=item["document"].title,
+                    meta=" | ".join(
+                        part for part in [
+                            item["type_label"],
+                            getattr(item["document"].entity, "full_name", ""),
+                        ] if part
+                    ),
+                    caption=" | ".join(
+                        part for part in [
+                            item["expiry_status"]["label"],
+                            item["metadata_items"][0]["value"] if item["metadata_items"] else "",
+                        ] if part
+                    ),
+                    status=item["verification_label"],
+                    tone=item["verification_tone"],
+                )
+                for item in document_cards
+            ],
+        },
+    ]
+
+    context = {
+        "labels": labels,
+        "workspace_pack": workspace_pack,
+        "summary_cards": summary_cards,
+        "condo_sections": condo_sections,
+        "quick_actions": quick_actions,
+        "generated_at": timezone.localtime(now),
+    }
+    return render(request, "binncrm/condominio_hub.html", context)
 
 
 @login_required
@@ -2993,26 +4300,62 @@ def services_hub(request):
     for document in all_documents:
         if document.entity_id:
             documents_by_entity.setdefault(document.entity_id, []).append(document)
+    all_activities = list(activity_qs.order_by("-created_at")) if can_view_activities else []
+    activities_by_entity: dict[int, list[Activity]] = {}
+    for activity in all_activities:
+        if activity.entity_id:
+            activities_by_entity.setdefault(activity.entity_id, []).append(activity)
+    won_deals = list(won_deals_qs.order_by("updated_at")) if can_view_deals else []
+    won_deals_by_entity: dict[int, list[Deal]] = {}
+    for deal in won_deals:
+        if deal.entity_id:
+            won_deals_by_entity.setdefault(deal.entity_id, []).append(deal)
 
+    project_schema = None
+    project_records = []
     deliverable_schema = None
     deliverable_records = []
     if can_view_objects:
+        project_schema = get_object_schema_definition(object_key="proyecto")
+        if project_schema is not None and project_schema.source == ObjectSchema.SOURCE_CUSTOM:
+            project_records = list(
+                ObjectRecord.objects.filter(object_schema=project_schema, is_active=True).order_by("-updated_at", "-id")
+            )
         deliverable_schema = get_object_schema_definition(object_key="entregable")
         if deliverable_schema is not None and deliverable_schema.source == ObjectSchema.SOURCE_CUSTOM:
             deliverable_records = list(
                 ObjectRecord.objects.filter(object_schema=deliverable_schema, is_active=True).order_by("-updated_at", "-id")
             )
-    deliverables_at_risk = []
-    for record in deliverable_records:
-        delivery_on = _parse_extra_date((record.data or {}).get("fecha_entrega"))
-        status = (record.data or {}).get("estado")
-        if _is_deliverable_completed(status):
-            continue
-        if delivery_on and delivery_on <= today + timedelta(days=7):
-            deliverables_at_risk.append(record)
-    deliverables_at_risk = sorted(
-        deliverables_at_risk,
-        key=lambda record: _parse_extra_date((record.data or {}).get("fecha_entrega")) or (today + timedelta(days=365)),
+    active_project_records = [
+        record for record in project_records
+        if _normalize_reference_token((record.data or {}).get("estado")) != "cerrado"
+    ]
+    project_workload_items = [
+        _build_service_project_report_item(record, deliverable_records, today=today)
+        for record in active_project_records
+    ]
+    project_workload_items = sorted(
+        project_workload_items,
+        key=lambda item: (item.get("attention_rank", 99), item.get("sort_on") or date.max, item.get("title", "")),
+    )
+    deliverable_attention_items = [
+        _build_service_deliverable_report_item(record, today=today)
+        for record in deliverable_records
+        if _deliverable_needs_attention(record, today=today)
+    ]
+    deliverable_attention_items = sorted(
+        deliverable_attention_items,
+        key=lambda item: (item.get("attention_rank", 99), item.get("sort_on") or date.max, item.get("title", "")),
+    )
+    analytics_bundle = _build_services_analytics_bundle(
+        entities=entities,
+        field_definitions=entity_field_definitions,
+        project_records=project_records,
+        deliverable_records=deliverable_records,
+        won_deals_by_entity=won_deals_by_entity,
+        activities_by_entity=activities_by_entity,
+        documents_by_entity=documents_by_entity,
+        today=today,
     )
 
     handoff_pending = []
@@ -3060,6 +4403,20 @@ def services_hub(request):
                 "href": f"{reverse('binncrm:activities')}?{urlencode({'kind': Activity.TYPE_MEETING, 'status': 'open'})}" if can_view_activities else "",
             },
             {
+                "label": "Proyectos activos",
+                "value": len(active_project_records),
+                "caption": "Cuentas en ejecucion o revision que ya requieren lectura operativa.",
+                "tone": "bg-blue-50 text-blue-700" if active_project_records else "bg-slate-100 text-slate-700",
+                "href": reverse("binncrm:custom_object_records", kwargs={"object_key": project_schema.key}) if project_schema is not None and can_view_objects else "",
+            },
+            {
+                "label": "Backlog delivery",
+                "value": len(deliverable_attention_items),
+                "caption": "Entregables bloqueados, por validar o por vencer que ya piden mover equipo.",
+                "tone": "bg-amber-50 text-amber-700" if deliverable_attention_items else "bg-green-50 text-green-700",
+                "href": reverse("binncrm:custom_object_records", kwargs={"object_key": deliverable_schema.key}) if deliverable_schema is not None and can_view_objects else "",
+            },
+            {
                 "label": "Handoffs pendientes",
                 "value": len(handoff_pending),
                 "caption": "Cuentas ganadas que aun no cierran bien el traspaso a delivery.",
@@ -3088,6 +4445,13 @@ def services_hub(request):
             {
                 "label": "Nueva reunion",
                 "href": f"{reverse('binncrm:activity_create')}?{urlencode({'activity_type': Activity.TYPE_MEETING})}",
+            }
+        )
+    if can_edit_objects and project_schema is not None:
+        quick_actions.append(
+            {
+                "label": "Nuevo proyecto",
+                "href": reverse("binncrm:custom_object_record_create", kwargs={"object_key": project_schema.key}),
             }
         )
     if can_edit_objects and deliverable_schema is not None:
@@ -3156,6 +4520,14 @@ def services_hub(request):
             ],
         },
         {
+            "title": "Proyectos en ejecucion",
+            "subtitle": "Lectura rapida del backlog real por proyecto: entregables, revision y cierre objetivo.",
+            "href": reverse("binncrm:custom_object_records", kwargs={"object_key": project_schema.key}) if project_schema is not None and can_view_objects else "",
+            "cta": "Abrir proyectos",
+            "empty_message": "No hay proyectos activos cargados todavia.",
+            "items": project_workload_items[:6],
+        },
+        {
             "title": "Handoff comercial -> servicio",
             "subtitle": "Cuentas ganadas que todavia no dejan listo contrato, kickoff o backlog.",
             "href": reverse("binncrm:entities") if can_view_entities else "",
@@ -3190,28 +4562,13 @@ def services_hub(request):
             ],
         },
         {
-            "title": "Entregables y cobro",
-            "subtitle": "Lo que puede golpear la experiencia del cliente o el flujo de caja si nadie lo toca.",
-            "href": reverse("binncrm:collections") if can_view_collections else reverse("binncrm:custom_object_records", kwargs={"object_key": deliverable_schema.key}) if deliverable_schema is not None and can_view_objects else "",
-            "cta": "Abrir seguimiento",
-            "empty_message": "No hay entregables en riesgo ni cobranzas vencidas.",
+            "title": "Backlog delivery y cobro",
+            "subtitle": "Entregables bloqueados, por validar o por vencer, junto con cartera vencida que puede tensionar la cuenta.",
+            "href": reverse("binncrm:custom_object_records", kwargs={"object_key": deliverable_schema.key}) if deliverable_schema is not None and can_view_objects else reverse("binncrm:collections") if can_view_collections else "",
+            "cta": "Abrir backlog",
+            "empty_message": "No hay backlog de delivery ni cobranzas vencidas ahora.",
             "items": [
-                *[
-                    _build_report_item(
-                        title=(record.data or {}).get("nombre", "Entregable"),
-                        meta=(record.data or {}).get("cliente", ""),
-                        caption=" | ".join(
-                            part for part in [
-                                (record.data or {}).get("estado", ""),
-                                f"Entrega {(delivery_on.strftime('%d/%m/%Y'))}" if delivery_on else "",
-                            ] if part
-                        ),
-                        status="Entregable",
-                        tone="bg-amber-50 text-amber-700",
-                    )
-                    for record in deliverables_at_risk[:3]
-                    for delivery_on in [_parse_extra_date((record.data or {}).get("fecha_entrega"))]
-                ],
+                *deliverable_attention_items[:4],
                 *[
                     _build_report_item(
                         title=collection.title,
@@ -3235,11 +4592,300 @@ def services_hub(request):
         "labels": labels,
         "workspace_pack": workspace_pack,
         "summary_cards": summary_cards,
+        "analytics_cards": analytics_bundle["cards"],
+        "analytics_sections": analytics_bundle["sections"],
         "services_sections": services_sections,
         "quick_actions": quick_actions,
         "generated_at": timezone.localtime(now),
     }
     return render(request, "binncrm/services_hub.html", context)
+
+
+@login_required
+@tenant_permission_required(PERMISSION_REPORTS_VIEW, capability="reports")
+def retail_hub(request):
+    tenant = request.tenant
+    if _tenant_profile(tenant) != "retail_moda":
+        return redirect("binncrm:reports")
+
+    labels = tenant.tenant_config.labels
+    feature_flags = tenant.tenant_config.feature_flags or {}
+    workspace_pack = build_workspace_pack(
+        profile=_tenant_profile(tenant),
+        labels=labels,
+        feature_flags=feature_flags,
+    )
+    now = timezone.now()
+    today = timezone.localdate()
+    entity_field_definitions = get_entity_field_definitions(tenant=tenant)
+
+    can_view_entities = feature_flags.get("entities") and _can(request, PERMISSION_ENTITIES_VIEW)
+    can_view_deals = feature_flags.get("deals") and _can(request, PERMISSION_DEALS_VIEW)
+    can_view_activities = feature_flags.get("activities") and _can(request, PERMISSION_ACTIVITIES_VIEW)
+    can_view_objects = _can(request, PERMISSION_OBJECTS_VIEW)
+    can_edit_objects = _can(request, PERMISSION_OBJECTS_EDIT)
+
+    entity_qs = Entity.objects.none()
+    if can_view_entities:
+        entity_qs = Entity.objects.filter(is_active=True).annotate(
+            deal_count=Count("deals", filter=Q(deals__is_active=True), distinct=True),
+            open_deal_count=Count(
+                "deals",
+                filter=Q(deals__is_active=True, deals__status=Deal.STATUS_OPEN),
+                distinct=True,
+            ),
+        )
+    deal_qs = (
+        Deal.objects.select_related("entity", "pipeline").filter(is_active=True)
+        if can_view_deals
+        else Deal.objects.none()
+    )
+    activity_qs = (
+        Activity.objects.select_related("entity", "deal", "assigned_to").all()
+        if can_view_activities
+        else Activity.objects.none()
+    )
+
+    entities = list(entity_qs.order_by("full_name")) if can_view_entities else []
+    entity_states = []
+    segment_counts = {"vip": 0, "frecuente": 0, "ocasional": 0, "inactiva": 0}
+    for entity in entities:
+        state = _retail_clienteling_state(entity, field_definitions=entity_field_definitions, today=today)
+        last_purchase = _parse_extra_date((entity.data_extra or {}).get("ultima_compra"))
+        entity_states.append((entity, state, last_purchase))
+        segment_counts[state["key"]] = segment_counts.get(state["key"], 0) + 1
+
+    vip_and_frequent = [item for item in entity_states if item[1]["key"] in {"vip", "frecuente"}]
+    inactive_clients = [item for item in entity_states if item[1]["key"] == "inactiva"]
+    open_deals = list(deal_qs.filter(status=Deal.STATUS_OPEN).order_by("expected_close_on", "-updated_at")[:6]) if can_view_deals else []
+    whatsapp_followups = list(activity_qs.filter(activity_type=Activity.TYPE_WHATSAPP).order_by("-updated_at")[:4]) if can_view_activities else []
+    overdue_tasks = list(
+        activity_qs.filter(activity_type=Activity.TYPE_TASK, completed_at__isnull=True, due_at__lt=now).order_by("due_at")[:4]
+    ) if can_view_activities else []
+
+    wishlist_schema = None
+    wishlist_records = []
+    if can_view_objects:
+        wishlist_schema = get_object_schema_definition(object_key="wishlist")
+        if wishlist_schema is not None and wishlist_schema.source == ObjectSchema.SOURCE_CUSTOM:
+            wishlist_records = list(
+                ObjectRecord.objects.filter(object_schema=wishlist_schema, is_active=True).order_by("-updated_at", "-id")
+            )
+    active_wishlists = [record for record in wishlist_records if (record.data or {}).get("vigente")]
+
+    summary_cards = [
+        {
+            "label": "VIP y frecuentes",
+            "value": len(vip_and_frequent),
+            "caption": "Clientas con mejor senal de recompra o relacion activa.",
+            "tone": "bg-fuchsia-50 text-fuchsia-700" if vip_and_frequent else "bg-slate-100 text-slate-700",
+            "href": reverse("binncrm:entities") if can_view_entities else "",
+        },
+        {
+            "label": "Recompra en curso",
+            "value": len(open_deals),
+            "caption": "Pedidos especiales o apartados que siguen abiertos.",
+            "tone": "bg-blue-50 text-blue-700" if open_deals else "bg-slate-100 text-slate-700",
+            "href": reverse("binncrm:index") if can_view_deals else "",
+        },
+        {
+            "label": "Wishlists activas",
+            "value": len(active_wishlists),
+            "caption": "Piezas reservadas o intereses que merecen seguimiento.",
+            "tone": "bg-emerald-50 text-emerald-700" if active_wishlists else "bg-slate-100 text-slate-700",
+            "href": reverse("binncrm:custom_object_records", kwargs={"object_key": wishlist_schema.key}) if wishlist_schema is not None and can_view_objects else "",
+        },
+        {
+            "label": "Clientas inactivas",
+            "value": len(inactive_clients),
+            "caption": "Base que ya pide mensaje, drop o accion de reactivacion.",
+            "tone": "bg-amber-50 text-amber-700" if inactive_clients else "bg-green-50 text-green-700",
+            "href": reverse("binncrm:entities") if can_view_entities else "",
+        },
+    ]
+
+    quick_actions = []
+    if _can(request, PERMISSION_ENTITIES_EDIT):
+        quick_actions.append({"label": "Nueva clienta", "href": reverse("binncrm:entity_create")})
+    if _can(request, PERMISSION_DEALS_EDIT):
+        quick_actions.append({"label": "Nuevo pedido especial", "href": reverse("binncrm:deal_create")})
+    if _can(request, PERMISSION_ACTIVITIES_EDIT):
+        quick_actions.append(
+            {
+                "label": "Follow-up WhatsApp",
+                "href": f"{reverse('binncrm:activity_create')}?{urlencode({'activity_type': Activity.TYPE_WHATSAPP, 'title': 'Follow-up WhatsApp'})}",
+            }
+        )
+    if can_edit_objects and wishlist_schema is not None:
+        quick_actions.append(
+            {
+                "label": "Nueva wishlist",
+                "href": reverse("binncrm:custom_object_record_create", kwargs={"object_key": wishlist_schema.key}),
+            }
+        )
+
+    retail_sections = [
+        {
+            "title": "Clientes VIP y frecuentes",
+            "subtitle": "Base que ya compra, responde o vale proteger con clienteling fino.",
+            "href": reverse("binncrm:entities") if can_view_entities else "",
+            "cta": "Abrir clientes",
+            "empty_message": "No hay clientes VIP o frecuentes detectados ahora.",
+            "items": [
+                _build_report_item(
+                    title=entity.full_name,
+                    meta=" | ".join(
+                        part for part in [
+                            (entity.data_extra or {}).get("talla", ""),
+                            (entity.data_extra or {}).get("estilo", ""),
+                            (entity.data_extra or {}).get("canal_preferido", ""),
+                        ] if part
+                    ),
+                    caption=" | ".join(
+                        part for part in [
+                            f"Ultima compra {last_purchase.strftime('%d/%m/%Y')}" if last_purchase else "Sin compra registrada",
+                            (entity.data_extra or {}).get("instagram", ""),
+                        ] if part
+                    ),
+                    status=state["label"],
+                    tone=state["tone"],
+                )
+                for entity, state, last_purchase in vip_and_frequent[:6]
+            ],
+        },
+        {
+            "title": "Recompra y pedidos especiales",
+            "subtitle": "Apartados, pedidos y oportunidades de recompra que siguen abiertas.",
+            "href": reverse("binncrm:index") if can_view_deals else "",
+            "cta": "Abrir pipeline",
+            "empty_message": "No hay recompra ni pedidos especiales abiertos.",
+            "items": [
+                _build_report_item(
+                    title=deal.title,
+                    meta=" | ".join(part for part in [getattr(deal.entity, "full_name", ""), getattr(deal.pipeline, "name", ""), deal.stage] if part),
+                    caption=" | ".join(
+                        part for part in [
+                            _format_currency_amount(deal.currency, deal.amount),
+                            f"Cierre {deal.expected_close_on.strftime('%d/%m/%Y')}" if deal.expected_close_on else "",
+                        ] if part
+                    ),
+                    status="Pedido abierto",
+                    tone="bg-blue-50 text-blue-700",
+                )
+                for deal in open_deals
+            ],
+        },
+        {
+            "title": "WhatsApp follow-up",
+            "subtitle": "Mensajes ya enviados y tareas vencidas para que el clienteling no se enfrie.",
+            "href": f"{reverse('binncrm:activities')}?{urlencode({'kind': Activity.TYPE_WHATSAPP})}" if can_view_activities else "",
+            "cta": "Abrir seguimiento",
+            "empty_message": "No hay follow-ups por WhatsApp ni tareas vencidas ahora.",
+            "items": [
+                *[
+                    _build_report_item(
+                        title=activity.title,
+                        meta=" | ".join(part for part in [getattr(activity.entity, "full_name", ""), getattr(activity.assigned_to, "username", "") or "Sin responsable"] if part),
+                        caption=activity.description[:120] or "Seguimiento por WhatsApp registrado.",
+                        status="WhatsApp",
+                        tone="bg-emerald-50 text-emerald-700",
+                    )
+                    for activity in whatsapp_followups
+                ],
+                *[
+                    _build_report_item(
+                        title=activity.title,
+                        meta=getattr(activity.entity, "full_name", ""),
+                        caption=_task_status(activity, now=now)["label"],
+                        status="Tarea vencida",
+                        tone=_task_status(activity, now=now)["tone"],
+                    )
+                    for activity in overdue_tasks
+                ],
+            ],
+        },
+        {
+            "title": "Listas por segmento",
+            "subtitle": "Lectura rapida de VIP, frecuentes, ocasionales e inactivas para planear acciones.",
+            "href": reverse("binncrm:entities") if can_view_entities else "",
+            "cta": "Abrir base",
+            "empty_message": "No hay segmentos calculados todavia.",
+            "items": [
+                _build_report_item(
+                    title=label,
+                    meta=f"{count} clienta(s)",
+                    caption=caption,
+                    status="Segmento",
+                    tone=tone,
+                )
+                for label, count, caption, tone in [
+                    ("VIP", segment_counts["vip"], "Base premium para drops, preventas y trato prioritario.", "bg-fuchsia-50 text-fuchsia-700"),
+                    ("Frecuentes", segment_counts["frecuente"], "Clientas con compra reciente o ritmo sano de contacto.", "bg-emerald-50 text-emerald-700"),
+                    ("Ocasionales", segment_counts["ocasional"], "Base tibia que necesita propuestas mas finas.", "bg-blue-50 text-blue-700"),
+                    ("Inactivas", segment_counts["inactiva"], "Reactivacion por WhatsApp, nueva coleccion o incentivo.", "bg-amber-50 text-amber-700"),
+                ]
+            ],
+        },
+        {
+            "title": "Wishlists y apartados",
+            "subtitle": "Piezas deseadas, reservas y contexto para vender mejor sin inventario completo.",
+            "href": reverse("binncrm:custom_object_records", kwargs={"object_key": wishlist_schema.key}) if wishlist_schema is not None and can_view_objects else "",
+            "cta": "Abrir wishlists",
+            "empty_message": "No hay wishlists activas ni apartados registrados.",
+            "items": [
+                _build_report_item(
+                    title=(record.data or {}).get("pieza", record.title),
+                    meta=" | ".join(
+                        part for part in [
+                            (record.data or {}).get("cliente", ""),
+                            (record.data or {}).get("categoria", ""),
+                        ] if part
+                    ),
+                    caption=" | ".join(
+                        part for part in [
+                            (record.data or {}).get("talla", ""),
+                            _resolve_choice_label((record.data or {}).get("prioridad"), [
+                                {"value": "alta", "label": "Alta"},
+                                {"value": "media", "label": "Media"},
+                                {"value": "baja", "label": "Baja"},
+                            ]),
+                            _parse_extra_date((record.data or {}).get("fecha_followup")).strftime("%d/%m/%Y") if _parse_extra_date((record.data or {}).get("fecha_followup")) else "",
+                        ] if part
+                    ),
+                    status="Wishlist" if (record.data or {}).get("vigente") else "Historico",
+                    tone="bg-fuchsia-50 text-fuchsia-700" if (record.data or {}).get("vigente") else "bg-slate-100 text-slate-700",
+                )
+                for record in (active_wishlists[:4] or wishlist_records[:4])
+            ],
+        },
+        {
+            "title": "Clientes por reactivar",
+            "subtitle": "Fichas que se enfriaron y merecen drop, mensaje o llamada esta semana.",
+            "href": reverse("binncrm:entities") if can_view_entities else "",
+            "cta": "Abrir base",
+            "empty_message": "No hay clientas inactivas para reactivar en este momento.",
+            "items": [
+                _build_report_item(
+                    title=entity.full_name,
+                    meta=" | ".join(part for part in [(entity.data_extra or {}).get("instagram", ""), (entity.data_extra or {}).get("estilo", "")] if part),
+                    caption=f"Ultima compra {last_purchase.strftime('%d/%m/%Y')}" if last_purchase else "Sin compra registrada",
+                    status="Inactiva",
+                    tone="bg-amber-50 text-amber-700",
+                )
+                for entity, state, last_purchase in inactive_clients[:6]
+            ],
+        },
+    ]
+
+    context = {
+        "labels": labels,
+        "workspace_pack": workspace_pack,
+        "summary_cards": summary_cards,
+        "retail_sections": retail_sections,
+        "quick_actions": quick_actions,
+        "generated_at": timezone.localtime(now),
+    }
+    return render(request, "binncrm/retail_hub.html", context)
 
 
 @login_required

@@ -25,7 +25,7 @@ from core.preflight import run_platform_preflight, summarize_preflight
 from core.runtime_services import RuntimeProbeResult, get_runtime_services_status
 from core.views import build_dashboard_experience
 from identity.forms import StrictPasswordResetForm
-from tenants.defaults import PROFILE_BROKER, PROFILE_CONDOMINIO, PROFILE_GENERAL, PROFILE_MARKETING, PROFILE_SERVICIOS
+from tenants.defaults import PROFILE_BROKER, PROFILE_CONDOMINIO, PROFILE_GENERAL, PROFILE_MARKETING, PROFILE_RETAIL_MODA, PROFILE_SERVICIOS
 
 
 def _probe_result(healthy: bool, message: str):
@@ -255,6 +255,28 @@ class NavigationModelTests(SimpleTestCase):
 
         self.assertEqual([item.label for item in nav.management_menu.items], ["Reportes"])
         self.assertTrue(nav.management_menu.active)
+
+    def test_retail_profile_surfaces_retail_hub_before_entities(self):
+        tenant = self._tenant(
+            "entities",
+            "deals",
+            "activities",
+            "reports",
+            labels={"entity_plural": "Clientes", "deal_plural": "Pedidos especiales"},
+            profile=PROFILE_RETAIL_MODA,
+            module_order=["entities", "deals", "activities", "reports"],
+        )
+        membership = SimpleNamespace(
+            is_admin=False,
+            role=TenantMembership.ROLE_MANAGER,
+            role_label="Manager",
+        )
+        request = self._request(tenant=tenant, membership=membership, namespace="binncrm", url_name="retail_hub")
+
+        nav = build_navigation_model(request)
+
+        self.assertEqual([item.label for item in nav.primary_items[:3]], ["Inicio", "Retail", "Clientes"])
+        self.assertTrue(nav.primary_items[1].active)
 
     def test_navigation_renders_custom_objects_when_tenant_has_them(self):
         tenant = self._tenant(

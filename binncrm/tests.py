@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -15,26 +15,34 @@ from .document_blueprints import (
 from .demo_seed import build_demo_scenario
 from .forms import ActivityForm, CollectionRecordForm, EntityForm, ObjectRecordForm, PipelineTemplateEditorForm, ProposalForm, SavedWorkspaceFilterForm
 from .importers import import_entities_from_csv
-from .models import CollectionRecord, Document, Entity, ObjectSchema, Proposal, SavedWorkspaceFilter
+from .models import CollectionRecord, Document, Entity, ObjectRecord, ObjectSchema, Proposal, SavedWorkspaceFilter
 from .object_engine import get_entity_field_definitions, resolve_object_record_title
 from .view_engine import apply_deal_saved_view, apply_entity_saved_view, get_saved_views, resolve_saved_view
 from .views import (
     _build_broker_document_checklist,
     _build_document_access_url,
     _build_entity_timeline,
+    _condo_resident_status,
+    _build_service_deliverable_report_item,
+    _build_service_project_report_item,
+    _build_services_analytics_bundle,
     _build_services_handoff,
     _broker_lifecycle_state,
     _collection_status,
     _build_extra_values,
     _build_entity_search_query,
+    _deliverable_needs_attention,
     _document_expiry_status,
     _format_extra_value,
+    _matching_project_deliverables,
+    _matching_service_projects,
     _normalize_saved_filter_params,
     _proposal_status,
+    _retail_clienteling_state,
     _services_lifecycle_state,
     _task_status,
 )
-from tenants.defaults import PROFILE_BROKER, PROFILE_MARKETING, PROFILE_RETAIL_MODA, PROFILE_SERVICIOS
+from tenants.defaults import PROFILE_BROKER, PROFILE_CONDOMINIO, PROFILE_MARKETING, PROFILE_RETAIL_MODA, PROFILE_SERVICIOS
 
 
 class EntityFormTests(SimpleTestCase):
@@ -735,6 +743,208 @@ class DocumentAccessAndChecklistTests(SimpleTestCase):
 
 
 class ServicesLifecycleTests(SimpleTestCase):
+    def test_matching_project_deliverables_uses_project_reference(self):
+        project_record = ObjectRecord(title="Proyecto A", data={"nombre": "Proyecto A"})
+        matching_record = ObjectRecord(title="Workshop", data={"proyecto": "Proyecto A"})
+        other_record = ObjectRecord(title="Playbook", data={"proyecto": "Otro proyecto"})
+
+        matches = _matching_project_deliverables(project_record, [matching_record, other_record])
+
+        self.assertEqual(matches, [matching_record])
+
+    def test_service_project_report_item_surfaces_blocked_backlog(self):
+        project_schema = ObjectSchema(key="proyecto", label="Proyectos")
+        deliverable_schema = ObjectSchema(key="entregable", label="Entregables")
+        project_record = ObjectRecord(
+            pk=7,
+            object_schema=project_schema,
+            title="Operacion Flores",
+            data={
+                "nombre": "Operacion Flores",
+                "cliente": "Flores & Co",
+                "linea_servicio": "Consultoria",
+                "responsable": "Andrea Leon",
+                "estado": "en_ejecucion",
+                "fecha_cierre_objetivo": "2026-07-05",
+            },
+        )
+        blocked_deliverable = ObjectRecord(
+            pk=9,
+            object_schema=deliverable_schema,
+            title="Workshop discovery",
+            data={
+                "nombre": "Workshop discovery",
+                "cliente": "Flores & Co",
+                "proyecto": "Operacion Flores",
+                "estado": "bloqueado",
+                "fecha_entrega": "2026-07-02",
+            },
+        )
+
+        item = _build_service_project_report_item(
+            project_record,
+            [blocked_deliverable],
+            today=date(2026, 6, 26),
+        )
+
+        self.assertEqual(item["status"], "Bloqueado")
+        self.assertIn("1 bloqueado", item["caption"])
+        self.assertTrue(item["href"].endswith("/objects/proyecto/7/"))
+
+    def test_deliverable_attention_detects_review_and_builds_link(self):
+        deliverable_schema = ObjectSchema(key="entregable", label="Entregables")
+        deliverable = ObjectRecord(
+            pk=11,
+            object_schema=deliverable_schema,
+            title="Playbook",
+            data={
+                "nombre": "Playbook de seguimiento",
+                "cliente": "Flores & Co",
+                "proyecto": "Operacion Flores",
+                "estado": "por_validar",
+                "fecha_revision": "2026-06-28",
+            },
+        )
+
+        self.assertTrue(_deliverable_needs_attention(deliverable, today=date(2026, 6, 26)))
+        item = _build_service_deliverable_report_item(deliverable, today=date(2026, 6, 26))
+        self.assertEqual(item["status"], "Por validar")
+        self.assertTrue(item["href"].endswith("/objects/entregable/11/"))
+
+    def test_matching_service_projects_uses_cliente_reference(self):
+        entity = Entity(full_name="Andrea Leon", data_extra={"empresa": "Flores & Co"})
+        matching_record = ObjectRecord(title="Proyecto A", data={"cliente": "Flores & Co"})
+        other_record = ObjectRecord(title="Proyecto B", data={"cliente": "Otra cuenta"})
+
+        matches = _matching_service_projects(entity, [matching_record, other_record])
+
+        self.assertEqual(matches, [matching_record])
+
+    def test_services_analytics_bundle_rolls_up_retainer_risk_and_activation(self):
+        field_definitions = [
+            {
+                "key": "service_stage",
+                "label": "Etapa servicios",
+                "type": "select",
+                "choices": [
+                    {"value": "prospecto", "label": "Prospecto"},
+                    {"value": "cliente_activo", "label": "Cliente activo"},
+                    {"value": "renovacion_upsell", "label": "Renovacion / upsell"},
+                ],
+            },
+            {
+                "key": "service_line",
+                "label": "Linea de servicio",
+                "type": "select",
+                "choices": [
+                    {"value": "consultoria", "label": "Consultoria"},
+                    {"value": "implementacion", "label": "Implementacion"},
+                ],
+            },
+            {
+                "key": "account_health",
+                "label": "Salud de la cuenta",
+                "type": "select",
+                "choices": [
+                    {"value": "estable", "label": "Estable"},
+                    {"value": "riesgo", "label": "En riesgo"},
+                    {"value": "expansion", "label": "Expansion"},
+                ],
+            },
+        ]
+        entity_risk = Entity(
+            pk=1,
+            full_name="Andrea Leon",
+            data_extra={
+                "empresa": "Flores & Co",
+                "service_stage": "cliente_activo",
+                "service_line": "consultoria",
+                "account_health": "riesgo",
+                "retainer_mensual": "1500",
+                "started_on": "2026-06-12",
+                "delivery_owner": "Andrea Leon",
+                "servicio_principal": "Consultoria ISO",
+            },
+        )
+        entity_expansion = Entity(
+            pk=2,
+            full_name="Mateo Ruiz",
+            data_extra={
+                "empresa": "Distribuidora Andina",
+                "service_stage": "renovacion_upsell",
+                "service_line": "implementacion",
+                "account_health": "expansion",
+                "retainer_mensual": "2400",
+                "started_on": "2026-06-25",
+                "renewal_on": "2026-07-20",
+                "delivery_owner": "Mateo Ruiz",
+                "servicio_principal": "Implementacion CRM",
+            },
+        )
+        project_schema = ObjectSchema(key="proyecto", label="Proyectos")
+        deliverable_schema = ObjectSchema(key="entregable", label="Entregables")
+        project_record = ObjectRecord(
+            pk=7,
+            object_schema=project_schema,
+            title="Operacion Flores",
+            data={
+                "nombre": "Operacion Flores",
+                "cliente": "Flores & Co",
+                "linea_servicio": "Consultoria",
+                "responsable": "Andrea Leon",
+                "estado": "en_ejecucion",
+                "fecha_cierre_objetivo": "2026-07-03",
+            },
+        )
+        deliverable_record = ObjectRecord(
+            pk=8,
+            object_schema=deliverable_schema,
+            title="Workshop",
+            data={
+                "nombre": "Workshop discovery",
+                "cliente": "Flores & Co",
+                "proyecto": "Operacion Flores",
+                "estado": "bloqueado",
+                "fecha_entrega": "2026-07-01",
+            },
+        )
+        won_deals_by_entity = {
+            1: [SimpleNamespace(updated_at=timezone.make_aware(datetime(2026, 6, 5, 9, 0)))],
+            2: [SimpleNamespace(updated_at=timezone.make_aware(datetime(2026, 6, 18, 9, 0)))],
+        }
+        activities_by_entity = {
+            1: [
+                SimpleNamespace(
+                    activity_type="meeting",
+                    title="Kickoff principal",
+                    due_at=timezone.make_aware(datetime(2026, 6, 10, 10, 0)),
+                    created_at=timezone.make_aware(datetime(2026, 6, 9, 10, 0)),
+                )
+            ]
+        }
+
+        bundle = _build_services_analytics_bundle(
+            entities=[entity_risk, entity_expansion],
+            field_definitions=field_definitions,
+            project_records=[project_record],
+            deliverable_records=[deliverable_record],
+            won_deals_by_entity=won_deals_by_entity,
+            activities_by_entity=activities_by_entity,
+            documents_by_entity={},
+            today=date(2026, 6, 26),
+        )
+
+        cards = {item["label"]: item for item in bundle["cards"]}
+        self.assertEqual(cards["Retainer activo"]["value"], "USD 3,900")
+        self.assertEqual(cards["Renovacion mensual"]["value"], "USD 2,400")
+        self.assertEqual(cards["Cuentas en riesgo"]["value"], 1)
+        self.assertEqual(cards["Activacion promedio"]["value"], "6.0 dias")
+
+        sections = {item["title"]: item for item in bundle["sections"]}
+        self.assertTrue(any(row["title"] == "Consultoria" for row in sections["Cartera por linea de servicio"]["items"]))
+        self.assertTrue(any(row["title"] == "Andrea Leon" and row["status"] == "Bloqueos" for row in sections["Capacidad por responsable"]["items"]))
+        self.assertTrue(any(row["status"] == "Pendiente kickoff" for row in sections["Activacion comercial -> delivery"]["items"]))
+
     def test_services_lifecycle_uses_explicit_and_inferred_states(self):
         field_definitions = [
             {
@@ -769,6 +979,79 @@ class ServicesLifecycleTests(SimpleTestCase):
         self.assertEqual(explicit["label"], "Cliente activo")
         self.assertEqual(inferred_active["key"], "cliente_activo")
         self.assertEqual(inferred_renewal["key"], "renovacion_upsell")
+
+
+class CondominioLifecycleTests(SimpleTestCase):
+    def test_condo_status_uses_explicit_and_inferred_states(self):
+        field_definitions = [
+            {
+                "key": "resident_status",
+                "label": "Estado del residente",
+                "type": "select",
+                "choices": [
+                    {"value": "al_dia", "label": "Al dia"},
+                    {"value": "seguimiento", "label": "En seguimiento"},
+                    {"value": "promesa_pago", "label": "Promesa de pago"},
+                    {"value": "cartera_vencida", "label": "Cartera vencida"},
+                ],
+            }
+        ]
+
+        explicit = _condo_resident_status(
+            SimpleNamespace(data_extra={"resident_status": "promesa_pago"}, overdue_collection_count=0, promised_collection_count=1, open_collection_count=1),
+            field_definitions=field_definitions,
+        )
+        inferred_overdue = _condo_resident_status(
+            SimpleNamespace(data_extra={}, overdue_collection_count=2, promised_collection_count=0, open_collection_count=2),
+            field_definitions=field_definitions,
+        )
+        inferred_clean = _condo_resident_status(
+            SimpleNamespace(data_extra={}, overdue_collection_count=0, promised_collection_count=0, open_collection_count=0),
+            field_definitions=field_definitions,
+        )
+
+        self.assertEqual(explicit["key"], "promesa_pago")
+        self.assertEqual(explicit["label"], "Promesa de pago")
+        self.assertEqual(inferred_overdue["key"], "cartera_vencida")
+        self.assertEqual(inferred_clean["key"], "al_dia")
+
+
+class RetailLifecycleTests(SimpleTestCase):
+    def test_retail_segment_uses_explicit_and_inferred_states(self):
+        field_definitions = [
+            {
+                "key": "client_segment",
+                "label": "Segmento cliente",
+                "type": "select",
+                "choices": [
+                    {"value": "vip", "label": "VIP"},
+                    {"value": "frecuente", "label": "Frecuente"},
+                    {"value": "ocasional", "label": "Ocasional"},
+                    {"value": "inactiva", "label": "Inactiva"},
+                ],
+            }
+        ]
+
+        explicit = _retail_clienteling_state(
+            SimpleNamespace(data_extra={"client_segment": "vip"}),
+            field_definitions=field_definitions,
+            today=date(2026, 6, 26),
+        )
+        inferred_frequent = _retail_clienteling_state(
+            SimpleNamespace(data_extra={"ultima_compra": "2026-06-10"}),
+            field_definitions=field_definitions,
+            today=date(2026, 6, 26),
+        )
+        inferred_inactive = _retail_clienteling_state(
+            SimpleNamespace(data_extra={"ultima_compra": "2026-02-10"}),
+            field_definitions=field_definitions,
+            today=date(2026, 6, 26),
+        )
+
+        self.assertEqual(explicit["key"], "vip")
+        self.assertEqual(explicit["label"], "VIP")
+        self.assertEqual(inferred_frequent["key"], "frecuente")
+        self.assertEqual(inferred_inactive["key"], "inactiva")
 
 
 class DemoSeedScenarioTests(SimpleTestCase):
@@ -809,6 +1092,7 @@ class DemoSeedScenarioTests(SimpleTestCase):
         tenant = SimpleNamespace(
             entity_fields=[
                 {"key": "empresa", "label": "Empresa", "type": "text"},
+                {"key": "service_line", "label": "Linea de servicio", "type": "select"},
                 {"key": "servicio_principal", "label": "Servicio principal", "type": "text"},
             ],
             tenant_config=SimpleNamespace(profile=PROFILE_SERVICIOS),
@@ -816,4 +1100,45 @@ class DemoSeedScenarioTests(SimpleTestCase):
 
         scenario = build_demo_scenario(tenant)
 
+        self.assertTrue(any(item["extra"].get("service_line") == "consultoria" for item in scenario["entities"]))
+        self.assertTrue(any(item["object_key"] == "proyecto" for item in scenario["object_records"]))
         self.assertTrue(any(item["object_key"] == "entregable" for item in scenario["object_records"]))
+        self.assertTrue(any(item["data"].get("proyecto") for item in scenario["object_records"] if item["object_key"] == "entregable"))
+
+    def test_condominio_demo_scenario_includes_documents_and_operational_objects(self):
+        tenant = SimpleNamespace(
+            entity_fields=[
+                {"key": "resident_status", "label": "Estado del residente", "type": "select"},
+                {"key": "departamento", "label": "Departamento", "type": "text"},
+                {"key": "torre", "label": "Torre", "type": "text"},
+                {"key": "alicuota", "label": "Alicuota", "type": "number"},
+            ],
+            tenant_config=SimpleNamespace(profile=PROFILE_CONDOMINIO),
+        )
+
+        scenario = build_demo_scenario(tenant)
+
+        self.assertTrue(any(item["document_type"] == "estado_cuenta" for item in scenario["documents"]))
+        self.assertTrue(any(item["object_key"] == "incidencia" for item in scenario["object_records"]))
+        self.assertTrue(any(item["object_key"] == "comunicado" for item in scenario["object_records"]))
+
+    def test_retail_demo_scenario_includes_clienteling_fields_and_wishlists(self):
+        tenant = SimpleNamespace(
+            entity_fields=[
+                {"key": "client_segment", "label": "Segmento cliente", "type": "select"},
+                {"key": "talla", "label": "Talla preferida", "type": "text"},
+                {"key": "estilo", "label": "Estilo favorito", "type": "text"},
+                {"key": "canal_preferido", "label": "Canal preferido", "type": "select"},
+                {"key": "color_favorito", "label": "Color favorito", "type": "text"},
+                {"key": "instagram", "label": "Instagram", "type": "text"},
+                {"key": "ultima_compra", "label": "Ultima compra", "type": "date"},
+            ],
+            tenant_config=SimpleNamespace(profile=PROFILE_RETAIL_MODA),
+        )
+
+        scenario = build_demo_scenario(tenant)
+
+        self.assertTrue(any(item["extra"].get("client_segment") == "vip" for item in scenario["entities"]))
+        self.assertTrue(any(item["extra"].get("canal_preferido") == "whatsapp" for item in scenario["entities"]))
+        self.assertTrue(any(item["object_key"] == "wishlist" for item in scenario["object_records"]))
+        self.assertTrue(any(item["data"].get("prioridad") == "alta" for item in scenario["object_records"]))
