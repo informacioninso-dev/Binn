@@ -142,8 +142,14 @@ class NavigationModelTests(SimpleTestCase):
         nav = build_navigation_model(request)
 
         self.assertEqual([item.label for item in nav.primary_items], ["Inicio", "Asegurados", "Renovaciones"])
+        self.assertEqual(
+            [item.hint for item in nav.primary_items],
+            ["Operacion de hoy", "Fichas y contexto", "Pipeline comercial"],
+        )
         self.assertIsNotNone(nav.management_menu)
+        self.assertEqual(nav.management_menu.label, "Operacion")
         self.assertEqual([item.label for item in nav.management_menu.items], ["Seguimiento"])
+        self.assertEqual([item.hint for item in nav.management_menu.items], ["Tareas y seguimiento"])
         self.assertTrue(nav.management_menu.active)
 
     def test_disabled_modules_do_not_render_navigation_items(self):

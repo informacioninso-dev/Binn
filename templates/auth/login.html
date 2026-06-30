@@ -11,304 +11,533 @@
   .binn-auth-shell {
     min-height: 100vh;
     background:
-      radial-gradient(circle at 10% 10%, rgba(95, 215, 196, 0.22), transparent 22%),
-      radial-gradient(circle at 90% 12%, rgba(255, 124, 95, 0.18), transparent 18%),
-      linear-gradient(180deg, #fbf7f1 0%, #f5ede2 100%);
+      linear-gradient(180deg, #f7fafc 0%, #eef4f7 48%, #f8faf6 100%);
+    color: #0b1f33;
   }
-  .binn-auth-stage {
-    width: min(1160px, calc(100% - 2rem));
+
+  .binn-auth-layout {
+    width: min(1180px, calc(100% - 2rem));
+    min-height: 100vh;
     margin: 0 auto;
-    padding: 2rem 0;
+    padding: 1.25rem 0;
     display: grid;
-    gap: 1.35rem;
+    gap: 1rem;
     align-items: stretch;
   }
-  .binn-auth-showcase,
-  .binn-auth-card {
-    border-radius: 2rem;
-    border: 1px solid rgba(17, 35, 59, 0.08);
-    box-shadow: 0 24px 60px rgba(17, 35, 59, 0.1);
+
+  .binn-auth-product,
+  .binn-auth-panel {
+    border: 1px solid rgba(11, 31, 51, 0.1);
+    border-radius: 8px;
+    box-shadow: 0 18px 42px rgba(11, 31, 51, 0.08);
   }
-  .binn-auth-showcase {
-    position: relative;
+
+  .binn-auth-product {
+    order: 2;
     overflow: hidden;
-    padding: 2rem;
-    background:
-      radial-gradient(circle at top right, rgba(255, 255, 255, 0.12), transparent 26%),
-      linear-gradient(155deg, #10243d 0%, #1d3557 58%, #12314b 100%);
-    color: #f5fbff;
+    background: #0b1f33;
+    color: #f7fbff;
   }
-  .binn-auth-showcase::after {
-    content: "";
-    position: absolute;
-    right: -4rem;
-    bottom: -4rem;
-    width: 13rem;
-    height: 13rem;
-    border-radius: 999px;
-    background: radial-gradient(circle, rgba(95, 215, 196, 0.26), transparent 68%);
+
+  .binn-auth-panel {
+    order: 1;
+    background: rgba(255, 255, 255, 0.96);
   }
-  .binn-auth-card {
-    padding: 1.5rem;
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(14px);
+
+  .binn-auth-product-header,
+  .binn-auth-panel-inner {
+    padding: 1.25rem;
   }
+
   .binn-auth-brand {
     display: flex;
     align-items: center;
-    gap: 0.9rem;
+    gap: 0.75rem;
+    min-width: 0;
   }
-  .binn-auth-brand-copy {
-    display: flex;
-    flex-direction: column;
-    gap: 0.12rem;
+
+  .binn-auth-logo {
+    width: 3rem;
+    height: 3rem;
+    border-radius: 8px;
+    flex: 0 0 auto;
+    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.16);
   }
-  .binn-auth-badge {
-    display: inline-flex;
-    width: fit-content;
-    align-items: center;
-    gap: 0.4rem;
-    margin-top: 1.4rem;
-    border-radius: 999px;
-    padding: 0.48rem 0.82rem;
-    background: rgba(95, 215, 196, 0.14);
-    color: #cbfff3;
-    font-size: 0.76rem;
-    font-weight: 800;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+
+  .binn-auth-logo svg {
+    width: 100%;
+    height: 100%;
+    display: block;
   }
-  .binn-auth-badge svg,
-  .binn-auth-inline-icon {
-    width: 1rem;
-    height: 1rem;
-    flex-shrink: 0;
-  }
-  .binn-auth-hero-title {
-    margin-top: 1.15rem;
-    max-width: 11ch;
+
+  .binn-auth-brand-title {
+    display: block;
     font-family: var(--binn-font-display);
-    font-size: clamp(2.45rem, 5vw, 4.7rem);
-    line-height: 0.94;
-    letter-spacing: -0.06em;
+    font-size: 1.35rem;
+    line-height: 1.1;
     font-weight: 800;
+    letter-spacing: 0;
   }
-  .binn-auth-hero-copy {
+
+  .binn-auth-brand-copy {
+    display: block;
+    margin-top: 0.2rem;
+    color: rgba(247, 251, 255, 0.72);
+    font-size: 0.9rem;
+    line-height: 1.35;
+  }
+
+  .binn-auth-panel .binn-auth-brand-copy {
+    color: #607086;
+  }
+
+  .binn-auth-kicker {
+    margin-top: 2rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    border: 1px solid rgba(95, 215, 196, 0.28);
+    border-radius: 999px;
+    padding: 0.42rem 0.72rem;
+    background: rgba(95, 215, 196, 0.1);
+    color: #b9fff2;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0;
+  }
+
+  .binn-auth-title {
     margin-top: 1rem;
     max-width: 34rem;
-    font-size: 1.03rem;
-    line-height: 1.72;
-    color: rgba(245, 251, 255, 0.8);
+    font-family: var(--binn-font-display);
+    font-size: 2.15rem;
+    line-height: 1.04;
+    font-weight: 850;
+    letter-spacing: 0;
   }
-  .binn-auth-benefits {
-    margin-top: 1.7rem;
-    display: grid;
-    gap: 0.9rem;
+
+  .binn-auth-copy {
+    margin-top: 0.85rem;
+    max-width: 38rem;
+    color: rgba(247, 251, 255, 0.76);
+    font-size: 1rem;
+    line-height: 1.7;
   }
-  .binn-auth-benefit {
-    border-radius: 1.4rem;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    background: rgba(255, 255, 255, 0.08);
-    padding: 1rem 1rem 1.05rem;
-  }
-  .binn-auth-benefit-head {
+
+  .binn-auth-workspace-row {
+    margin-top: 1.25rem;
     display: flex;
-    align-items: center;
-    gap: 0.75rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
   }
-  .binn-auth-benefit-icon {
+
+  .binn-auth-chip {
     display: inline-flex;
     align-items: center;
-    justify-content: center;
-    width: 2.35rem;
-    height: 2.35rem;
-    border-radius: 0.95rem;
-    background: rgba(95, 215, 196, 0.14);
-    color: #d9fff6;
+    gap: 0.4rem;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 999px;
+    padding: 0.42rem 0.7rem;
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(247, 251, 255, 0.82);
+    font-size: 0.83rem;
+    font-weight: 700;
+    white-space: nowrap;
   }
-  .binn-auth-benefit-icon svg {
-    width: 1.15rem;
-    height: 1.15rem;
+
+  .binn-auth-chip-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 999px;
+    background: #5fd7c4;
   }
-  .binn-auth-benefit strong {
-    display: block;
-    font-size: 1rem;
+
+  .binn-auth-board {
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    background: #102941;
   }
-  .binn-auth-benefit p {
-    margin-top: 0.42rem;
-    font-size: 0.93rem;
-    line-height: 1.62;
-    color: rgba(245, 251, 255, 0.72);
+
+  .binn-auth-board-header {
+    padding: 1rem 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   }
-  .binn-auth-proof {
-    margin-top: 1.5rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.12);
-    padding-top: 1rem;
-    font-size: 0.9rem;
-    color: rgba(245, 251, 255, 0.74);
+
+  .binn-auth-board-title {
+    font-size: 0.95rem;
+    font-weight: 850;
   }
-  .binn-auth-card-head {
-    text-align: center;
+
+  .binn-auth-board-date {
+    color: rgba(247, 251, 255, 0.58);
+    font-size: 0.82rem;
   }
-  .binn-auth-card-head h1 {
-    margin-top: 1rem;
-    font-family: var(--binn-font-display);
-    font-size: clamp(2rem, 4vw, 2.8rem);
-    line-height: 0.96;
-    letter-spacing: -0.05em;
+
+  .binn-auth-ops {
+    display: grid;
+    gap: 0;
+  }
+
+  .binn-auth-op {
+    display: grid;
+    grid-template-columns: 5.25rem minmax(0, 1fr);
+    gap: 0.85rem;
+    align-items: center;
+    min-height: 4.6rem;
+    padding: 0.95rem 1.25rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .binn-auth-op:last-child {
+    border-bottom: 0;
+  }
+
+  .binn-auth-op-label {
+    color: rgba(247, 251, 255, 0.58);
+    font-size: 0.74rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0;
+  }
+
+  .binn-auth-op-main {
+    min-width: 0;
+  }
+
+  .binn-auth-op-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .binn-auth-op-name {
+    font-weight: 850;
+    line-height: 1.25;
+  }
+
+  .binn-auth-op-status {
+    flex: 0 0 auto;
+    border-radius: 999px;
+    padding: 0.24rem 0.48rem;
+    background: rgba(255, 213, 138, 0.14);
+    color: #ffd58a;
+    font-size: 0.72rem;
     font-weight: 800;
   }
-  .binn-auth-card-head p {
-    margin-top: 0.75rem;
-    color: #667488;
-    line-height: 1.68;
+
+  .binn-auth-op-copy {
+    margin-top: 0.25rem;
+    color: rgba(247, 251, 255, 0.64);
+    font-size: 0.84rem;
+    line-height: 1.45;
   }
+
+  .binn-auth-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .binn-auth-metric {
+    min-width: 0;
+    padding: 1rem;
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .binn-auth-metric:last-child {
+    border-right: 0;
+  }
+
+  .binn-auth-metric strong {
+    display: block;
+    font-size: 1.35rem;
+    line-height: 1;
+    color: #ffffff;
+  }
+
+  .binn-auth-metric span {
+    display: block;
+    margin-top: 0.35rem;
+    color: rgba(247, 251, 255, 0.62);
+    font-size: 0.78rem;
+    line-height: 1.35;
+  }
+
+  .binn-auth-panel-inner {
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .binn-auth-panel-head {
+    margin-top: 2.25rem;
+  }
+
+  .binn-auth-panel-head h1 {
+    font-family: var(--binn-font-display);
+    font-size: 1.95rem;
+    line-height: 1.08;
+    font-weight: 850;
+    letter-spacing: 0;
+  }
+
+  .binn-auth-panel-head p {
+    margin-top: 0.65rem;
+    color: #5f6f83;
+    line-height: 1.65;
+  }
+
+  .binn-auth-tenant-strip {
+    margin-top: 1.1rem;
+    border: 1px solid rgba(11, 31, 51, 0.1);
+    border-radius: 8px;
+    padding: 0.85rem;
+    background: #f6faf9;
+  }
+
+  .binn-auth-tenant-strip span {
+    display: block;
+    color: #5f6f83;
+    font-size: 0.78rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0;
+  }
+
+  .binn-auth-tenant-strip strong {
+    display: block;
+    margin-top: 0.22rem;
+    color: #0b1f33;
+    font-size: 0.98rem;
+    line-height: 1.3;
+  }
+
+  .binn-auth-tenant-strip small {
+    display: block;
+    margin-top: 0.2rem;
+    color: #607086;
+    font-size: 0.82rem;
+    line-height: 1.4;
+  }
+
   .binn-auth-form {
-    margin-top: 1.8rem;
+    margin-top: 1.45rem;
   }
+
   .binn-auth-field + .binn-auth-field {
     margin-top: 1rem;
   }
+
   .binn-auth-label {
     display: block;
-    margin-bottom: 0.45rem;
-    font-size: 0.85rem;
-    font-weight: 800;
-    letter-spacing: 0.01em;
-    color: #32475e;
+    margin-bottom: 0.42rem;
+    color: #203a54;
+    font-size: 0.86rem;
+    font-weight: 850;
+    letter-spacing: 0;
   }
+
   .binn-auth-label-row {
     display: inline-flex;
     align-items: center;
     gap: 0.45rem;
   }
+
+  .binn-auth-inline-icon,
+  .binn-auth-icon {
+    width: 1rem;
+    height: 1rem;
+    flex: 0 0 auto;
+  }
+
   .binn-auth-input {
-    min-height: 3.45rem;
-    border-radius: 1.1rem;
-    border-color: rgba(17, 35, 59, 0.11);
-    background: #fcfcfa;
+    min-height: 3.35rem;
+    border-radius: 8px;
+    border-color: rgba(11, 31, 51, 0.14);
+    background: #fbfcfd;
+    color: #0b1f33;
     font-size: 1rem;
   }
+
   .binn-auth-input:focus {
-    border-color: rgba(95, 215, 196, 0.62);
-    box-shadow: 0 0 0 4px rgba(95, 215, 196, 0.16);
+    border-color: rgba(0, 123, 255, 0.58);
+    box-shadow: 0 0 0 4px rgba(0, 123, 255, 0.12);
   }
+
   .binn-auth-password-wrap {
     position: relative;
   }
+
   .binn-auth-password-wrap .binn-auth-input {
-    padding-right: 4rem;
+    padding-right: 3.8rem;
   }
+
   .binn-auth-toggle {
     position: absolute;
     top: 50%;
-    right: 0.75rem;
+    right: 0.55rem;
     transform: translateY(-50%);
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 2.6rem;
-    height: 2.6rem;
-    border: 0;
-    border-radius: 999px;
-    background: #eef5f2;
-    color: #3c5168;
+    width: 2.45rem;
+    height: 2.45rem;
+    border: 1px solid rgba(11, 31, 51, 0.08);
+    border-radius: 8px;
+    background: #eef4f7;
+    color: #314b66;
     cursor: pointer;
-    transition: background-color 0.18s ease, color 0.18s ease;
   }
+
   .binn-auth-toggle:hover {
-    background: #e0f7f1;
-    color: #163a5d;
+    background: #e4f2ef;
+    color: #102941;
   }
+
   .binn-auth-toggle:focus-visible {
     outline: none;
     box-shadow: 0 0 0 4px rgba(95, 215, 196, 0.18);
   }
+
   .binn-auth-toggle svg {
-    width: 1.15rem;
-    height: 1.15rem;
+    width: 1.1rem;
+    height: 1.1rem;
   }
+
   .binn-auth-toggle [data-eye-off] {
     display: none;
   }
+
   .binn-auth-toggle.is-visible [data-eye-on] {
     display: none;
   }
+
   .binn-auth-toggle.is-visible [data-eye-off] {
     display: block;
   }
+
   .binn-auth-submit {
     width: 100%;
-    min-height: 3.5rem;
+    min-height: 3.45rem;
     margin-top: 1.25rem;
-    border-radius: 1.1rem;
+    border-radius: 8px;
     font-size: 1rem;
   }
+
   .binn-auth-submit-content {
     display: inline-flex;
     align-items: center;
     gap: 0.55rem;
   }
+
   .binn-auth-help {
     margin-top: 1rem;
     display: flex;
     justify-content: space-between;
     gap: 0.75rem;
     align-items: center;
+    color: #607086;
     font-size: 0.9rem;
-    color: #667488;
   }
+
   .binn-auth-help a {
-    color: #163a5d;
-    font-weight: 800;
+    color: #005fd1;
+    font-weight: 850;
     text-decoration: none;
   }
+
   .binn-auth-help a:hover {
     text-decoration: underline;
   }
+
   .binn-auth-note {
-    margin-top: 1.25rem;
-    border-radius: 1.2rem;
-    background: #f5f8fb;
-    border: 1px solid rgba(17, 35, 59, 0.08);
-    padding: 1rem 1rem 1.05rem;
-    font-size: 0.93rem;
-    line-height: 1.62;
-    color: #5e6d81;
+    margin-top: 1.2rem;
+    border-left: 3px solid #5fd7c4;
+    padding: 0.15rem 0 0.15rem 0.85rem;
+    color: #607086;
+    font-size: 0.9rem;
+    line-height: 1.55;
   }
-  .binn-auth-note-head {
-    display: flex;
-    align-items: center;
-    gap: 0.55rem;
-    margin-bottom: 0.35rem;
-    font-weight: 800;
-    color: #31475e;
+
+  .binn-auth-error {
+    margin-top: 1.1rem;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    background: #fff1f2;
+    padding: 0.85rem;
+    color: #b91c1c;
+    font-size: 0.9rem;
+    line-height: 1.45;
   }
-  @media (min-width: 980px) {
-    .binn-auth-stage {
-      min-height: 100vh;
-      grid-template-columns: minmax(0, 1.05fr) minmax(420px, 0.95fr);
-      padding: 2rem 0;
+
+  @media (min-width: 960px) {
+    .binn-auth-layout {
+      grid-template-columns: minmax(0, 1.08fr) minmax(390px, 0.82fr);
+      padding: 1.5rem 0;
     }
-    .binn-auth-showcase,
-    .binn-auth-card {
-      padding: 2.35rem;
+
+    .binn-auth-product,
+    .binn-auth-panel {
+      order: initial;
     }
-    .binn-auth-card {
-      display: flex;
+
+    .binn-auth-product-header,
+    .binn-auth-panel-inner {
+      padding: 1.65rem;
+    }
+
+    .binn-auth-title {
+      font-size: 2.7rem;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .binn-auth-layout {
+      width: min(100% - 1rem, 1180px);
+      padding: 0.5rem 0;
+    }
+
+    .binn-auth-product-header,
+    .binn-auth-panel-inner {
+      padding: 1rem;
+    }
+
+    .binn-auth-title {
+      font-size: 1.8rem;
+    }
+
+    .binn-auth-op {
+      grid-template-columns: 1fr;
+      gap: 0.35rem;
+    }
+
+    .binn-auth-op-head {
+      align-items: flex-start;
       flex-direction: column;
-      justify-content: center;
+      gap: 0.35rem;
     }
-  }
-  @media (max-width: 979px) {
-    .binn-auth-showcase {
-      padding: 1.6rem;
+
+    .binn-auth-metrics {
+      grid-template-columns: 1fr;
     }
-    .binn-auth-card {
-      padding: 1.35rem;
+
+    .binn-auth-metric {
+      border-right: 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     }
-    .binn-auth-hero-title {
-      max-width: 12ch;
+
+    .binn-auth-metric:last-child {
+      border-bottom: 0;
+    }
+
+    .binn-auth-help {
+      align-items: flex-start;
+      flex-direction: column;
     }
   }
 </style>
@@ -316,158 +545,235 @@
 
 {% block content %}
   <section class="binn-auth-shell">
-    <div class="binn-auth-stage">
-      <section class="binn-auth-showcase">
-        <div class="binn-auth-brand">
-          <span class="binn-mark-lg" aria-hidden="true">Bn</span>
-          <div class="binn-auth-brand-copy">
-            <strong class="text-2xl font-semibold tracking-tight">Binn</strong>
-            <span class="text-sm text-white/70">CRM comercial para pymes</span>
+    <div class="binn-auth-layout">
+      <section class="binn-auth-product" aria-label="Binn">
+        <div class="binn-auth-product-header">
+          <div class="binn-auth-brand">
+            <span class="binn-auth-logo" aria-hidden="true">
+              <svg viewBox="0 0 128 128" role="img">
+                <defs>
+                  <linearGradient id="binnLoginGradientA" x1="18" x2="110" y1="16" y2="112" gradientUnits="userSpaceOnUse">
+                    <stop offset="0" stop-color="#5fd7c4" />
+                    <stop offset="0.58" stop-color="#ffd58a" />
+                    <stop offset="1" stop-color="#ff845f" />
+                  </linearGradient>
+                </defs>
+                <rect width="128" height="128" rx="30" fill="url(#binnLoginGradientA)" />
+                <path d="M42 31.5c0-4.142 3.358-7.5 7.5-7.5h16c8.56 0 15.5 6.94 15.5 15.5 0 3.913-1.45 7.486-3.841 10.214C82.485 52.348 86 57.874 86 64.2 86 73.478 78.478 81 69.2 81H49.5c-4.142 0-7.5-3.358-7.5-7.5v-42Zm15 4.5v10.5h8.8c3.7 0 6.7-2.999 6.7-6.7S69.5 33 65.8 33H57Zm0 22.5V72h12.2c4.197 0 7.6-3.403 7.6-7.6s-3.403-7.6-7.6-7.6H57Z" fill="#10243d" />
+                <path d="M92.5 45c0-2.485 2.015-4.5 4.5-4.5s4.5 2.015 4.5 4.5-2.015 4.5-4.5 4.5-4.5-2.015-4.5-4.5Zm0 18c0-2.485 2.015-4.5 4.5-4.5s4.5 2.015 4.5 4.5-2.015 4.5-4.5 4.5-4.5-2.015-4.5-4.5Z" fill="#10243d" fill-opacity="0.74" />
+              </svg>
+            </span>
+            <span>
+              <span class="binn-auth-brand-title">Binn</span>
+              <span class="binn-auth-brand-copy">CRM vertical para operar ventas, seguimiento y cobros.</span>
+            </span>
+          </div>
+
+          <span class="binn-auth-kicker">
+            <svg class="binn-auth-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M4 12h10M4 17h7" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="m16 15 2 2 4-5" />
+            </svg>
+            Menos ruido, mas siguiente accion
+          </span>
+
+          <h2 class="binn-auth-title">La entrada al trabajo comercial de cada dia.</h2>
+          <p class="binn-auth-copy">
+            Binn ordena clientes, oportunidades, documentos, actividades y cobranza ligera para equipos que necesitan moverse rapido sin vivir dentro de un CRM pesado.
+          </p>
+
+          <div class="binn-auth-workspace-row" aria-label="Verticales de Binn">
+            <span class="binn-auth-chip"><span class="binn-auth-chip-dot"></span>Servicios</span>
+            <span class="binn-auth-chip"><span class="binn-auth-chip-dot"></span>Broker</span>
+            <span class="binn-auth-chip"><span class="binn-auth-chip-dot"></span>Condominios</span>
+            <span class="binn-auth-chip"><span class="binn-auth-chip-dot"></span>Retail</span>
           </div>
         </div>
 
-        <span class="binn-auth-badge">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3l7 4v5c0 4.6-2.9 7.9-7 9-4.1-1.1-7-4.4-7-9V7l7-4Z" />
-            <path stroke-linecap="round" stroke-linejoin="round" d="m9.5 12 1.7 1.7 3.3-3.4" />
-          </svg>
-          Hecho para equipos pequenos
-        </span>
-        <h2 class="binn-auth-hero-title">Clientes, seguimiento y cobros en un lugar claro.</h2>
-        <p class="binn-auth-hero-copy">
-          Binn ayuda a vender con orden, atender mejor y no perder tareas, documentos o cuentas por cobrar entre WhatsApp, Excel y notas sueltas.
-        </p>
+        <div class="binn-auth-board" aria-label="Vista operativa de Binn">
+          <div class="binn-auth-board-header">
+            <div>
+              <strong class="binn-auth-board-title">Operacion de hoy</strong>
+              <p class="binn-auth-board-date">Pipeline, documentos y tareas del equipo</p>
+            </div>
+            <svg class="binn-auth-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 12h5l2-7 4 14 2-7h5" />
+            </svg>
+          </div>
 
-        <div class="binn-auth-benefits">
-          <article class="binn-auth-benefit">
-            <div class="binn-auth-benefit-head">
-              <span class="binn-auth-benefit-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2" />
-                  <circle cx="9.5" cy="7" r="4" />
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M20 8v6M23 11h-6" />
-                </svg>
-              </span>
-              <strong>Clientes y contexto a la mano</strong>
+          <div class="binn-auth-ops">
+            <article class="binn-auth-op">
+              <span class="binn-auth-op-label">Pipeline</span>
+              <div class="binn-auth-op-main">
+                <div class="binn-auth-op-head">
+                  <strong class="binn-auth-op-name">Propuesta lista para seguimiento</strong>
+                  <span class="binn-auth-op-status">Hoy</span>
+                </div>
+                <p class="binn-auth-op-copy">Cuenta prioritaria con siguiente paso claro y responsable asignado.</p>
+              </div>
+            </article>
+
+            <article class="binn-auth-op">
+              <span class="binn-auth-op-label">WhatsApp</span>
+              <div class="binn-auth-op-main">
+                <div class="binn-auth-op-head">
+                  <strong class="binn-auth-op-name">Cliente con respuesta pendiente</strong>
+                  <span class="binn-auth-op-status">15 min</span>
+                </div>
+                <p class="binn-auth-op-copy">El historial queda junto a la ficha y no disperso entre chats.</p>
+              </div>
+            </article>
+
+            <article class="binn-auth-op">
+              <span class="binn-auth-op-label">Cobranza</span>
+              <div class="binn-auth-op-main">
+                <div class="binn-auth-op-head">
+                  <strong class="binn-auth-op-name">Documento por vencer</strong>
+                  <span class="binn-auth-op-status">Riesgo</span>
+                </div>
+                <p class="binn-auth-op-copy">Alertas visibles para renovar, cobrar o cerrar a tiempo.</p>
+              </div>
+            </article>
+          </div>
+
+          <div class="binn-auth-metrics" aria-label="Resumen de Binn">
+            <div class="binn-auth-metric">
+              <strong>4</strong>
+              <span>experiencias verticales</span>
             </div>
-            <p>Encuentra rapido a cada cliente, revisa su historial y decide el siguiente paso sin perder tiempo buscando.</p>
-          </article>
-          <article class="binn-auth-benefit">
-            <div class="binn-auth-benefit-head">
-              <span class="binn-auth-benefit-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z" />
-                </svg>
-              </span>
-              <strong>Facil de aprender y usar</strong>
+            <div class="binn-auth-metric">
+              <strong>1</strong>
+              <span>motor multi-tenant</span>
             </div>
-            <p>La interfaz prioriza acciones claras, lenguaje simple y flujos rapidos para el trabajo del dia a dia.</p>
-          </article>
-          <article class="binn-auth-benefit">
-            <div class="binn-auth-benefit-head">
-              <span class="binn-auth-benefit-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M7 12h10M10 18h4" />
-                </svg>
-              </span>
-              <strong>Cada negocio ve lo que si importa</strong>
+            <div class="binn-auth-metric">
+              <strong>360</strong>
+              <span>contexto por cliente</span>
             </div>
-            <p>Broker, condominio, servicios o retail: cada espacio se adapta para mostrar menos ruido y mas foco operativo.</p>
-          </article>
+          </div>
         </div>
-
-        <p class="binn-auth-proof">Pensado para negocios que hoy se apoyan en WhatsApp, Excel y seguimiento manual.</p>
       </section>
 
-      <section class="binn-auth-card">
-        <div class="binn-auth-card-head">
-          <span class="binn-mark-lg mx-auto" aria-hidden="true">Bn</span>
-          <h1>Inicia sesion</h1>
-          <p>Entra con tu usuario o correo. Si administras varias empresas, eliges la correcta despues del acceso.</p>
-        </div>
+      <section class="binn-auth-panel">
+        <div class="binn-auth-panel-inner">
+          <div class="binn-auth-brand">
+            <span class="binn-auth-logo" aria-hidden="true">
+              <svg viewBox="0 0 128 128" role="img">
+                <defs>
+                  <linearGradient id="binnLoginGradientB" x1="18" x2="110" y1="16" y2="112" gradientUnits="userSpaceOnUse">
+                    <stop offset="0" stop-color="#5fd7c4" />
+                    <stop offset="0.58" stop-color="#ffd58a" />
+                    <stop offset="1" stop-color="#ff845f" />
+                  </linearGradient>
+                </defs>
+                <rect width="128" height="128" rx="30" fill="url(#binnLoginGradientB)" />
+                <path d="M42 31.5c0-4.142 3.358-7.5 7.5-7.5h16c8.56 0 15.5 6.94 15.5 15.5 0 3.913-1.45 7.486-3.841 10.214C82.485 52.348 86 57.874 86 64.2 86 73.478 78.478 81 69.2 81H49.5c-4.142 0-7.5-3.358-7.5-7.5v-42Zm15 4.5v10.5h8.8c3.7 0 6.7-2.999 6.7-6.7S69.5 33 65.8 33H57Zm0 22.5V72h12.2c4.197 0 7.6-3.403 7.6-7.6s-3.403-7.6-7.6-7.6H57Z" fill="#10243d" />
+                <path d="M92.5 45c0-2.485 2.015-4.5 4.5-4.5s4.5 2.015 4.5 4.5-2.015 4.5-4.5 4.5-4.5-2.015-4.5-4.5Zm0 18c0-2.485 2.015-4.5 4.5-4.5s4.5 2.015 4.5 4.5-2.015 4.5-4.5 4.5-4.5-2.015-4.5-4.5Z" fill="#10243d" fill-opacity="0.74" />
+              </svg>
+            </span>
+            <span>
+              <span class="binn-auth-brand-title">Binn</span>
+              <span class="binn-auth-brand-copy">Acceso seguro al espacio de trabajo.</span>
+            </span>
+          </div>
 
-        {% if form.errors %}
-          <div class="mt-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {% if form.non_field_errors %}
-              {{ form.non_field_errors.0 }}
+          <div class="binn-auth-panel-head">
+            <h1>Inicia sesion</h1>
+            <p>Entra con tu usuario o correo. Binn te lleva al negocio correcto segun tus permisos.</p>
+          </div>
+
+          <div class="binn-auth-tenant-strip">
+            {% if request.tenant and request.tenant.schema_name != "public" %}
+              <span>Espacio activo</span>
+              <strong>{{ request.tenant.name }}</strong>
+              <small>Tu equipo entra directo a este negocio.</small>
+            {% elif requested_tenant %}
+              <span>Espacio solicitado</span>
+              <strong>{{ requested_tenant.name }}</strong>
+              <small>Vista local seleccionada para este acceso.</small>
             {% else %}
-              Usuario o contrasena invalida. Revisa tus datos e intenta otra vez.
+              <span>Acceso Binn</span>
+              <strong>Binn multiempresa</strong>
+              <small>Tu espacio aparece despues de iniciar sesion.</small>
             {% endif %}
           </div>
-        {% endif %}
 
-        <form method="post" novalidate class="binn-auth-form">
-          {% csrf_token %}
-          <div class="binn-auth-field">
-            <label for="id_username" class="binn-auth-label">
-              <span class="binn-auth-label-row">
-                <svg class="binn-auth-inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M20 21a8 8 0 0 0-16 0" />
-                  <circle cx="12" cy="7" r="4" />
-                </svg>
-                Correo o usuario
-              </span>
-            </label>
-            {{ form.username }}
-          </div>
-
-          <div class="binn-auth-field">
-            <label for="id_password" class="binn-auth-label">
-              <span class="binn-auth-label-row">
-                <svg class="binn-auth-inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                  <rect x="4" y="11" width="16" height="9" rx="2" />
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M8 11V8a4 4 0 1 1 8 0v3" />
-                </svg>
-                Contrasena
-              </span>
-            </label>
-            <div class="binn-auth-password-wrap">
-              {{ form.password }}
-              <button
-                type="button"
-                class="binn-auth-toggle"
-                data-password-toggle
-                aria-label="Mostrar contrasena"
-                aria-pressed="false"
-              >
-                <svg data-eye-on viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" />
-                  <circle cx="12" cy="12" r="3" />
-                </svg>
-                <svg data-eye-off viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 3 21 21" />
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M10.6 10.7A3 3 0 0 0 13.4 13.5" />
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M9.9 5.1A11.6 11.6 0 0 1 12 5c6.5 0 10 7 10 7a17.6 17.6 0 0 1-4 4.9" />
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M6.5 6.6A17.6 17.6 0 0 0 2 12s3.5 7 10 7a11.6 11.6 0 0 0 4-.7" />
-                </svg>
-              </button>
+          {% if form.errors %}
+            <div class="binn-auth-error">
+              {% if form.non_field_errors %}
+                {{ form.non_field_errors.0 }}
+              {% else %}
+                Usuario o contrasena invalida. Revisa tus datos e intenta otra vez.
+              {% endif %}
             </div>
-          </div>
+          {% endif %}
 
-          <button type="submit" class="binn-btn-primary binn-auth-submit">
-            <span class="binn-auth-submit-content">
-              <svg class="binn-auth-inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 5l7 7-7 7" />
-              </svg>
-              Entrar
-            </span>
-          </button>
+          <form method="post" novalidate class="binn-auth-form">
+            {% csrf_token %}
+            <div class="binn-auth-field">
+              <label for="id_username" class="binn-auth-label">
+                <span class="binn-auth-label-row">
+                  <svg class="binn-auth-inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M20 21a8 8 0 0 0-16 0" />
+                    <circle cx="12" cy="7" r="4" />
+                  </svg>
+                  Correo o usuario
+                </span>
+              </label>
+              {{ form.username }}
+            </div>
 
-          <div class="binn-auth-help">
-            <span>Acceso seguro para tu equipo</span>
-            <a href="/accounts/password/reset/">Olvide mi clave</a>
-          </div>
-        </form>
+            <div class="binn-auth-field">
+              <label for="id_password" class="binn-auth-label">
+                <span class="binn-auth-label-row">
+                  <svg class="binn-auth-inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                    <rect x="4" y="11" width="16" height="9" rx="2" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 11V8a4 4 0 1 1 8 0v3" />
+                  </svg>
+                  Contrasena
+                </span>
+              </label>
+              <div class="binn-auth-password-wrap">
+                {{ form.password }}
+                <button
+                  type="button"
+                  class="binn-auth-toggle"
+                  data-password-toggle
+                  aria-label="Mostrar contrasena"
+                  aria-pressed="false"
+                  title="Mostrar contrasena"
+                >
+                  <svg data-eye-on viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                  <svg data-eye-off viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 3 21 21" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M10.6 10.7A3 3 0 0 0 13.4 13.5" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9.9 5.1A11.6 11.6 0 0 1 12 5c6.5 0 10 7 10 7a17.6 17.6 0 0 1-4 4.9" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6.5 6.6A17.6 17.6 0 0 0 2 12s3.5 7 10 7a11.6 11.6 0 0 0 4-.7" />
+                  </svg>
+                </button>
+              </div>
+            </div>
 
-        <div class="binn-auth-note">
-          <div class="binn-auth-note-head">
-            <svg class="binn-auth-inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-              <circle cx="12" cy="12" r="9" />
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v5M12 7h.01" />
-            </svg>
-            Acceso guiado
-          </div>
-          Si no recuerdas a que espacio debes entrar, inicia sesion primero. Binn te mostrara las empresas o negocios disponibles para tu usuario.
+            <button type="submit" class="binn-btn-primary binn-auth-submit">
+              <span class="binn-auth-submit-content">
+                <svg class="binn-auth-inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 5l7 7-7 7" />
+                </svg>
+                Entrar a Binn
+              </span>
+            </button>
+
+            <div class="binn-auth-help">
+              <span>Acceso por usuario global y permisos por empresa.</span>
+              <a href="/accounts/password/reset/">Olvide mi clave</a>
+            </div>
+          </form>
+
+          <p class="binn-auth-note">
+            Si tu usuario pertenece a varias empresas, Binn mostrara tus espacios disponibles despues del acceso.
+          </p>
         </div>
       </section>
     </div>
@@ -489,6 +795,8 @@
         input.type = visible ? "password" : "text";
         toggle.classList.toggle("is-visible", !visible);
         toggle.setAttribute("aria-pressed", String(!visible));
+        toggle.setAttribute("title", visible ? "Mostrar contrasena" : "Ocultar contrasena");
+        toggle.setAttribute("aria-label", visible ? "Mostrar contrasena" : "Ocultar contrasena");
       });
     });
   </script>

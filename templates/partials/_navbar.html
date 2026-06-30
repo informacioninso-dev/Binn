@@ -28,20 +28,20 @@
           </div>
           <div class="binn-sidebar-workspace">
             <div class="binn-sidebar-workspace-head">
-              <p class="binn-sidebar-eyebrow">Contexto</p>
+              <p class="binn-sidebar-eyebrow">Espacio</p>
               {% if nav.role_label %}
                 <p class="binn-sidebar-workspace-meta">{{ nav.role_label }}</p>
               {% endif %}
             </div>
-            <p class="binn-sidebar-tenant">{{ request.tenant.tenant_config.labels.dashboard_title|default:"Centro de control" }}</p>
+            <p class="binn-sidebar-tenant">{{ request.tenant.tenant_config.labels.dashboard_title|default:"Operacion comercial" }}</p>
           </div>
         </section>
 
         {% if nav.primary_items %}
           <section class="binn-sidebar-section">
             <div class="binn-sidebar-section-head">
-              <p class="binn-sidebar-label">Modulos</p>
-              <span class="binn-sidebar-section-copy">{{ nav.primary_items|length }}</span>
+              <p class="binn-sidebar-label">Base comercial</p>
+              <span class="binn-sidebar-section-copy">CRM</span>
             </div>
             <nav class="binn-sidebar-nav binn-sidebar-accordion-body">
               {% for item in nav.primary_items %}
@@ -49,12 +49,14 @@
                   href="{% url item.route %}"
                   aria-current="{% if item.active %}page{% endif %}"
                   class="binn-sidebar-link {% if item.active %}binn-sidebar-link-active{% endif %}"
-                  title="{{ item.label }}"
+                  title="{{ item.label }}{% if item.hint %} - {{ item.hint }}{% endif %}"
                 >
                   <span class="binn-sidebar-icon">{% include "partials/_nav_icon.html" with icon=item.icon %}</span>
                   <span class="binn-sidebar-link-copy">
                     <span class="binn-sidebar-link-label">{{ item.label }}</span>
-                    <span class="binn-sidebar-link-help">{% if item.active %}Vista actual{% else %}Abrir modulo{% endif %}</span>
+                    {% if item.hint %}
+                      <span class="binn-sidebar-link-help">{{ item.hint }}</span>
+                    {% endif %}
                   </span>
                 </a>
               {% endfor %}
@@ -73,12 +75,14 @@
                   href="{% url item.route %}"
                   aria-current="{% if item.active %}page{% endif %}"
                   class="binn-sidebar-link {% if item.active %}binn-sidebar-link-active{% endif %}"
-                  title="{{ item.label }}"
+                  title="{{ item.label }}{% if item.hint %} - {{ item.hint }}{% endif %}"
                 >
                   <span class="binn-sidebar-icon">{% include "partials/_nav_icon.html" with icon=item.icon %}</span>
                   <span class="binn-sidebar-link-copy">
                     <span class="binn-sidebar-link-label">{{ item.label }}</span>
-                    <span class="binn-sidebar-link-help">Administrar</span>
+                    {% if item.hint %}
+                      <span class="binn-sidebar-link-help">{{ item.hint }}</span>
+                    {% endif %}
                   </span>
                 </a>
               {% endfor %}
@@ -89,7 +93,7 @@
 
       <section class="binn-sidebar-footer">
         <p class="binn-sidebar-footer-label">Acciones</p>
-        <button type="button" class="binn-btn-secondary binn-btn-compact" data-command-palette-toggle title="Buscar">
+        <button type="button" class="binn-btn-secondary binn-btn-compact" data-command-palette-toggle title="Buscar en Binn" aria-label="Buscar en Binn">
           <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
             <circle cx="8.5" cy="8.5" r="4.5" />
             <path stroke-linecap="round" d="m12 12 4 4" />
@@ -118,7 +122,7 @@
           </a>
         {% endif %}
         {% for item in nav.utility_items %}
-          <a href="{% url item.route %}" class="binn-btn-secondary binn-btn-compact" title="{{ item.label }}">
+          <a href="{% url item.route %}" class="binn-btn-secondary binn-btn-compact" title="{{ item.label }}{% if item.hint %} - {{ item.hint }}{% endif %}">
             {% include "partials/_nav_icon.html" with icon=item.icon %}
             <span>{{ item.label }}</span>
           </a>
@@ -139,7 +143,7 @@
 
     <div class="binn-sidebar-collapsed" aria-hidden="true">
       <div class="binn-sidebar-mini">
-        <a href="{% url 'dashboard' %}" class="binn-sidebar-mini-link" title="{{ request.tenant.name }}">
+        <a href="{% url 'dashboard' %}" class="binn-sidebar-mini-link" title="{{ request.tenant.name }}" aria-label="Ir al inicio de {{ request.tenant.name }}">
           <span class="binn-mark" aria-hidden="true">Bn</span>
         </a>
         <button
@@ -150,7 +154,7 @@
           title="Expandir navegacion"
         >
           <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12.5 4.5 7 10l5.5 5.5" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 4.5 13 10l-5.5 5.5" />
           </svg>
         </button>
         <div class="binn-sidebar-mini-separator" aria-hidden="true"></div>
@@ -159,7 +163,8 @@
             href="{% url item.route %}"
             aria-current="{% if item.active %}page{% endif %}"
             class="binn-sidebar-mini-link {% if item.active %}binn-sidebar-mini-link-active{% endif %}"
-            title="{{ item.label }}"
+            title="{{ item.label }}{% if item.hint %} - {{ item.hint }}{% endif %}"
+            aria-label="{{ item.label }}{% if item.hint %}: {{ item.hint }}{% endif %}"
           >
             <span class="binn-sidebar-icon">{% include "partials/_nav_icon.html" with icon=item.icon %}</span>
           </a>
@@ -171,14 +176,15 @@
               href="{% url item.route %}"
               aria-current="{% if item.active %}page{% endif %}"
               class="binn-sidebar-mini-link {% if item.active %}binn-sidebar-mini-link-active{% endif %}"
-              title="{{ item.label }}"
+              title="{{ item.label }}{% if item.hint %} - {{ item.hint }}{% endif %}"
+              aria-label="{{ item.label }}{% if item.hint %}: {{ item.hint }}{% endif %}"
             >
               <span class="binn-sidebar-icon">{% include "partials/_nav_icon.html" with icon=item.icon %}</span>
             </a>
           {% endfor %}
         {% endif %}
         <div class="binn-sidebar-mini-separator" aria-hidden="true"></div>
-        <button type="button" class="binn-sidebar-mini-button" data-command-palette-toggle title="Buscar">
+        <button type="button" class="binn-sidebar-mini-button" data-command-palette-toggle title="Buscar en Binn" aria-label="Buscar en Binn">
           <span class="binn-sidebar-icon">
             <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
               <circle cx="8.5" cy="8.5" r="4.5" />
@@ -205,13 +211,13 @@
           </a>
         {% endif %}
         {% for item in nav.utility_items %}
-          <a href="{% url item.route %}" class="binn-sidebar-mini-link" title="{{ item.label }}">
+          <a href="{% url item.route %}" class="binn-sidebar-mini-link" title="{{ item.label }}{% if item.hint %} - {{ item.hint }}{% endif %}" aria-label="{{ item.label }}{% if item.hint %}: {{ item.hint }}{% endif %}">
             <span class="binn-sidebar-icon">{% include "partials/_nav_icon.html" with icon=item.icon %}</span>
           </a>
         {% endfor %}
         <form method="post" action="{% url 'logout' %}">
           {% csrf_token %}
-          <button type="submit" class="binn-sidebar-mini-button" title="Salir">
+          <button type="submit" class="binn-sidebar-mini-button binn-sidebar-mini-signout" title="Salir">
             <span class="binn-sidebar-icon">
               <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M7 4.5H5.5A1.5 1.5 0 0 0 4 6v8a1.5 1.5 0 0 0 1.5 1.5H7" />

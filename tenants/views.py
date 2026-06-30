@@ -204,6 +204,17 @@ class TenantLoginView(LoginView):
     template_name = "auth/login.html"
     authentication_form = TenantAuthenticationForm
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        requested_schema = (self.request.GET.get("_tenant") or "").strip().lower()
+        context["requested_tenant"] = None
+        if requested_schema and requested_schema != settings.PUBLIC_SCHEMA_NAME:
+            context["requested_tenant"] = Client.objects.filter(
+                schema_name=requested_schema,
+                is_active=True,
+            ).first()
+        return context
+
     def post(self, request, *args, **kwargs):
         login_value = self._submitted_login_value()
         if login_value:

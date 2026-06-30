@@ -37,6 +37,7 @@ class NavigationItem:
     route: str
     active: bool = False
     icon: str = "spark"
+    hint: str = ""
 
 
 @dataclass(frozen=True)
@@ -91,6 +92,7 @@ def build_navigation_model(request) -> NavigationModel:
                     current_namespace,
                     current_url_name,
                     icon="layers",
+                    hint="Espacios de trabajo",
                     namespaces=("tenants",),
                     url_names=("list", "create", "detail", "health", "edit", "toggle_active", "membership_toggle", "membership_delete", "return_to_platform"),
                 )
@@ -102,6 +104,7 @@ def build_navigation_model(request) -> NavigationModel:
                     current_namespace,
                     current_url_name,
                     icon="chart",
+                    hint="Control multiempresa",
                     namespaces=("governance",),
                     url_names=(
                         "group_list",
@@ -126,7 +129,15 @@ def build_navigation_model(request) -> NavigationModel:
     profile = getattr(getattr(tenant, "tenant_config", None), "profile", "")
     module_order = _module_order_for_tenant(tenant)
     primary_items: list[NavigationItem] = [
-        _nav_item("Inicio", "dashboard", current_namespace, current_url_name, icon="home", url_names=("dashboard",)),
+        _nav_item(
+            "Inicio",
+            "dashboard",
+            current_namespace,
+            current_url_name,
+            icon="home",
+            hint="Operacion de hoy",
+            url_names=("dashboard",),
+        ),
     ]
     if profile == PROFILE_CONDOMINIO and tenant.has_capability("reports") and _can_access(request, PERMISSION_REPORTS_VIEW):
         primary_items.append(
@@ -136,6 +147,7 @@ def build_navigation_model(request) -> NavigationModel:
                 current_namespace,
                 current_url_name,
                 icon="chart",
+                hint="Tablero del condominio",
                 url_names=("condominio_hub",),
             )
         )
@@ -147,6 +159,7 @@ def build_navigation_model(request) -> NavigationModel:
                 current_namespace,
                 current_url_name,
                 icon="chart",
+                hint="Cartera y renovaciones",
                 url_names=("broker_hub",),
             )
         )
@@ -158,6 +171,7 @@ def build_navigation_model(request) -> NavigationModel:
                 current_namespace,
                 current_url_name,
                 icon="chart",
+                hint="Servicios en marcha",
                 url_names=("services_hub",),
             )
         )
@@ -169,6 +183,7 @@ def build_navigation_model(request) -> NavigationModel:
                 current_namespace,
                 current_url_name,
                 icon="chart",
+                hint="Ventas retail",
                 url_names=("retail_hub",),
             )
         )
@@ -181,6 +196,7 @@ def build_navigation_model(request) -> NavigationModel:
             current_namespace,
             current_url_name,
             icon="users",
+            hint="Fichas y contexto",
             url_names=("entities", "entity_import", "entity_create", "entity_detail", "entity_edit"),
         )
 
@@ -191,6 +207,7 @@ def build_navigation_model(request) -> NavigationModel:
             current_namespace,
             current_url_name,
             icon="pipeline",
+            hint="Pipeline comercial",
             url_names=("index", "deal_create", "deal_edit"),
         )
 
@@ -202,7 +219,7 @@ def build_navigation_model(request) -> NavigationModel:
     management_menu = None
     if management_items:
         management_menu = NavigationMenu(
-            label="Modulos activos",
+            label="Operacion",
             items=tuple(management_items),
             active=any(item.active for item in management_items),
         )
@@ -227,7 +244,13 @@ def build_command_palette_model(request) -> tuple[CommandPaletteSection, ...]:
 
     nav = build_navigation_model(request)
     for item in (*nav.primary_items, *(nav.management_menu.items if nav.management_menu else ())):
-        navigation_section.append(CommandPaletteItem(label=item.label, href=reverse(item.route), description="Navegacion"))
+        navigation_section.append(
+            CommandPaletteItem(
+                label=item.label,
+                href=reverse(item.route),
+                description=item.hint or "Ir al modulo",
+            )
+        )
 
     if tenant is not None and tenant.schema_name != "public":
         if any(
@@ -372,6 +395,7 @@ def _build_utility_items(user, tenant, current_namespace: str, current_url_name:
                 current_namespace,
                 current_url_name,
                 icon="return",
+                hint="Cambiar workspace",
                 namespaces=("tenants",),
                 url_names=("return_to_platform",),
             )
@@ -384,6 +408,7 @@ def _build_utility_items(user, tenant, current_namespace: str, current_url_name:
                 current_namespace,
                 current_url_name,
                 icon="lock",
+                hint="Seguridad de cuenta",
                 url_names=("password_change", "password_change_done"),
             )
         )
@@ -402,6 +427,7 @@ def _build_management_items(request, tenant, current_namespace: str, current_url
             current_namespace,
             current_url_name,
             icon="layers",
+            hint="Registros custom",
             url_names=("custom_object_catalog", "custom_object_records", "custom_object_record_detail", "custom_object_record_create", "custom_object_record_edit"),
         )
 
@@ -412,6 +438,7 @@ def _build_management_items(request, tenant, current_namespace: str, current_url
             current_namespace,
             current_url_name,
             icon="pulse",
+            hint="Tareas y seguimiento",
             url_names=("activities", "activity_create"),
         )
 
@@ -422,6 +449,7 @@ def _build_management_items(request, tenant, current_namespace: str, current_url
             current_namespace,
             current_url_name,
             icon="chat",
+            hint="Conversaciones internas",
             namespaces=("collab",),
             url_names=("inbox", "conversation_detail"),
         )
@@ -433,6 +461,7 @@ def _build_management_items(request, tenant, current_namespace: str, current_url
             current_namespace,
             current_url_name,
             icon="file",
+            hint="Soportes y vencimientos",
             url_names=("documents", "document_create", "document_edit"),
         )
 
@@ -443,6 +472,7 @@ def _build_management_items(request, tenant, current_namespace: str, current_url
             current_namespace,
             current_url_name,
             icon="spark",
+            hint="Cotizar y enviar",
             url_names=("proposals", "proposal_create", "proposal_edit"),
         )
 
@@ -453,6 +483,7 @@ def _build_management_items(request, tenant, current_namespace: str, current_url
             current_namespace,
             current_url_name,
             icon="wallet",
+            hint="Cobros y cartera",
             url_names=("collections", "collection_create", "collection_edit"),
         )
 
@@ -463,6 +494,7 @@ def _build_management_items(request, tenant, current_namespace: str, current_url
             current_namespace,
             current_url_name,
             icon="chart",
+            hint="Metricas del negocio",
             url_names=("reports",),
         )
 
@@ -483,6 +515,7 @@ def _nav_item(
     current_url_name: str,
     *,
     icon: str = "spark",
+    hint: str = "",
     namespaces=(),
     url_names=(),
 ) -> NavigationItem:
@@ -491,6 +524,7 @@ def _nav_item(
         route=route,
         active=_is_active(current_namespace, current_url_name, namespaces=namespaces, url_names=url_names),
         icon=icon,
+        hint=hint,
     )
 
 
