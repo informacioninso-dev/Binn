@@ -253,7 +253,7 @@ class WorkspacePackTests(SimpleTestCase):
             feature_flags={"collab": True, "documents": True},
         )
 
-        self.assertEqual(pack["title"], "Pack Broker de Seguros")
+        self.assertEqual(pack["title"], "Operacion broker")
         self.assertTrue(pack["collab_enabled"])
         self.assertIn("Docs bajo control", pack["pillars"])
 
@@ -280,7 +280,7 @@ class WorkspacePackTests(SimpleTestCase):
             ]
         )
 
-        self.assertEqual(mix[0]["profile_label"], "Administracion de condominios")
+        self.assertEqual(mix[0]["profile_label"], "Operacion de condominios")
         self.assertEqual(mix[0]["tenant_count"], 2)
         self.assertEqual(mix[0]["visible_tenant_count"], 1)
         self.assertEqual(mix[0]["entity_count"], 12)

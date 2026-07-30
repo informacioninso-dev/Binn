@@ -1,6 +1,9 @@
+from datetime import timedelta
+
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import redirect, render
+from django.utils import timezone
 from django.views.generic import View
 
 from access.services import set_consolidated_context
@@ -9,7 +12,9 @@ from governance.services import record_governance_event, resolve_group_tenant_de
 from tenants.middleware import LOCAL_PREVIEW_SESSION_KEY
 from tenants.workspace_packs import build_group_pack_mix
 
+from .models import ConsolidationRun
 from .services import (
+    SNAPSHOT_STALE_AFTER,
     build_group_dashboard_rows,
     build_group_report_sections,
     ensure_group_snapshot_fresh,
@@ -78,10 +83,18 @@ class CorporateGroupReportsView(LoginRequiredMixin, View):
             messages.error(request, "No tienes permisos para ver este holding.")
             return redirect("dashboard")
 
-        snapshot = ensure_group_snapshot_fresh(group=group, actor=request.user, trigger="group_reports")
+        force_refresh = request.GET.get("refresh") == "1"
+        snapshot = ensure_group_snapshot_fresh(
+            group=group,
+            actor=request.user,
+            trigger="group_reports",
+            force=force_refresh,
+        )
         rows = build_group_dashboard_rows(group=group, user=request.user)
         report_sections = build_group_report_sections(tenant_rows=rows)
         recent_runs = list(group.consolidation_runs.order_by("-started_at", "-id")[:6])
+        run_status_summary = _build_run_status_summary(recent_runs)
+        snapshot_freshness = _snapshot_freshness_badge(snapshot)
 
         set_consolidated_context(request, group=group, tenant=None, reason="group_reports")
         request.session.pop(LOCAL_PREVIEW_SESSION_KEY, None)
@@ -91,8 +104,10 @@ class CorporateGroupReportsView(LoginRequiredMixin, View):
             actor=request.user,
             group=group,
             metadata={
+                "force_refresh": str(force_refresh),
                 "included_tenants_count": str(snapshot.included_tenants_count),
                 "runs_visible": str(len(recent_runs)),
+                "failed_runs_visible": str(sum(1 for run in recent_runs if getattr(run, "status", "") == ConsolidationRun.STATUS_FAILED)),
             },
         )
         return render(
@@ -102,9 +117,11 @@ class CorporateGroupReportsView(LoginRequiredMixin, View):
                 "group": group,
                 "group_membership": access.membership,
                 "snapshot": snapshot,
+                "snapshot_freshness": snapshot_freshness,
                 "report_sections": report_sections,
                 "profile_mix": build_group_pack_mix(tenant_rows=rows),
                 "recent_runs": recent_runs,
+                "run_status_summary": run_status_summary,
             },
         )
 
@@ -202,6 +219,64 @@ def _group_mode_copy(mode: str) -> str:
     }
     return mapping.get(mode, "")
 
+
+
+
+def _build_run_status_summary(recent_runs):
+    counts = {
+        ConsolidationRun.STATUS_SUCCEEDED: 0,
+        ConsolidationRun.STATUS_RUNNING: 0,
+        ConsolidationRun.STATUS_FAILED: 0,
+    }
+    for run in recent_runs or []:
+        status = getattr(run, "status", "")
+        if status in counts:
+            counts[status] += 1
+    return [
+        {
+            "label": "Corridas OK",
+            "value": counts[ConsolidationRun.STATUS_SUCCEEDED],
+            "tone": "bg-emerald-50 text-emerald-700",
+        },
+        {
+            "label": "En progreso",
+            "value": counts[ConsolidationRun.STATUS_RUNNING],
+            "tone": "bg-sky-50 text-sky-700",
+        },
+        {
+            "label": "Fallidas",
+            "value": counts[ConsolidationRun.STATUS_FAILED],
+            "tone": "bg-red-50 text-red-700",
+        },
+    ]
+
+
+def _snapshot_freshness_badge(snapshot, *, now=None):
+    now = now or timezone.now()
+    synced_at = getattr(snapshot, "last_synced_at", None)
+    if synced_at is None:
+        return {
+            "label": "Sin snapshot reciente",
+            "tone": "bg-slate-100 text-slate-700",
+        }
+
+    age = now - synced_at
+    if age <= timedelta(minutes=5):
+        return {
+            "label": "Actualizado hace instantes",
+            "tone": "bg-emerald-50 text-emerald-700",
+        }
+
+    minutes = max(int(age.total_seconds() // 60), 1)
+    if age <= SNAPSHOT_STALE_AFTER:
+        return {
+            "label": f"Actualizado hace {minutes} min",
+            "tone": "bg-sky-50 text-sky-700",
+        }
+    return {
+        "label": f"Desactualizado hace {minutes} min",
+        "tone": "bg-amber-50 text-amber-700",
+    }
 
 def _format_amounts(raw_amounts: dict) -> str:
     if not raw_amounts:

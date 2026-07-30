@@ -13,12 +13,13 @@
         </div>
         <div class="flex flex-wrap gap-3">
           <a href="{% url 'consolidation:group_dashboard' group.pk %}" class="binn-btn-secondary">Volver al dashboard</a>
-          <a href="{% url 'consolidation:group_reports' group.pk %}" class="binn-btn-secondary">Actualizar lectura</a>
+          <a href="{% url 'consolidation:group_reports' group.pk %}?refresh=1" class="binn-btn-secondary">Actualizar lectura</a>
         </div>
       </div>
       <div class="mt-6 flex flex-wrap gap-3">
         <span class="binn-pill">Empresas visibles: {{ snapshot.included_tenants_count }}</span>
         <span class="binn-pill">Sync: {{ snapshot.last_synced_at|date:"d/m/Y H:i" }}</span>
+        <span class="binn-pill {{ snapshot_freshness.tone }}">{{ snapshot_freshness.label }}</span>
         {% if group_membership %}
           <span class="binn-pill">Rol: {{ group_membership.get_role_display }}</span>
         {% endif %}
@@ -131,12 +132,20 @@
       <article class="binn-panel rounded-3xl p-6">
         <h2 class="binn-section-title">Corridas recientes</h2>
         <p class="binn-section-copy mt-2">Trazabilidad del consolidado para revisar refrescos, fallas o reintentos manuales.</p>
+        <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {% for item in run_status_summary %}
+            <div class="rounded-2xl border border-black/5 px-4 py-4">
+              <span class="rounded-full px-3 py-1 text-xs font-semibold {{ item.tone }}">{{ item.label }}</span>
+              <p class="mt-4 text-3xl font-extrabold tracking-tight">{{ item.value }}</p>
+            </div>
+          {% endfor %}
+        </div>
         <div class="mt-4 space-y-3">
           {% for run in recent_runs %}
             <div class="rounded-2xl border border-black/5 px-4 py-3">
               <div class="flex items-start justify-between gap-3">
                 <div>
-                  <p class="font-medium">{{ run.get_target_type_display }} · {{ run.get_status_display }}</p>
+                  <p class="font-medium">{{ run.get_target_type_display }} Â· {{ run.get_status_display }}</p>
                   <p class="mt-1 text-xs text-slate-500">{{ run.started_at|date:"d/m/Y H:i" }}{% if run.actor %} | {{ run.actor.username }}{% endif %}</p>
                 </div>
                 <span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-slate-600">{{ run.trigger }}</span>

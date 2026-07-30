@@ -176,7 +176,7 @@
                 />
               </div>
               <p class="binn-proposals-inline-note">
-                {{ proposal_cards|length }} visibles{% if selected_status %} · filtro {{ selected_status }}{% endif %}
+                {{ proposal_cards|length }} visibles{% if selected_status %} | filtro {{ selected_status }}{% endif %}
               </p>
             </div>
           </form>
@@ -185,7 +185,11 @@
         <div class="binn-proposals-action-card">
           <div class="binn-proposals-toolbar-actions">
             {% if can_create_proposal %}
-              <a href="{% url 'binncrm:proposal_create' %}" class="binn-btn-primary binn-btn-compact">+ Nueva {{ labels.proposal_singular|default:"propuesta" }}</a>
+              <a href="{% url 'binncrm:proposal_create' %}" class="binn-btn-primary binn-btn-compact">+ Sacar {{ labels.proposal_singular|default:"propuesta" }}</a>
+            {% endif %}
+            <p class="binn-proposals-inline-note">Base {{ proposal_ops.default_currency }} | vigencia {{ proposal_ops.validity_days }} dias | prefijo {{ proposal_ops.number_prefix }}</p>
+            {% if proposal_ops.approval_required_over %}
+              <p class="binn-proposals-inline-note">Pasa por aprobacion desde {{ proposal_ops.default_currency }} {{ proposal_ops.approval_required_over }}.</p>
             {% endif %}
           </div>
         </div>
@@ -207,8 +211,8 @@
               <h2 class="binn-proposal-card-title">{{ item.proposal.title }}</h2>
               <p class="binn-proposal-card-copy">
                 {{ item.amount_label }}
-                {% if item.proposal.proposal_number %} · {{ item.proposal.proposal_number }}{% endif %}
-                {% if item.proposal.valid_until %} · Vigente hasta {{ item.proposal.valid_until|date:"d/m/Y" }}{% endif %}
+                {% if item.proposal.proposal_number %} | {{ item.proposal.proposal_number }}{% endif %}
+                {% if item.proposal.valid_until %} | Vigente hasta {{ item.proposal.valid_until|date:"d/m/Y" }}{% endif %}
               </p>
               {% if item.proposal.summary %}
                 <p class="binn-proposal-card-summary">{{ item.proposal.summary|truncatechars:180 }}</p>
@@ -220,7 +224,7 @@
           </div>
         </article>
       {% empty %}
-        <section class="binn-panel p-6 text-sm text-gray-500">Aun no hay propuestas registradas.</section>
+        <section class="binn-panel p-6 text-sm text-gray-500">Todavia no hay propuestas para seguir o cerrar.</section>
       {% endfor %}
     </section>
   </div>

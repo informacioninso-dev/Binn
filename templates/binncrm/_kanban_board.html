@@ -29,7 +29,7 @@
                     <p class="binn-sales-card-amount">{{ card.amount_label }}</p>
                     <div class="binn-sales-card-actions">
                       {% if can_edit_deal %}
-                        <a href="{% url 'binncrm:deal_edit' card.deal.pk %}" class="binn-sales-card-link">Abrir</a>
+                        <a href="{% url 'binncrm:deal_edit' card.deal.pk %}" class="binn-sales-card-link">Mover</a>
                       {% endif %}
                       {% if can_view_collab and can_edit_deal %}
                         <a href="{% url 'binncrm:deal_edit' card.deal.pk %}#deal-collab-panel" class="binn-sales-card-link">Canal</a>

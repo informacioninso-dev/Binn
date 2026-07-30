@@ -369,6 +369,103 @@
 
             <div class="rounded-3xl border border-black/5 bg-gray-50 p-5">
               <div class="mb-4">
+                <h2 class="text-lg font-semibold">Operacion diaria y reglas base</h2>
+                <p class="mt-1 text-sm text-gray-500">Configura como debe sentirse la portada del tenant y cuales son sus reglas operativas por defecto.</p>
+              </div>
+              <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                  <label class="mb-1 block text-xs text-gray-500">{{ form.homepage_layout_mode.label }}</label>
+                  {{ form.homepage_layout_mode }}
+                  {% if form.homepage_layout_mode.help_text %}<p class="mt-1 text-xs text-gray-400">{{ form.homepage_layout_mode.help_text }}</p>{% endif %}
+                  {% for error in form.homepage_layout_mode.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+                </div>
+                <div>
+                  <label class="mb-1 block text-xs text-gray-500">{{ form.homepage_layout_density.label }}</label>
+                  {{ form.homepage_layout_density }}
+                  {% if form.homepage_layout_density.help_text %}<p class="mt-1 text-xs text-gray-400">{{ form.homepage_layout_density.help_text }}</p>{% endif %}
+                  {% for error in form.homepage_layout_density.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+                </div>
+                <div>
+                  <label class="mb-1 block text-xs text-gray-500">{{ form.communication_primary_channel.label }}</label>
+                  {{ form.communication_primary_channel }}
+                  {% if form.communication_primary_channel.help_text %}<p class="mt-1 text-xs text-gray-400">{{ form.communication_primary_channel.help_text }}</p>{% endif %}
+                  {% for error in form.communication_primary_channel.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+                </div>
+                <div>
+                  <label class="flex items-start gap-3 rounded-2xl border border-black/5 bg-white px-4 py-3 text-sm text-gray-700">
+                    {{ form.communication_broadcast_enabled }}
+                    <span>
+                      <span class="block font-medium">{{ form.communication_broadcast_enabled.label }}</span>
+                      {% if form.communication_broadcast_enabled.help_text %}
+                        <span class="mt-1 block text-xs text-gray-500">{{ form.communication_broadcast_enabled.help_text }}</span>
+                      {% endif %}
+                    </span>
+                  </label>
+                  {% for error in form.communication_broadcast_enabled.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+                </div>
+                <div>
+                  <label class="mb-1 block text-xs text-gray-500">{{ form.quote_default_currency.label }}</label>
+                  {{ form.quote_default_currency }}
+                  {% for error in form.quote_default_currency.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+                </div>
+                <div>
+                  <label class="mb-1 block text-xs text-gray-500">{{ form.quote_validity_days.label }}</label>
+                  {{ form.quote_validity_days }}
+                  {% for error in form.quote_validity_days.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+                </div>
+                <div>
+                  <label class="mb-1 block text-xs text-gray-500">{{ form.collection_default_currency.label }}</label>
+                  {{ form.collection_default_currency }}
+                  {% for error in form.collection_default_currency.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+                </div>
+                <div>
+                  <label class="mb-1 block text-xs text-gray-500">{{ form.collection_risk_window_days.label }}</label>
+                  {{ form.collection_risk_window_days }}
+                  {% if form.collection_risk_window_days.help_text %}<p class="mt-1 text-xs text-gray-400">{{ form.collection_risk_window_days.help_text }}</p>{% endif %}
+                  {% for error in form.collection_risk_window_days.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+                </div>
+              </div>
+              <div class="mt-5 space-y-4">
+                <div>
+                  <label class="mb-1 block text-xs text-gray-500">{{ form.task_presets_json.label }}</label>
+                  {{ form.task_presets_json }}
+                  {% if form.task_presets_json.help_text %}<p class="mt-1 text-xs text-gray-400">{{ form.task_presets_json.help_text }}</p>{% endif %}
+                  {% for error in form.task_presets_json.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+                </div>
+                <details class="rounded-2xl border border-black/5 bg-white p-4">
+                  <summary class="cursor-pointer text-sm font-medium text-gray-900">JSON operativo fino</summary>
+                  <div class="mt-4 space-y-4">
+                    <div>
+                      <label class="mb-1 block text-xs text-gray-500">{{ form.collection_settings_json.label }}</label>
+                      {{ form.collection_settings_json }}
+                      {% if form.collection_settings_json.help_text %}<p class="mt-1 text-xs text-gray-400">{{ form.collection_settings_json.help_text }}</p>{% endif %}
+                      {% for error in form.collection_settings_json.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+                    </div>
+                    <div>
+                      <label class="mb-1 block text-xs text-gray-500">{{ form.communication_settings_json.label }}</label>
+                      {{ form.communication_settings_json }}
+                      {% if form.communication_settings_json.help_text %}<p class="mt-1 text-xs text-gray-400">{{ form.communication_settings_json.help_text }}</p>{% endif %}
+                      {% for error in form.communication_settings_json.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+                    </div>
+                    <div>
+                      <label class="mb-1 block text-xs text-gray-500">{{ form.quote_settings_json.label }}</label>
+                      {{ form.quote_settings_json }}
+                      {% if form.quote_settings_json.help_text %}<p class="mt-1 text-xs text-gray-400">{{ form.quote_settings_json.help_text }}</p>{% endif %}
+                      {% for error in form.quote_settings_json.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+                    </div>
+                    <div>
+                      <label class="mb-1 block text-xs text-gray-500">{{ form.homepage_layout_json.label }}</label>
+                      {{ form.homepage_layout_json }}
+                      {% if form.homepage_layout_json.help_text %}<p class="mt-1 text-xs text-gray-400">{{ form.homepage_layout_json.help_text }}</p>{% endif %}
+                      {% for error in form.homepage_layout_json.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+                    </div>
+                  </div>
+                </details>
+              </div>
+            </div>
+
+            <div class="rounded-3xl border border-black/5 bg-gray-50 p-5">
+              <div class="mb-4">
                 <h2 class="text-lg font-semibold">Tipos de documento</h2>
                 <p class="mt-1 text-sm text-gray-500">Ajusta documentos disponibles segun el tipo de negocio y el flujo real de operacion.</p>
               </div>

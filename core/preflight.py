@@ -4,10 +4,9 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from django.conf import settings
+from config.env import DEFAULT_DEV_SECRET, is_strong_secret_key
 
 from .runtime_services import get_runtime_services_status
-
-DEFAULT_DEV_SECRET = "dev-key-CHANGE-IN-PRODUCTION-d8f9a7b6c5e4f3a2b1"
 
 
 @dataclass(frozen=True)
@@ -83,6 +82,9 @@ def _check_collab_app(settings_obj) -> PreflightCheck:
 def _check_secret_key(settings_obj) -> PreflightCheck:
     debug = bool(getattr(settings_obj, "DEBUG", False))
     secret_key = getattr(settings_obj, "SECRET_KEY", "")
+    weak_secret_message = (
+        "SECRET_KEY no cumple baseline de produccion: minimo 50 caracteres, sin placeholder y sin prefijo django-insecure-."
+    )
     if not debug and secret_key == DEFAULT_DEV_SECRET:
         return PreflightCheck(
             code="secret_key",
@@ -90,14 +92,18 @@ def _check_secret_key(settings_obj) -> PreflightCheck:
             status="fail",
             message="DEBUG esta apagado pero SECRET_KEY sigue en valor por defecto.",
         )
-    if debug and secret_key == DEFAULT_DEV_SECRET:
+    if not is_strong_secret_key(secret_key):
         return PreflightCheck(
             code="secret_key",
             label="Secret key",
-            status="warn",
-            message="SECRET_KEY sigue en valor de desarrollo. Aceptable en prototipo local, no en salida real.",
+            status="warn" if debug else "fail",
+            message=(
+                "SECRET_KEY sigue en valor de desarrollo. Aceptable en prototipo local, no en salida real."
+                if debug and secret_key == DEFAULT_DEV_SECRET
+                else weak_secret_message
+            ),
         )
-    return PreflightCheck(code="secret_key", label="Secret key", status="ok", message="SECRET_KEY no usa el valor por defecto.")
+    return PreflightCheck(code="secret_key", label="Secret key", status="ok", message="SECRET_KEY cumple baseline de salida real.")
 
 
 def _check_allowed_hosts(settings_obj) -> PreflightCheck:

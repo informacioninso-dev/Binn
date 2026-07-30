@@ -14,6 +14,7 @@ DEFAULT_LOCAL_CSRF_TRUSTED_ORIGINS = (
 )
 DEFAULT_LOCAL_TENANT_BASE_DOMAIN = "localhost"
 _LOCAL_HOSTNAMES = {"localhost", "127.0.0.1", "::1", "[::1]"}
+_PLACEHOLDER_SECRET_MARKERS = ("change-me", "replace-me", "example-secret", "sample-secret", "placeholder")
 
 
 def split_csv(value: str | None) -> list[str]:
@@ -31,6 +32,18 @@ def parse_admin_identities(value: str | None) -> list[tuple[str, str]]:
         else:
             admins.append(("", item.strip()))
     return [(name, email) for name, email in admins if email]
+
+
+def is_strong_secret_key(value: str | None) -> bool:
+    secret_key = (value or "").strip()
+    if len(secret_key) < 50:
+        return False
+    if len(set(secret_key)) < 5:
+        return False
+    if secret_key.startswith("django-insecure-"):
+        return False
+    lowered = secret_key.lower()
+    return not any(marker in lowered for marker in _PLACEHOLDER_SECRET_MARKERS)
 
 
 def resolve_allowed_hosts(*, debug: bool, env_value: str | None) -> list[str]:

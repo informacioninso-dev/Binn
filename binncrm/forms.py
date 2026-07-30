@@ -3,6 +3,7 @@ import re
 
 from django import forms
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 from django.utils.text import slugify
 
 from access.runtime import get_tenant_user_queryset
@@ -13,6 +14,11 @@ from .document_blueprints import (
     get_document_blueprint_map,
 )
 from .models import Activity, CollectionRecord, Deal, Document, Entity, ObjectRecord, Pipeline, Proposal, SavedWorkspaceFilter
+from .operational_context import (
+    build_activity_operational_context,
+    build_collection_operational_context,
+    build_proposal_operational_context,
+)
 from .object_engine import (
     get_entity_field_definitions,
     get_object_record_field_definitions,
@@ -289,6 +295,17 @@ class ActivityForm(forms.ModelForm):
         self.fields["deal"].queryset = Deal.objects.filter(is_active=True).order_by("title")
         if tenant is not None:
             self.fields["assigned_to"].queryset = get_tenant_user_queryset(tenant)
+            activity_ops = build_activity_operational_context(tenant)
+            if not self.is_bound and not self.instance.pk and not self.initial.get("activity_type") and activity_ops["default_activity_type"]:
+                self.initial["activity_type"] = activity_ops["default_activity_type"]
+            if (
+                not self.is_bound
+                and not self.instance.pk
+                and not self.initial.get("title")
+                and self.initial.get("activity_type") == activity_ops["default_activity_type"]
+                and activity_ops["default_activity_title"]
+            ):
+                self.initial["title"] = activity_ops["default_activity_title"]
         if current_user is not None and getattr(current_user, "is_authenticated", False) and not self.initial.get("assigned_to"):
             self.initial["assigned_to"] = current_user.pk
         self.fields["deal"].required = False
@@ -464,6 +481,13 @@ class ProposalForm(forms.ModelForm):
         self.fields["deal"].queryset = Deal.objects.filter(is_active=True).order_by("title")
         self.fields["entity"].required = False
         self.fields["deal"].required = False
+        if tenant is not None:
+            proposal_ops = build_proposal_operational_context(tenant)
+            if not self.is_bound and not self.instance.pk:
+                self.initial.setdefault("currency", proposal_ops["default_currency"])
+                self.initial.setdefault("valid_until", proposal_ops["default_valid_until"])
+            self.fields["currency"].widget.attrs.setdefault("placeholder", proposal_ops["default_currency"])
+            self.fields["proposal_number"].widget.attrs.setdefault("placeholder", proposal_ops["proposal_number_placeholder"])
 
     def clean(self):
         cleaned = super().clean()
@@ -518,6 +542,20 @@ class CollectionRecordForm(forms.ModelForm):
         self.fields["deal"].queryset = Deal.objects.filter(is_active=True).order_by("title")
         self.fields["entity"].required = False
         self.fields["deal"].required = False
+        if tenant is not None:
+            collection_ops = build_collection_operational_context(tenant)
+            choice_map = dict(CollectionRecord.STATUS_CHOICES)
+            configured_choices = [(status, choice_map[status]) for status in collection_ops["states"] if status in choice_map]
+            remaining_choices = [
+                (status, label)
+                for status, label in CollectionRecord.STATUS_CHOICES
+                if status not in collection_ops["states"]
+            ]
+            self.fields["status"].choices = configured_choices + remaining_choices
+            if not self.is_bound and not self.instance.pk:
+                self.initial.setdefault("currency", collection_ops["default_currency"])
+                self.initial.setdefault("status", collection_ops["default_status"])
+            self.fields["currency"].widget.attrs.setdefault("placeholder", collection_ops["default_currency"])
 
     def clean(self):
         cleaned = super().clean()

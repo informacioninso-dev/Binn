@@ -34,6 +34,7 @@ from access.permissions import (
     PERMISSION_PROPOSALS_EDIT,
     PERMISSION_PROPOSALS_VIEW,
     PERMISSION_REPORTS_VIEW,
+    ensure_request_tenant_permission,
     request_has_tenant_permission,
     tenant_role_required,
     tenant_permission_required,
@@ -41,9 +42,9 @@ from access.permissions import (
 from access.runtime import get_request_membership
 from tenants.workspace_packs import build_workspace_pack
 from tenants.models import Client
-from tenants.observability import record_tenant_event
 from tenants.services import sync_tenant_pipelines
 
+from .audit import record_crm_audit_event
 from .importers import import_entities_from_csv
 from .document_blueprints import (
     build_document_metadata_summary,
@@ -64,6 +65,11 @@ from .forms import (
     SavedWorkspaceFilterForm,
 )
 from .models import Activity, CollectionRecord, Deal, Document, Entity, ObjectRecord, ObjectSchema, Pipeline, Proposal, SavedWorkspaceFilter
+from .operational_context import (
+    build_activity_operational_context,
+    build_collection_operational_context,
+    build_proposal_operational_context,
+)
 from .object_engine import (
     build_object_record_preview,
     get_custom_object_schemas,
@@ -89,6 +95,14 @@ from .timeline import (
     log_proposal_created,
     log_proposal_updated,
 )
+from .task_presets import (
+    build_task_preset_cards,
+    build_task_preset_due_at,
+    build_task_preset_form_href,
+    build_task_preset_form_initial,
+    get_task_preset,
+    resolve_task_preset_assignee,
+)
 from .view_engine import apply_deal_saved_view, apply_entity_saved_view, get_saved_views, resolve_saved_view
 
 
@@ -98,6 +112,32 @@ def _is_htmx(request) -> bool:
 
 def _can(request, permission_code: str) -> bool:
     return request_has_tenant_permission(request, permission_code)
+
+
+def _require_crm_permission(request, permission_code: str, *, capability: str | None = None):
+    ensure_request_tenant_permission(request, permission_code, capability=capability)
+
+
+def _audit_crm_action(
+    request,
+    *,
+    action: str,
+    object_type: str,
+    title: str,
+    message: str = "",
+    metadata: dict | None = None,
+    code: str = "",
+):
+    return record_crm_audit_event(
+        tenant=request.tenant,
+        actor=request.user,
+        action=action,
+        object_type=object_type,
+        title=title,
+        message=message,
+        metadata=metadata,
+        code=code,
+    )
 
 
 def _can_manage_pipeline_settings(request) -> bool:
@@ -225,6 +265,7 @@ def _persist_tenant_pipeline_templates(
     event_message: str,
     event_code: str,
     metadata: dict | None = None,
+    audit_action: str = "updated",
 ) -> list[str]:
     with schema_context(get_public_schema_name()):
         tenant = Client.objects.select_related("config").get(schema_name=request.tenant.schema_name)
@@ -232,9 +273,11 @@ def _persist_tenant_pipeline_templates(
         config.pipeline_templates = templates
         config.save(update_fields=["pipeline_templates", "updated_at"])
         notices = sync_tenant_pipelines(tenant)
-        record_tenant_event(
+        record_crm_audit_event(
             tenant=tenant,
             actor=request.user,
+            action=audit_action,
+            object_type="pipeline_config",
             title=event_title,
             message=event_message,
             code=event_code,
@@ -565,6 +608,243 @@ def _matching_condo_records(entity: Entity, records: list[ObjectRecord], *keys: 
     return matches
 
 
+
+def _broker_reference_tokens(entity: Entity, *, documents=None) -> set[str]:
+    data_extra = entity.data_extra or {}
+    tokens = {
+        _normalize_reference_token(entity.full_name),
+        _normalize_reference_token(entity.legal_id),
+        _normalize_reference_token(data_extra.get("placa")),
+        _normalize_reference_token(data_extra.get("poliza")),
+        _normalize_reference_token(data_extra.get("aseguradora")),
+    }
+    for document in documents or []:
+        metadata = getattr(document, "metadata", None) or {}
+        tokens.update(
+            {
+                _normalize_reference_token(metadata.get("numero_poliza")),
+                _normalize_reference_token(metadata.get("placa")),
+                _normalize_reference_token(metadata.get("aseguradora")),
+            }
+        )
+    return {token for token in tokens if token}
+
+
+def _matching_broker_policy_records(entity: Entity, policy_records: list[ObjectRecord], *, documents=None) -> list[ObjectRecord]:
+    broker_tokens = _broker_reference_tokens(entity, documents=documents)
+    if not broker_tokens:
+        return []
+
+    matches = []
+    for record in policy_records:
+        data = record.data or {}
+        record_tokens = {
+            _normalize_reference_token(record.title),
+            _normalize_reference_token(data.get("numero_poliza")),
+            _normalize_reference_token(data.get("producto")),
+            _normalize_reference_token(data.get("placa")),
+            _normalize_reference_token(data.get("aseguradora")),
+            _normalize_reference_token(data.get("cliente")),
+            _normalize_reference_token(data.get("asegurado")),
+            _normalize_reference_token(data.get("identificacion")),
+        }
+        record_tokens = {token for token in record_tokens if token}
+        if broker_tokens & record_tokens:
+            matches.append(record)
+    return matches
+
+
+def _parse_optional_numeric_amount(raw_value) -> float | None:
+    if raw_value in (None, ""):
+        return None
+    if isinstance(raw_value, (int, float)):
+        return float(raw_value)
+
+    cleaned = "".join(char for char in str(raw_value).strip() if char.isdigit() or char in {".", ",", "-"})
+    if not cleaned:
+        return None
+
+    if "," in cleaned and "." in cleaned:
+        if cleaned.rfind(",") > cleaned.rfind("."):
+            cleaned = cleaned.replace(".", "").replace(",", ".")
+        else:
+            cleaned = cleaned.replace(",", "")
+    elif cleaned.count(",") == 1 and "." not in cleaned:
+        cleaned = cleaned.replace(",", ".")
+    elif cleaned.count(".") > 1 and "," not in cleaned:
+        cleaned = cleaned.replace(".", "")
+    elif cleaned.count(",") > 1 and "." not in cleaned:
+        cleaned = cleaned.replace(",", "")
+
+    try:
+        return float(cleaned)
+    except ValueError:
+        return None
+
+
+def _broker_policy_status(policy_record: ObjectRecord, *, today=None) -> dict:
+    today = today or timezone.localdate()
+    expires_on = _parse_extra_date((policy_record.data or {}).get("vigencia_hasta"))
+    if not expires_on:
+        return {
+            "label": "Sin vigencia",
+            "tone": "bg-slate-100 text-slate-700",
+            "expires_on": None,
+            "days_to_expiry": None,
+            "is_expired": False,
+            "is_expiring_soon": False,
+        }
+
+    days_to_expiry = (expires_on - today).days
+    if expires_on < today:
+        return {
+            "label": f"Vencida {expires_on.strftime('%d/%m/%Y')}",
+            "tone": "bg-red-50 text-red-700",
+            "expires_on": expires_on,
+            "days_to_expiry": days_to_expiry,
+            "is_expired": True,
+            "is_expiring_soon": False,
+        }
+    if expires_on <= today + timedelta(days=30):
+        return {
+            "label": f"Vence {expires_on.strftime('%d/%m/%Y')}",
+            "tone": "bg-amber-50 text-amber-700",
+            "expires_on": expires_on,
+            "days_to_expiry": days_to_expiry,
+            "is_expired": False,
+            "is_expiring_soon": True,
+        }
+    return {
+        "label": f"Vigente hasta {expires_on.strftime('%d/%m/%Y')}",
+        "tone": "bg-green-50 text-green-700",
+        "expires_on": expires_on,
+        "days_to_expiry": days_to_expiry,
+        "is_expired": False,
+        "is_expiring_soon": False,
+    }
+
+
+def _collect_broker_due_policy_records(policy_records: list[ObjectRecord], *, today=None, window_days: int = 45) -> list[ObjectRecord]:
+    today = today or timezone.localdate()
+    matches = []
+    for record in policy_records:
+        status = _broker_policy_status(record, today=today)
+        expires_on = status["expires_on"]
+        if not expires_on:
+            continue
+        if expires_on > today + timedelta(days=window_days):
+            continue
+        matches.append((expires_on, str(record.title or "").lower(), getattr(record, "pk", 0) or 0, record))
+
+    matches.sort(key=lambda item: (item[0], item[1], item[2]))
+    return [item[3] for item in matches]
+
+
+def _build_broker_policy_report_item(policy_record: ObjectRecord, *, today=None, href: str = "", cta: str = "") -> dict:
+    data = policy_record.data or {}
+    policy_status = _broker_policy_status(policy_record, today=today)
+    prima = _parse_optional_numeric_amount(data.get("prima"))
+    currency = str(data.get("moneda") or "USD").strip() or "USD"
+    caption_parts = [policy_status["label"]]
+    if prima is not None:
+        caption_parts.append(_format_currency_amount(currency, prima))
+
+    item = _build_report_item(
+        title=data.get("numero_poliza") or policy_record.title or "Poliza",
+        meta=" | ".join(part for part in [data.get("producto", ""), data.get("aseguradora", "")] if part),
+        caption=" | ".join(part for part in caption_parts if part),
+        status="Poliza",
+        tone=policy_status["tone"],
+        href=href,
+        cta=cta,
+    )
+    item["expires_on"] = policy_status["expires_on"]
+    item["days_to_expiry"] = policy_status["days_to_expiry"]
+    item["is_expired"] = policy_status["is_expired"]
+    item["is_expiring_soon"] = policy_status["is_expiring_soon"]
+    return item
+
+
+def _build_broker_entity_summary(
+    entity: Entity,
+    *,
+    policy_records: list[ObjectRecord],
+    documents: list[Document],
+    activities: list[Activity],
+    collections: list[CollectionRecord],
+    blueprint_map: dict,
+    today=None,
+) -> list[dict]:
+    today = today or timezone.localdate()
+    checklist = _build_broker_document_checklist(entity, documents, blueprint_map=blueprint_map)
+    complete_checklist = sum(1 for item in checklist if item["is_present"])
+    missing_checklist = len(checklist) - complete_checklist
+    open_claims = [
+        activity
+        for activity in activities
+        if getattr(activity, "activity_type", "") == Activity.TYPE_CLAIM and getattr(activity, "completed_at", None) is None
+    ]
+    overdue_collections = [
+        collection
+        for collection in collections
+        if getattr(collection, "status", "") != CollectionRecord.STATUS_PAID and _collection_status(collection, now=today)["is_overdue"]
+    ]
+    dated_policy_statuses = []
+    for record in policy_records:
+        policy_status = _broker_policy_status(record, today=today)
+        if policy_status["expires_on"]:
+            dated_policy_statuses.append(policy_status)
+    dated_policy_statuses.sort(key=lambda item: item["expires_on"])
+    next_policy_status = dated_policy_statuses[0] if dated_policy_statuses else None
+
+    prima_values = [
+        amount
+        for amount in (_parse_optional_numeric_amount((record.data or {}).get("prima")) for record in policy_records)
+        if amount is not None
+    ]
+    prima_currency = next(
+        (
+            str((record.data or {}).get("moneda", "")).strip()
+            for record in policy_records
+            if str((record.data or {}).get("moneda", "")).strip()
+        ),
+        "USD",
+    )
+    collection_currency = next((getattr(collection, "currency", "") for collection in collections if getattr(collection, "currency", "")), prima_currency)
+    overdue_balance = sum(float(getattr(collection, "balance", 0) or 0) for collection in overdue_collections)
+
+    return [
+        {
+            "label": "Polizas visibles",
+            "value": str(len(policy_records)),
+            "tone": "bg-blue-50 text-blue-700" if policy_records else "bg-slate-100 text-slate-700",
+        },
+        {
+            "label": "Proxima vigencia",
+            "value": next_policy_status["label"] if next_policy_status else "Sin vigencia",
+            "tone": next_policy_status["tone"] if next_policy_status else "bg-slate-100 text-slate-700",
+        },
+        {
+            "label": "Prima visible",
+            "value": _format_currency_amount(prima_currency, sum(prima_values)) if prima_values else "USD 0",
+            "tone": "bg-blue-50 text-blue-700" if prima_values else "bg-slate-100 text-slate-700",
+        },
+        {
+            "label": "Siniestros abiertos",
+            "value": str(len(open_claims)),
+            "tone": "bg-red-50 text-red-700" if open_claims else "bg-green-50 text-green-700",
+        },
+        {
+            "label": "Cobranza vencida",
+            "value": _format_currency_amount(collection_currency or "USD", overdue_balance) if overdue_balance else "Sin vencidos",
+            "tone": "bg-red-50 text-red-700" if overdue_collections else "bg-green-50 text-green-700",
+        },
+        {
+            "label": "Checklist",
+            "value": f"{complete_checklist}/{len(checklist)} completos" if checklist else "Sin checklist",
+            "tone": "bg-green-50 text-green-700" if checklist and not missing_checklist else ("bg-amber-50 text-amber-700" if checklist else "bg-slate-100 text-slate-700"),
+        },
+    ]
 def _is_condo_incident_closed(raw_status) -> bool:
     return _normalize_reference_token(raw_status) in {"resuelta", "cerrada", "cerrado", "closed", "done"}
 
@@ -1140,9 +1420,9 @@ def _build_global_search_sections(request, *, query: str) -> list[dict]:
             {
                 "title": entity.full_name,
                 "meta": entity.legal_id or entity.phone or entity.email or "Sin dato principal",
-                "caption": entity.notes[:120] if entity.notes else "Ficha del contacto.",
+                "caption": entity.notes[:120] if entity.notes else "Ficha lista para operar.",
                 "href": reverse("binncrm:entity_detail", kwargs={"pk": entity.pk}),
-                "link_label": "Abrir ficha",
+                "link_label": "Operar ficha",
             }
             for entity in Entity.objects.filter(is_active=True)
             .filter(_build_entity_search_query(query, entity_fields))
@@ -1152,7 +1432,7 @@ def _build_global_search_sections(request, *, query: str) -> list[dict]:
             _build_search_section(
                 key="entities",
                 title=labels.get("entity_plural", "Contactos"),
-                empty_message="No hubo coincidencias en contactos.",
+                empty_message="No aparecieron fichas con ese termino.",
                 items=entity_items,
                 href=f"{reverse('binncrm:entities')}?{urlencode({'q': query})}",
             )
@@ -1173,14 +1453,14 @@ def _build_global_search_sections(request, *, query: str) -> list[dict]:
                     "meta": f"{deal.entity.full_name} | {deal.pipeline.name} | {deal.stage}",
                     "caption": deal.notes[:120] if deal.notes else _format_currency_amount(deal.currency, deal.amount),
                     "href": reverse("binncrm:deal_edit", kwargs={"pk": deal.pk}),
-                    "link_label": "Abrir deal",
+                    "link_label": "Mover deal",
                 }
             )
         sections.append(
             _build_search_section(
                 key="deals",
                 title=labels.get("deal_plural", "Deals"),
-                empty_message="No hubo coincidencias en deals.",
+                empty_message="No aparecieron deals con ese termino.",
                 items=deal_items,
                 href=f"{reverse('binncrm:index')}?{urlencode({'q': query})}",
             )
@@ -1205,14 +1485,14 @@ def _build_global_search_sections(request, *, query: str) -> list[dict]:
                     "meta": f"{activity.entity.full_name} | {activity.get_activity_type_display()}",
                     "caption": status_copy,
                     "href": reverse("binncrm:entity_detail", kwargs={"pk": activity.entity_id}),
-                    "link_label": "Abrir ficha",
+                    "link_label": "Operar ficha",
                 }
             )
         sections.append(
             _build_search_section(
                 key="activities",
                 title=labels.get("activity_plural", "Actividades"),
-                empty_message="No hubo coincidencias en actividades.",
+                empty_message="No aparecieron actividades con ese termino.",
                 items=activity_items,
                 href=f"{reverse('binncrm:activities')}?{urlencode({'q': query})}",
             )
@@ -1237,14 +1517,14 @@ def _build_global_search_sections(request, *, query: str) -> list[dict]:
                     "meta": f"{proposal.entity.full_name} | {proposal.get_status_display()}",
                     "caption": proposal.summary[:120] if proposal.summary else _format_currency_amount(proposal.currency, proposal.amount),
                     "href": reverse("binncrm:proposal_edit", kwargs={"pk": proposal.pk}),
-                    "link_label": "Abrir propuesta",
+                    "link_label": "Seguir propuesta",
                 }
             )
         sections.append(
             _build_search_section(
                 key="proposals",
                 title=labels.get("proposal_plural", "Propuestas"),
-                empty_message="No hubo coincidencias en propuestas.",
+                empty_message="No aparecieron propuestas con ese termino.",
                 items=proposal_items,
                 href=f"{reverse('binncrm:proposals')}?{urlencode({'q': query})}",
             )
@@ -1269,14 +1549,14 @@ def _build_global_search_sections(request, *, query: str) -> list[dict]:
                     "meta": f"{collection.entity.full_name} | {collection.get_status_display()}",
                     "caption": f"Saldo {_format_currency_amount(collection.currency, collection.balance)}",
                     "href": reverse("binncrm:collection_edit", kwargs={"pk": collection.pk}),
-                    "link_label": "Abrir cobranza",
+                    "link_label": "Operar cobranza",
                 }
             )
         sections.append(
             _build_search_section(
                 key="collections",
                 title=labels.get("collection_plural", "Cobranzas"),
-                empty_message="No hubo coincidencias en cobranzas.",
+                empty_message="No aparecieron cobranzas con ese termino.",
                 items=collection_items,
                 href=f"{reverse('binncrm:collections')}?{urlencode({'q': query})}",
             )
@@ -1300,16 +1580,16 @@ def _build_global_search_sections(request, *, query: str) -> list[dict]:
                 {
                     "title": document.title,
                     "meta": getattr(document.entity, "full_name", "") or document.document_type,
-                    "caption": document.storage_key or document.external_url or "Documento registrado.",
+                    "caption": document.storage_key or document.external_url or "Documento listo para operar.",
                     "href": reverse("binncrm:document_edit", kwargs={"pk": document.pk}),
-                    "link_label": "Abrir documento",
+                    "link_label": "Operar documento",
                 }
             )
         sections.append(
             _build_search_section(
                 key="documents",
                 title=labels.get("document_plural", "Documentos"),
-                empty_message="No hubo coincidencias en documentos.",
+                empty_message="No aparecieron documentos con ese termino.",
                 items=document_items,
                 href=f"{reverse('binncrm:documents')}?{urlencode({'q': query})}",
             )
@@ -1687,10 +1967,10 @@ def _build_services_analytics_bundle(
         )
 
     analytics_sections = [
-        {"title": "Cartera por linea de servicio", "subtitle": "Distribucion de cuentas, retainer visible y presion operativa por tipo de servicio.", "href": reverse("binncrm:entities"), "cta": "Abrir cartera", "empty_message": "No hay cuentas de servicio registradas todavia.", "items": service_line_items},
-        {"title": "Cuentas en riesgo y expansion", "subtitle": "Fichas que merecen lectura de direccion por deterioro o por oportunidad clara de crecimiento.", "href": reverse("binncrm:entities"), "cta": "Abrir cuentas", "empty_message": "No hay cuentas marcadas en riesgo o expansion ahora mismo.", "items": sorted(health_focus_items, key=lambda item: (0 if item["status"] == "En riesgo" else 1, item["title"]))[:6]},
-        {"title": "Capacidad por responsable", "subtitle": "Carga operativa, bloqueos y cierres proximos por cada owner de delivery.", "href": reverse("binncrm:custom_object_records", kwargs={"object_key": "proyecto"}), "cta": "Abrir proyectos", "empty_message": "No hay proyectos activos para repartir capacidad todavia.", "items": owner_items[:6]},
-        {"title": "Activacion comercial -> delivery", "subtitle": "Tiempo real desde negocio ganado hasta kickoff o arranque visible por cuenta.", "href": reverse("binncrm:entities"), "cta": "Abrir cuentas", "empty_message": "No hay cuentas activadas suficientes para medir este tramo.", "items": sorted(activation_items, key=lambda item: (0 if item["status"] == "Pendiente kickoff" else 1, item["title"]))[:6]},
+        {"title": "Cartera por linea de servicio", "subtitle": "Distribucion de cuentas, retainer visible y presion operativa por tipo de servicio.", "href": reverse("binncrm:entities"), "cta": "Cobrar cartera", "empty_message": "No hay cuentas de servicio registradas todavia.", "items": service_line_items},
+        {"title": "Cuentas en riesgo y expansion", "subtitle": "Fichas que merecen lectura de direccion por deterioro o por oportunidad clara de crecimiento.", "href": reverse("binncrm:entities"), "cta": "Operar cuentas", "empty_message": "No hay cuentas marcadas en riesgo o expansion ahora mismo.", "items": sorted(health_focus_items, key=lambda item: (0 if item["status"] == "En riesgo" else 1, item["title"]))[:6]},
+        {"title": "Capacidad por responsable", "subtitle": "Carga operativa, bloqueos y cierres proximos por cada owner de delivery.", "href": reverse("binncrm:custom_object_records", kwargs={"object_key": "proyecto"}), "cta": "Operar proyectos", "empty_message": "No hay proyectos activos para repartir capacidad todavia.", "items": owner_items[:6]},
+        {"title": "Activacion comercial -> delivery", "subtitle": "Tiempo real desde negocio ganado hasta kickoff o arranque visible por cuenta.", "href": reverse("binncrm:entities"), "cta": "Operar cuentas", "empty_message": "No hay cuentas activadas suficientes para medir este tramo.", "items": sorted(activation_items, key=lambda item: (0 if item["status"] == "Pendiente kickoff" else 1, item["title"]))[:6]},
     ]
     return {"cards": analytics_cards, "sections": analytics_sections}
 
@@ -1701,20 +1981,20 @@ def _build_reports_copy(profile: str, labels: dict) -> dict:
     deal_plural = labels.get("deal_plural", "Oportunidades")
     profiles = {
         "broker": {
-            "kicker": "Reportes broker",
-            "title": "Renovaciones, siniestros y documentos bajo control.",
+            "kicker": "Radar broker",
+            "title": "Renovaciones, siniestros y documentos listos para operar.",
             "subtitle": "Este radar junta lo que se enfria, vence o queda incompleto para que el equipo reaccione antes de perder una renovacion.",
             "highlights": ["Renovaciones proximas", "Siniestros abiertos", "Checklist documental"],
         },
         "condominio": {
-            "kicker": "Reportes de recaudo",
+            "kicker": "Radar de cobro",
             "title": "Cartera, residentes y seguimiento en una sola lectura.",
             "subtitle": "Aqui ves rapido que cuentas siguen vencidas, que residente lleva tiempo sin gestion y donde toca insistir hoy.",
             "highlights": ["Cartera vencida", "Residentes sin contacto", "Gestiones atrasadas"],
         },
         "servicios": {
-            "kicker": "Radar comercial B2B",
-            "title": "Propuestas, cobros y oportunidades que piden seguimiento.",
+            "kicker": "Radar B2B",
+            "title": "Propuestas, cobros y oportunidades que piden cierre.",
             "subtitle": "Usa este panel para detectar deals quietos, propuestas a punto de vencer y clientes que quedaron sin siguiente paso claro.",
             "highlights": ["Deals quietos", "Propuestas por vencer", "Cobros por empujar"],
         },
@@ -1725,15 +2005,15 @@ def _build_reports_copy(profile: str, labels: dict) -> dict:
             "highlights": ["Clientes inactivos", "Pedidos especiales", "Seguimientos de recompra"],
         },
         "marketing": {
-            "kicker": "Radar comercial",
-            "title": "Leads y oportunidades con senales claras de prioridad.",
+            "kicker": "Radar de captacion",
+            "title": "Leads y oportunidades con prioridad clara para operar.",
             "subtitle": "Este panel sirve para descubrir oportunidades frias, tareas vencidas y propuestas que pueden escaparse si nadie actua.",
             "highlights": ["Embudo enfriandose", "Propuestas vigentes", "Seguimiento atrasado"],
         },
     }
     shared = {
-        "kicker": "Reportes",
-        "title": f"Salud operativa de {entity_plural.lower()} y {deal_plural.lower()}.",
+        "kicker": "Radar Binn",
+        "title": f"Radar operativo de {entity_plural.lower()} y {deal_plural.lower()}.",
         "subtitle": "Este radar prioriza seguimiento, vencimientos y dinero pendiente para que el equipo actue sin perderse en tablas largas.",
         "highlights": ["Seguimiento", "Vencimientos", "Alertas del negocio"],
     }
@@ -1880,7 +2160,7 @@ def _truncate_inline(text: str, limit: int = 88) -> str:
     value = " ".join((text or "").split())
     if len(value) <= limit:
         return value
-    return f"{value[: limit - 1].rstrip()}…"
+    return f"{value[: limit - 1].rstrip()}..."
 
 
 def _deal_health_badge(deal: Deal, *, today=None) -> dict:
@@ -2104,6 +2384,7 @@ def _render_proposal_form(request, form, *, page_title: str, submit_label: str, 
             "page_title": page_title,
             "submit_label": submit_label,
             "labels": request.tenant.tenant_config.labels,
+            "proposal_ops": build_proposal_operational_context(request.tenant),
         },
     )
 
@@ -2118,6 +2399,7 @@ def _render_collection_form(request, form, *, page_title: str, submit_label: str
             "page_title": page_title,
             "submit_label": submit_label,
             "labels": request.tenant.tenant_config.labels,
+            "collection_ops": build_collection_operational_context(request.tenant),
         },
     )
 
@@ -2348,6 +2630,7 @@ def pipeline_settings(request):
                     ),
                     event_code="tenant_pipeline_upserted",
                     metadata={"pipeline_key": payload["key"], "stages": payload["stages"]},
+                    audit_action="updated" if is_edit else "created",
                 )
                 for notice in notices:
                     messages.info(request, notice)
@@ -2374,6 +2657,7 @@ def pipeline_settings(request):
                     event_message=f"Se saco el pipeline '{pipeline_label}' de la configuracion principal de la empresa.",
                     event_code="tenant_pipeline_removed",
                     metadata={"pipeline_key": pipeline_key},
+                    audit_action="removed",
                 )
                 for notice in notices:
                     messages.info(request, notice)
@@ -2389,6 +2673,7 @@ def pipeline_settings(request):
                     event_message=f"El pipeline '{pipeline_label}' quedo como flujo principal de oportunidades.",
                     event_code="tenant_pipeline_default_changed",
                     metadata={"pipeline_key": pipeline_key},
+                    audit_action="set_default",
                 )
                 for notice in notices:
                     messages.info(request, notice)
@@ -2405,6 +2690,7 @@ def pipeline_settings(request):
                     event_message=f"Se movio el pipeline '{pipeline_label}' dentro del orden comercial.",
                     event_code="tenant_pipeline_reordered",
                     metadata={"pipeline_key": pipeline_key, "direction": action},
+                    audit_action="reordered",
                 )
                 for notice in notices:
                     messages.info(request, notice)
@@ -2648,6 +2934,7 @@ def global_search(request):
 @login_required
 @tenant_permission_required(PERMISSION_ENTITIES_EDIT, capability="entities")
 def entity_import(request):
+    _require_crm_permission(request, PERMISSION_ENTITIES_EDIT, capability="entities")
     import_summary = None
     if request.method == "POST":
         form = EntityImportForm(request.POST, request.FILES)
@@ -2662,6 +2949,26 @@ def entity_import(request):
             except ValueError as exc:
                 form.add_error("csv_file", str(exc))
             else:
+                _audit_crm_action(
+                    request,
+                    action="imported",
+                    object_type="entity",
+                    title=f"Importacion de {request.tenant.get_label('entity_plural', 'contactos').lower()} completada",
+                    message=(
+                        f"Se procesaron {import_summary['processed']} filas: "
+                        f"{import_summary['created']} creadas, "
+                        f"{import_summary['updated']} actualizadas y "
+                        f"{import_summary['skipped']} omitidas."
+                    ),
+                    metadata={
+                        "processed": import_summary["processed"],
+                        "created": import_summary["created"],
+                        "updated": import_summary["updated"],
+                        "skipped": import_summary["skipped"],
+                        "error_count": import_summary["error_count"],
+                        "update_existing": form.cleaned_data["update_existing"],
+                    },
+                )
                 messages.success(
                     request,
                     f"Importacion completada: {import_summary['created']} creadas, {import_summary['updated']} actualizadas.",
@@ -2691,6 +2998,7 @@ def entity_import(request):
 @login_required
 @tenant_permission_required(PERMISSION_ENTITIES_EDIT, capability="entities")
 def entity_create(request):
+    _require_crm_permission(request, PERMISSION_ENTITIES_EDIT, capability="entities")
     if request.method == "POST":
         form = EntityForm(request.POST, tenant=request.tenant)
         if form.is_valid():
@@ -2702,6 +3010,17 @@ def entity_create(request):
                 entity=entity,
                 actor=request.user,
                 kind_label=request.tenant.get_label("entity_singular", "Contacto"),
+            )
+            _audit_crm_action(
+                request,
+                action="created",
+                object_type="entity",
+                title=f"{request.tenant.get_label('entity_singular', 'Contacto')} creado",
+                message=f"Se creo '{entity.full_name}'.",
+                metadata={
+                    "entity_id": entity.pk,
+                    "entity_name": entity.full_name,
+                },
             )
             messages.success(request, "Entidad creada correctamente.")
             return redirect("binncrm:entity_detail", pk=entity.pk)
@@ -2830,7 +3149,17 @@ def entity_detail(request, pk):
     condo_communication_schema = None
     retail_wishlist_records = []
     retail_wishlist_schema = None
-    if profile == "servicios" and _can(request, PERMISSION_OBJECTS_VIEW):
+    broker_policy_records = []
+    broker_policy_schema = None
+    if profile == "broker" and _can(request, PERMISSION_OBJECTS_VIEW):
+        broker_policy_schema = get_object_schema_definition(object_key="poliza_detalle")
+        if broker_policy_schema is not None and broker_policy_schema.source == ObjectSchema.SOURCE_CUSTOM:
+            broker_policy_records = _matching_broker_policy_records(
+                entity,
+                list(ObjectRecord.objects.filter(object_schema=broker_policy_schema, is_active=True).order_by("-updated_at", "-id")),
+                documents=all_documents,
+            )
+    elif profile == "servicios" and _can(request, PERMISSION_OBJECTS_VIEW):
         project_schema = get_object_schema_definition(object_key="proyecto")
         if project_schema is not None and project_schema.source == ObjectSchema.SOURCE_CUSTOM:
             project_records = _matching_service_projects(
@@ -2915,6 +3244,40 @@ def entity_detail(request, pk):
     retail_last_purchase = _parse_extra_date((entity.data_extra or {}).get("ultima_compra")) if profile == "retail_moda" else None
     retail_open_wishlists = [record for record in retail_wishlist_records if (record.data or {}).get("vigente")]
     retail_summary_items = []
+    broker_summary_items = []
+    broker_policy_items = []
+    if profile == "broker":
+        broker_summary_items = _build_broker_entity_summary(
+            entity,
+            policy_records=broker_policy_records,
+            documents=all_documents,
+            activities=all_activities,
+            collections=all_collections,
+            blueprint_map=blueprint_map,
+            today=today,
+        )
+        broker_policy_display_records = _collect_broker_due_policy_records(
+            broker_policy_records,
+            today=today,
+            window_days=365,
+        )
+        for record in broker_policy_records:
+            if record not in broker_policy_display_records:
+                broker_policy_display_records.append(record)
+        for record in broker_policy_display_records[:4]:
+            href = (
+                reverse("binncrm:custom_object_record_detail", kwargs={"object_key": broker_policy_schema.key, "pk": record.pk})
+                if broker_policy_schema is not None and getattr(record, "pk", None)
+                else ""
+            )
+            broker_policy_items.append(
+                _build_broker_policy_report_item(
+                    record,
+                    today=today,
+                    href=href,
+                    cta="Abrir poliza",
+                )
+            )
     if profile == "condominio":
         condo_summary_items = [
             {
@@ -3008,6 +3371,8 @@ def entity_detail(request, pk):
         "empty_extra_values": [item for item in extra_values if not item["has_value"]],
         "extra_values": extra_values,
         "broker_lifecycle": _broker_lifecycle_state(entity, field_definitions=entity_field_definitions) if profile == "broker" else None,
+        "broker_summary_items": broker_summary_items,
+        "broker_policy_items": broker_policy_items,
         "service_lifecycle": _services_lifecycle_state(entity, field_definitions=entity_field_definitions) if profile == "servicios" else None,
         "condo_status": condo_status,
         "retail_segment": retail_segment,
@@ -3017,6 +3382,12 @@ def entity_detail(request, pk):
         "condo_recent_incidents": condo_incident_records[:3],
         "condo_recent_communications": condo_communication_records[:3],
         "open_task_cards": [_build_task_card(activity) for activity in open_tasks],
+        "task_preset_cards": build_task_preset_cards(
+            request.tenant,
+            entity_id=entity.pk,
+            next_url=reverse("binncrm:entity_detail", kwargs={"pk": entity.pk}),
+            limit=4,
+        ),
         "broker_document_checklist": (
             _build_broker_document_checklist(entity, all_documents, blueprint_map=blueprint_map)
             if profile == "broker"
@@ -3060,6 +3431,7 @@ def entity_detail(request, pk):
         "can_complete_tasks": _can(request, PERMISSION_ACTIVITIES_COMPLETE),
         "can_view_objects": _can(request, PERMISSION_OBJECTS_VIEW),
         "can_edit_objects": _can(request, PERMISSION_OBJECTS_EDIT),
+        "has_broker_policy_object": broker_policy_schema is not None,
         "has_project_object": project_schema is not None,
         "has_deliverable_object": deliverable_schema is not None,
         "has_condo_unit_object": condo_unit_schema is not None,
@@ -3073,6 +3445,7 @@ def entity_detail(request, pk):
 @login_required
 @tenant_permission_required(PERMISSION_ENTITIES_EDIT, capability="entities")
 def entity_edit(request, pk):
+    _require_crm_permission(request, PERMISSION_ENTITIES_EDIT, capability="entities")
     entity = get_object_or_404(Entity, pk=pk)
     if request.method == "POST":
         form = EntityForm(request.POST, instance=entity, tenant=request.tenant)
@@ -3087,6 +3460,18 @@ def entity_edit(request, pk):
                     actor=request.user,
                     kind_label=request.tenant.get_label("entity_singular", "Contacto"),
                     changed_fields=changed_fields,
+                )
+                _audit_crm_action(
+                    request,
+                    action="updated",
+                    object_type="entity",
+                    title=f"{request.tenant.get_label('entity_singular', 'Contacto')} actualizado",
+                    message=f"Se actualizo '{entity.full_name}'.",
+                    metadata={
+                        "entity_id": entity.pk,
+                        "entity_name": entity.full_name,
+                        "changed_fields": changed_fields,
+                    },
                 )
             messages.success(request, "Entidad actualizada correctamente.")
             return redirect("binncrm:entity_detail", pk=entity.pk)
@@ -3105,6 +3490,7 @@ def entity_edit(request, pk):
 @login_required
 @tenant_permission_required(PERMISSION_DEALS_EDIT, capability="deals")
 def deal_create(request):
+    _require_crm_permission(request, PERMISSION_DEALS_EDIT, capability="deals")
     initial = {"is_active": True, "status": Deal.STATUS_OPEN}
     entity_id = (request.GET.get("entity") or "").strip()
     if entity_id.isdigit():
@@ -3122,6 +3508,24 @@ def deal_create(request):
                 actor=request.user,
                 kind_label=request.tenant.get_label("deal_singular", "Deal"),
             )
+            _audit_crm_action(
+                request,
+                action="created",
+                object_type="deal",
+                title=f"{request.tenant.get_label('deal_singular', 'Deal')} creado",
+                message=f"Se creo '{deal.title}' en {deal.pipeline.name}/{deal.stage}.",
+                metadata={
+                    "deal_id": deal.pk,
+                    "deal_title": deal.title,
+                    "entity_id": deal.entity_id,
+                    "pipeline_id": deal.pipeline_id,
+                    "pipeline_name": deal.pipeline.name,
+                    "stage": deal.stage,
+                    "status": deal.status,
+                    "amount": deal.amount,
+                    "currency": deal.currency,
+                },
+            )
             messages.success(request, "Deal creado correctamente.")
             return redirect("binncrm:index")
     else:
@@ -3138,6 +3542,7 @@ def deal_create(request):
 @login_required
 @tenant_permission_required(PERMISSION_DEALS_EDIT, capability="deals")
 def deal_edit(request, pk):
+    _require_crm_permission(request, PERMISSION_DEALS_EDIT, capability="deals")
     deal = get_object_or_404(Deal, pk=pk)
     original_pipeline_id = deal.pipeline_id
     original_pipeline_name = getattr(deal.pipeline, "name", "")
@@ -3165,12 +3570,51 @@ def deal_edit(request, pk):
                     previous_stage=original_stage,
                     previous_pipeline_name=original_pipeline_name,
                 )
+                _audit_crm_action(
+                    request,
+                    action="moved",
+                    object_type="deal",
+                    title=f"{request.tenant.get_label('deal_singular', 'Deal')} movido",
+                    message=(
+                        f"Se movio '{deal.title}' de {original_pipeline_name or deal.pipeline.name}/{original_stage or '-'} "
+                        f"a {deal.pipeline.name}/{deal.stage}."
+                    ),
+                    metadata={
+                        "deal_id": deal.pk,
+                        "deal_title": deal.title,
+                        "entity_id": deal.entity_id,
+                        "pipeline_id": deal.pipeline_id,
+                        "pipeline_name": deal.pipeline.name,
+                        "previous_pipeline_name": original_pipeline_name,
+                        "previous_stage": original_stage,
+                        "current_stage": deal.stage,
+                        "status": deal.status,
+                        "changed_fields": changed_fields,
+                    },
+                )
             elif changed_fields:
                 log_deal_updated(
                     deal=deal,
                     actor=request.user,
                     kind_label=request.tenant.get_label("deal_singular", "Deal"),
                     changed_fields=changed_fields,
+                )
+                _audit_crm_action(
+                    request,
+                    action="updated",
+                    object_type="deal",
+                    title=f"{request.tenant.get_label('deal_singular', 'Deal')} actualizado",
+                    message=f"Se actualizo '{deal.title}'.",
+                    metadata={
+                        "deal_id": deal.pk,
+                        "deal_title": deal.title,
+                        "entity_id": deal.entity_id,
+                        "pipeline_id": deal.pipeline_id,
+                        "pipeline_name": deal.pipeline.name,
+                        "stage": deal.stage,
+                        "status": deal.status,
+                        "changed_fields": changed_fields,
+                    },
                 )
             messages.success(request, "Deal actualizado correctamente.")
             return redirect("binncrm:index")
@@ -3190,6 +3634,7 @@ def deal_edit(request, pk):
 @tenant_permission_required(PERMISSION_PROPOSALS_VIEW, capability="proposals")
 def proposals(request):
     labels = request.tenant.tenant_config.labels
+    proposal_ops = build_proposal_operational_context(request.tenant)
     q = (request.GET.get("q") or "").strip()
     selected_status = (request.GET.get("status") or "").strip()
     proposals_qs = Proposal.objects.select_related("entity", "deal").filter(is_active=True)
@@ -3212,6 +3657,7 @@ def proposals(request):
             "proposal_statuses": Proposal.STATUS_CHOICES,
             "selected_status": selected_status,
             "q": q,
+            "proposal_ops": proposal_ops,
             "can_create_proposal": _can(request, PERMISSION_PROPOSALS_EDIT),
             "can_edit_proposal": _can(request, PERMISSION_PROPOSALS_EDIT),
         },
@@ -3221,6 +3667,7 @@ def proposals(request):
 @login_required
 @tenant_permission_required(PERMISSION_PROPOSALS_EDIT, capability="proposals")
 def proposal_create(request):
+    _require_crm_permission(request, PERMISSION_PROPOSALS_EDIT, capability="proposals")
     initial = {"is_active": True, "status": Proposal.STATUS_DRAFT}
     entity_id = (request.GET.get("entity") or "").strip()
     deal_id = (request.GET.get("deal") or "").strip()
@@ -3241,6 +3688,22 @@ def proposal_create(request):
                 actor=request.user,
                 kind_label=request.tenant.get_label("proposal_singular", "Propuesta"),
             )
+            _audit_crm_action(
+                request,
+                action="created",
+                object_type="proposal",
+                title=f"{request.tenant.get_label('proposal_singular', 'Propuesta')} creada",
+                message=f"Se creo '{proposal.title}'.",
+                metadata={
+                    "proposal_id": proposal.pk,
+                    "proposal_title": proposal.title,
+                    "entity_id": proposal.entity_id,
+                    "deal_id": proposal.deal_id,
+                    "status": proposal.status,
+                    "amount": proposal.amount,
+                    "currency": proposal.currency,
+                },
+            )
             messages.success(request, "Propuesta registrada correctamente.")
             return redirect("binncrm:proposals")
     else:
@@ -3257,6 +3720,7 @@ def proposal_create(request):
 @login_required
 @tenant_permission_required(PERMISSION_PROPOSALS_EDIT, capability="proposals")
 def proposal_edit(request, pk):
+    _require_crm_permission(request, PERMISSION_PROPOSALS_EDIT, capability="proposals")
     proposal = get_object_or_404(Proposal, pk=pk)
     original_status = proposal.status
     if request.method == "POST":
@@ -3274,6 +3738,30 @@ def proposal_edit(request, pk):
                     kind_label=request.tenant.get_label("proposal_singular", "Propuesta"),
                     changed_fields=changed_fields,
                     previous_status=original_status,
+                )
+                _audit_crm_action(
+                    request,
+                    action="moved" if original_status and original_status != proposal.status else "updated",
+                    object_type="proposal",
+                    title=(
+                        f"{request.tenant.get_label('proposal_singular', 'Propuesta')} movida"
+                        if original_status and original_status != proposal.status
+                        else f"{request.tenant.get_label('proposal_singular', 'Propuesta')} actualizada"
+                    ),
+                    message=(
+                        f"Se movio '{proposal.title}' de {original_status} a {proposal.status}."
+                        if original_status and original_status != proposal.status
+                        else f"Se actualizo '{proposal.title}'."
+                    ),
+                    metadata={
+                        "proposal_id": proposal.pk,
+                        "proposal_title": proposal.title,
+                        "entity_id": proposal.entity_id,
+                        "deal_id": proposal.deal_id,
+                        "status": proposal.status,
+                        "previous_status": original_status,
+                        "changed_fields": changed_fields,
+                    },
                 )
             messages.success(request, "Propuesta actualizada correctamente.")
             return redirect("binncrm:proposals")
@@ -3293,6 +3781,7 @@ def proposal_edit(request, pk):
 @tenant_permission_required(PERMISSION_COLLECTIONS_VIEW, capability="collections")
 def collections(request):
     labels = request.tenant.tenant_config.labels
+    collection_ops = build_collection_operational_context(request.tenant)
     q = (request.GET.get("q") or "").strip()
     selected_status = (request.GET.get("status") or "").strip()
     today = timezone.localdate()
@@ -3314,8 +3803,19 @@ def collections(request):
         CollectionRecord.STATUS_DISPUTED: {"accent": "#7c3aed", "alt": "#a78bfa", "soft": "rgba(124, 58, 237, 0.12)"},
         CollectionRecord.STATUS_PAID: {"accent": "#059669", "alt": "#34d399", "soft": "rgba(5, 150, 105, 0.12)"},
     }
+    collection_statuses = [
+        (status, dict(CollectionRecord.STATUS_CHOICES).get(status, status.title()))
+        for status in collection_ops["states"]
+    ]
+    collection_statuses.extend(
+        [
+            (status, label)
+            for status, label in CollectionRecord.STATUS_CHOICES
+            if status not in collection_ops["states"]
+        ]
+    )
     grouped_collections = []
-    visible_statuses = [selected_status] if selected_status in status_tones else [choice[0] for choice in CollectionRecord.STATUS_CHOICES]
+    visible_statuses = [selected_status] if selected_status in status_tones else [status for status, _ in collection_statuses]
     raw_collections = list(collections_qs.order_by("sort_order", "due_on", "-updated_at", "id"))
     collections_by_status = {status_key: [] for status_key in visible_statuses}
     for record in raw_collections:
@@ -3323,7 +3823,7 @@ def collections(request):
             collections_by_status[record.status].append(record)
     for status_key in visible_statuses:
         raw_status_records = collections_by_status.get(status_key, [])
-        status_currency = raw_status_records[0].currency if raw_status_records else "USD"
+        status_currency = raw_status_records[0].currency if raw_status_records else collection_ops["default_currency"]
         grouped_collections.append(
             {
                 "status": status_key,
@@ -3344,7 +3844,8 @@ def collections(request):
         {
             "labels": labels,
             "grouped_collections": grouped_collections,
-            "collection_statuses": CollectionRecord.STATUS_CHOICES,
+            "collection_statuses": collection_statuses,
+            "collection_ops": collection_ops,
             "selected_status": selected_status,
             "q": q,
             "can_create_collection": _can(request, PERMISSION_COLLECTIONS_EDIT),
@@ -3357,6 +3858,7 @@ def collections(request):
 @login_required
 @tenant_permission_required(PERMISSION_COLLECTIONS_EDIT, capability="collections")
 def collection_create(request):
+    _require_crm_permission(request, PERMISSION_COLLECTIONS_EDIT, capability="collections")
     initial = {"is_active": True, "status": CollectionRecord.STATUS_PENDING}
     entity_id = (request.GET.get("entity") or "").strip()
     deal_id = (request.GET.get("deal") or "").strip()
@@ -3379,6 +3881,23 @@ def collection_create(request):
                 actor=request.user,
                 kind_label=request.tenant.get_label("collection_singular", "Cobranza"),
             )
+            _audit_crm_action(
+                request,
+                action="created",
+                object_type="collection",
+                title=f"{request.tenant.get_label('collection_singular', 'Cobranza')} creada",
+                message=f"Se registro '{collection.title}' con estado {collection.status}.",
+                metadata={
+                    "collection_id": collection.pk,
+                    "collection_title": collection.title,
+                    "entity_id": collection.entity_id,
+                    "deal_id": collection.deal_id,
+                    "status": collection.status,
+                    "balance": collection.balance,
+                    "currency": collection.currency,
+                    "due_on": collection.due_on,
+                },
+            )
             messages.success(request, "Cobranza registrada correctamente.")
             return redirect("binncrm:collections")
     else:
@@ -3395,6 +3914,7 @@ def collection_create(request):
 @login_required
 @tenant_permission_required(PERMISSION_COLLECTIONS_EDIT, capability="collections")
 def collection_edit(request, pk):
+    _require_crm_permission(request, PERMISSION_COLLECTIONS_EDIT, capability="collections")
     collection = get_object_or_404(CollectionRecord, pk=pk)
     original_status = collection.status
     if request.method == "POST":
@@ -3420,6 +3940,32 @@ def collection_edit(request, pk):
                     changed_fields=changed_fields,
                     previous_status=original_status,
                 )
+                _audit_crm_action(
+                    request,
+                    action="moved" if status_changed else "updated",
+                    object_type="collection",
+                    title=(
+                        f"{request.tenant.get_label('collection_singular', 'Cobranza')} movida"
+                        if status_changed
+                        else f"{request.tenant.get_label('collection_singular', 'Cobranza')} actualizada"
+                    ),
+                    message=(
+                        f"Se movio '{collection.title}' de {original_status} a {collection.status}."
+                        if status_changed
+                        else f"Se actualizo '{collection.title}'."
+                    ),
+                    metadata={
+                        "collection_id": collection.pk,
+                        "collection_title": collection.title,
+                        "entity_id": collection.entity_id,
+                        "deal_id": collection.deal_id,
+                        "status": collection.status,
+                        "previous_status": original_status,
+                        "balance": collection.balance,
+                        "currency": collection.currency,
+                        "changed_fields": changed_fields,
+                    },
+                )
             messages.success(request, "Cobranza actualizada correctamente.")
             return redirect("binncrm:collections")
     else:
@@ -3438,6 +3984,7 @@ def collection_edit(request, pk):
 @tenant_permission_required(PERMISSION_COLLECTIONS_EDIT, capability="collections")
 @require_POST
 def collection_move(request, pk):
+    _require_crm_permission(request, PERMISSION_COLLECTIONS_EDIT, capability="collections")
     collection = get_object_or_404(CollectionRecord, pk=pk)
     status = (request.POST.get("status") or "").strip()
     try:
@@ -3464,6 +4011,31 @@ def collection_move(request, pk):
                 changed_fields=["status"],
                 previous_status=previous_status,
             )
+
+    _audit_crm_action(
+        request,
+        action="moved" if previous_status != status else "reordered",
+        object_type="collection",
+        title=(
+            f"{request.tenant.get_label('collection_singular', 'Cobranza')} movida"
+            if previous_status != status
+            else f"{request.tenant.get_label('collection_singular', 'Cobranza')} reordenada"
+        ),
+        message=(
+            f"Se movio '{collection.title}' de {previous_status} a {status}."
+            if previous_status != status
+            else f"Se reordeno '{collection.title}' dentro de {status}."
+        ),
+        metadata={
+            "collection_id": collection.pk,
+            "collection_title": collection.title,
+            "entity_id": collection.entity_id,
+            "deal_id": collection.deal_id,
+            "previous_status": previous_status,
+            "current_status": status,
+            "position": inserted_index if inserted_index is not None else position,
+        },
+    )
 
     return JsonResponse(
         {
@@ -3651,7 +4223,7 @@ def condominio_hub(request):
             "title": "Cartera vencida",
             "subtitle": "Lo que ya vencio y merece llamada, acuerdo o escalamiento hoy.",
             "href": reverse("binncrm:collections") if can_view_collections else "",
-            "cta": "Abrir cartera",
+            "cta": "Cobrar cartera",
             "empty_message": "No hay cartera vencida en este momento.",
             "items": [
                 _build_report_item(
@@ -3678,7 +4250,7 @@ def condominio_hub(request):
             "title": "Promesas y seguimiento de cobro",
             "subtitle": "Compromisos de pago y tareas abiertas para que la cobranza no se enfrie.",
             "href": reverse("binncrm:collections") if can_view_collections else reverse("binncrm:activities") if can_view_activities else "",
-            "cta": "Abrir seguimiento",
+            "cta": "Seguir seguimiento",
             "empty_message": "No hay promesas de pago ni tareas operativas pendientes.",
             "items": [
                 *[
@@ -3712,7 +4284,7 @@ def condominio_hub(request):
             "title": "Incidencias simples",
             "subtitle": "Casos operativos para mantenimiento, convivencia, seguridad o cartera.",
             "href": reverse("binncrm:custom_object_records", kwargs={"object_key": incident_schema.key}) if incident_schema is not None and can_view_objects else "",
-            "cta": "Abrir incidencias",
+            "cta": "Resolver incidencias",
             "empty_message": "No hay incidencias abiertas ahora mismo.",
             "items": [
                 _build_report_item(
@@ -3749,7 +4321,7 @@ def condominio_hub(request):
             "title": "Comunicados",
             "subtitle": "Mensajes ya enviados o listos para residentes, bloques o unidades.",
             "href": reverse("binncrm:custom_object_records", kwargs={"object_key": communication_schema.key}) if communication_schema is not None and can_view_objects else "",
-            "cta": "Abrir comunicados",
+            "cta": "Operar comunicados",
             "empty_message": "Todavia no hay comunicados registrados.",
             "items": [
                 _build_report_item(
@@ -3784,7 +4356,7 @@ def condominio_hub(request):
             "title": "Residentes y unidades",
             "subtitle": "Padron operativo para revisar bloque, propietario y ocupacion desde una sola vista.",
             "href": reverse("binncrm:entities") if can_view_entities else reverse("binncrm:custom_object_records", kwargs={"object_key": unit_schema.key}) if unit_schema is not None and can_view_objects else "",
-            "cta": "Abrir padron",
+            "cta": "Operar padron",
             "empty_message": "No hay residentes ni unidades cargadas todavia.",
             "items": [
                 *[
@@ -3832,7 +4404,7 @@ def condominio_hub(request):
             "title": "Documentos clave y adjuntos",
             "subtitle": "Contratos, estados de cuenta y comprobantes visibles dentro del tenant.",
             "href": reverse("binncrm:documents") if can_view_documents else "",
-            "cta": "Abrir documentos",
+            "cta": "Operar documentos",
             "empty_message": "No hay documentos clave cargados todavia.",
             "items": [
                 _build_report_item(
@@ -3894,6 +4466,8 @@ def broker_hub(request):
     can_view_documents = feature_flags.get("documents") and _can(request, PERMISSION_DOCUMENTS_VIEW)
     can_view_proposals = feature_flags.get("proposals") and _can(request, PERMISSION_PROPOSALS_VIEW)
     can_view_collections = feature_flags.get("collections") and _can(request, PERMISSION_COLLECTIONS_VIEW)
+    can_view_objects = _can(request, PERMISSION_OBJECTS_VIEW)
+    can_edit_objects = _can(request, PERMISSION_OBJECTS_EDIT)
 
     entity_qs = Entity.objects.none()
     if can_view_entities:
@@ -3938,6 +4512,14 @@ def broker_hub(request):
         if document.entity_id:
             documents_by_entity.setdefault(document.entity_id, []).append(document)
 
+    broker_policy_schema = None
+    policy_records = []
+    if can_view_objects:
+        broker_policy_schema = get_object_schema_definition(object_key="poliza_detalle")
+        if broker_policy_schema is not None and broker_policy_schema.source == ObjectSchema.SOURCE_CUSTOM:
+            policy_records = list(ObjectRecord.objects.filter(object_schema=broker_policy_schema, is_active=True).order_by("-updated_at", "-id"))
+    expiring_policy_records = _collect_broker_due_policy_records(policy_records, today=today, window_days=45)
+
     renewals_due_qs = deal_qs.filter(expected_close_on__isnull=False, expected_close_on__lte=today + timedelta(days=30))
     open_claims_qs = activity_qs.filter(activity_type=Activity.TYPE_CLAIM, completed_at__isnull=True)
     overdue_collections_qs = collection_qs.exclude(status=CollectionRecord.STATUS_PAID).filter(due_on__lt=today)
@@ -3949,6 +4531,7 @@ def broker_hub(request):
     )
 
     renewals_due_count = renewals_due_qs.count() if can_view_deals else 0
+    expiring_policy_count = len(expiring_policy_records)
     open_claims_count = open_claims_qs.count() if can_view_activities else 0
     overdue_collections_count = overdue_collections_qs.count() if can_view_collections else 0
     expiring_documents_count = expiring_documents_qs.count() if can_view_documents else 0
@@ -4001,6 +4584,14 @@ def broker_hub(request):
                 "href": reverse("binncrm:index") if can_view_deals else "",
             },
             {
+                "label": "Polizas por vencer",
+                "value": expiring_policy_count,
+                "caption": "Registros de poliza con vigencia ya encima.",
+                "tone": "bg-amber-50 text-amber-700" if expiring_policy_count else "bg-green-50 text-green-700",
+                "href": reverse("binncrm:custom_object_records", kwargs={"object_key": broker_policy_schema.key}) if broker_policy_schema is not None else "",
+                "cta": "Ver polizas",
+            },
+            {
                 "label": "Siniestros abiertos",
                 "value": open_claims_count,
                 "caption": "Casos que siguen sin resolucion ni cierre.",
@@ -4033,6 +4624,10 @@ def broker_hub(request):
         quick_actions.append(
             {"label": f"Nueva {tenant.get_label('deal_singular', 'Renovacion')}", "href": reverse("binncrm:deal_create")}
         )
+    if can_edit_objects and broker_policy_schema is not None:
+        quick_actions.append(
+            {"label": "Nueva poliza", "href": reverse("binncrm:custom_object_record_create", kwargs={"object_key": broker_policy_schema.key})}
+        )
     if _can(request, PERMISSION_ACTIVITIES_EDIT):
         quick_actions.extend(
             [
@@ -4049,14 +4644,14 @@ def broker_hub(request):
     if _can(request, PERMISSION_DOCUMENTS_EDIT):
         quick_actions.append({"label": "Adjuntar documento", "href": reverse("binncrm:document_create")})
     if _can(request, PERMISSION_COLLECTIONS_EDIT):
-        quick_actions.append({"label": "Registrar cobranza", "href": reverse("binncrm:collection_create")})
+        quick_actions.append({"label": "Cargar cobranza", "href": reverse("binncrm:collection_create")})
 
     broker_sections = [
         {
             "title": "Renovaciones por vencer",
             "subtitle": "Prioriza negocios que ya piden contacto o cierre.",
             "href": reverse("binncrm:index") if can_view_deals else "",
-            "cta": "Abrir tablero",
+            "cta": "Mover pipeline",
             "empty_message": "No hay renovaciones abiertas por vencer en los proximos 30 dias.",
             "items": [
                 _build_report_item(
@@ -4085,10 +4680,21 @@ def broker_hub(request):
             ],
         },
         {
+            "title": "Polizas por vencer",
+            "subtitle": "Vigencias ya encima para anticipar renovacion, cobro o ajuste.",
+            "href": reverse("binncrm:custom_object_records", kwargs={"object_key": broker_policy_schema.key}) if broker_policy_schema is not None else "",
+            "cta": "Operar polizas",
+            "empty_message": "No hay polizas con vigencia cercana en los proximos 45 dias.",
+            "items": [
+                _build_broker_policy_report_item(record, today=today)
+                for record in expiring_policy_records[:6]
+            ],
+        },
+        {
             "title": "Siniestros abiertos",
             "subtitle": "Casos que requieren seguimiento operativo o respuesta al cliente.",
             "href": f"{reverse('binncrm:activities')}?{urlencode({'kind': Activity.TYPE_CLAIM, 'status': 'open'})}" if can_view_activities else "",
-            "cta": "Abrir siniestros",
+            "cta": "Resolver siniestros",
             "empty_message": "No hay siniestros abiertos ahora mismo.",
             "items": [
                 _build_report_item(
@@ -4112,7 +4718,7 @@ def broker_hub(request):
             "title": "Checklist documental",
             "subtitle": "Asegurados con huecos antes de emitir, renovar o cobrar.",
             "href": reverse("binncrm:documents") if can_view_documents else "",
-            "cta": "Abrir documentos",
+            "cta": "Operar documentos",
             "empty_message": "No hay fichas con checklist broker incompleto.",
             "items": checklist_gaps[:6],
         },
@@ -4120,7 +4726,7 @@ def broker_hub(request):
             "title": "Cobranza ligera",
             "subtitle": "Prima o saldo que ya vencio y merece insistencia.",
             "href": reverse("binncrm:collections") if can_view_collections else "",
-            "cta": "Abrir cobranzas",
+            "cta": "Cobrar cartera",
             "empty_message": "No hay cobranzas vencidas en este momento.",
             "items": [
                 _build_report_item(
@@ -4144,7 +4750,7 @@ def broker_hub(request):
             "title": "Documentos por vencer",
             "subtitle": "Soportes que pronto dejan de estar vigentes.",
             "href": reverse("binncrm:documents") if can_view_documents else "",
-            "cta": "Abrir repositorio",
+            "cta": "Operar documentos",
             "empty_message": "No hay documentos por vencer en los proximos 30 dias.",
             "items": [
                 _build_report_item(
@@ -4168,7 +4774,7 @@ def broker_hub(request):
             "title": "Cotizaciones por empujar",
             "subtitle": "Propuestas que caducan pronto y conviene mover hoy.",
             "href": reverse("binncrm:proposals") if can_view_proposals else "",
-            "cta": "Abrir propuestas",
+            "cta": "Seguir propuestas",
             "empty_message": "No hay cotizaciones por vencer esta semana.",
             "items": [
                 _build_report_item(
@@ -4199,8 +4805,6 @@ def broker_hub(request):
         "generated_at": timezone.localtime(now),
     }
     return render(request, "binncrm/broker_hub.html", context)
-
-
 @login_required
 @tenant_permission_required(PERMISSION_REPORTS_VIEW, capability="reports")
 def services_hub(request):
@@ -4467,7 +5071,7 @@ def services_hub(request):
             "title": "Oportunidades B2B en riesgo",
             "subtitle": "Deals abiertos que se estan enfriando o merecen empuje comercial.",
             "href": reverse("binncrm:index") if can_view_deals else "",
-            "cta": "Abrir pipeline",
+            "cta": "Mover pipeline",
             "empty_message": "No hay oportunidades enfriandose en este momento.",
             "items": [
                 _build_report_item(
@@ -4484,7 +5088,7 @@ def services_hub(request):
             "title": "Propuestas por mover",
             "subtitle": "Cotizaciones vivas que conviene cerrar, corregir o empujar esta semana.",
             "href": reverse("binncrm:proposals") if can_view_proposals else "",
-            "cta": "Abrir propuestas",
+            "cta": "Seguir propuestas",
             "empty_message": "No hay propuestas con urgencia inmediata.",
             "items": [
                 _build_report_item(
@@ -4506,7 +5110,7 @@ def services_hub(request):
             "title": "Reuniones de seguimiento",
             "subtitle": "Discovery, kickoff y sesiones pendientes para que el proceso no se enfrie.",
             "href": f"{reverse('binncrm:activities')}?{urlencode({'kind': Activity.TYPE_MEETING, 'status': 'open'})}" if can_view_activities else "",
-            "cta": "Abrir reuniones",
+            "cta": "Seguir reuniones",
             "empty_message": "No hay reuniones abiertas ni pendientes.",
             "items": [
                 _build_report_item(
@@ -4523,7 +5127,7 @@ def services_hub(request):
             "title": "Proyectos en ejecucion",
             "subtitle": "Lectura rapida del backlog real por proyecto: entregables, revision y cierre objetivo.",
             "href": reverse("binncrm:custom_object_records", kwargs={"object_key": project_schema.key}) if project_schema is not None and can_view_objects else "",
-            "cta": "Abrir proyectos",
+            "cta": "Operar proyectos",
             "empty_message": "No hay proyectos activos cargados todavia.",
             "items": project_workload_items[:6],
         },
@@ -4531,7 +5135,7 @@ def services_hub(request):
             "title": "Handoff comercial -> servicio",
             "subtitle": "Cuentas ganadas que todavia no dejan listo contrato, kickoff o backlog.",
             "href": reverse("binncrm:entities") if can_view_entities else "",
-            "cta": "Abrir clientes",
+            "cta": "Operar clientes",
             "empty_message": "No hay handoffs pendientes; el paso a delivery esta limpio.",
             "items": [
                 _build_report_item(
@@ -4548,7 +5152,7 @@ def services_hub(request):
             "title": "Renovaciones y upsell",
             "subtitle": "Cuentas activas con fecha de renovacion encima o senal clara de expansion.",
             "href": reverse("binncrm:entities") if can_view_entities else "",
-            "cta": "Abrir clientes",
+            "cta": "Operar clientes",
             "empty_message": "No hay cuentas en renovacion o upsell cercano.",
             "items": [
                 _build_report_item(
@@ -4565,7 +5169,7 @@ def services_hub(request):
             "title": "Backlog delivery y cobro",
             "subtitle": "Entregables bloqueados, por validar o por vencer, junto con cartera vencida que puede tensionar la cuenta.",
             "href": reverse("binncrm:custom_object_records", kwargs={"object_key": deliverable_schema.key}) if deliverable_schema is not None and can_view_objects else reverse("binncrm:collections") if can_view_collections else "",
-            "cta": "Abrir backlog",
+            "cta": "Operar backlog",
             "empty_message": "No hay backlog de delivery ni cobranzas vencidas ahora.",
             "items": [
                 *deliverable_attention_items[:4],
@@ -4729,7 +5333,7 @@ def retail_hub(request):
             "title": "Clientes VIP y frecuentes",
             "subtitle": "Base que ya compra, responde o vale proteger con clienteling fino.",
             "href": reverse("binncrm:entities") if can_view_entities else "",
-            "cta": "Abrir clientes",
+            "cta": "Operar clientes",
             "empty_message": "No hay clientes VIP o frecuentes detectados ahora.",
             "items": [
                 _build_report_item(
@@ -4757,7 +5361,7 @@ def retail_hub(request):
             "title": "Recompra y pedidos especiales",
             "subtitle": "Apartados, pedidos y oportunidades de recompra que siguen abiertas.",
             "href": reverse("binncrm:index") if can_view_deals else "",
-            "cta": "Abrir pipeline",
+            "cta": "Mover pipeline",
             "empty_message": "No hay recompra ni pedidos especiales abiertos.",
             "items": [
                 _build_report_item(
@@ -4779,7 +5383,7 @@ def retail_hub(request):
             "title": "WhatsApp follow-up",
             "subtitle": "Mensajes ya enviados y tareas vencidas para que el clienteling no se enfrie.",
             "href": f"{reverse('binncrm:activities')}?{urlencode({'kind': Activity.TYPE_WHATSAPP})}" if can_view_activities else "",
-            "cta": "Abrir seguimiento",
+            "cta": "Seguir seguimiento",
             "empty_message": "No hay follow-ups por WhatsApp ni tareas vencidas ahora.",
             "items": [
                 *[
@@ -4808,7 +5412,7 @@ def retail_hub(request):
             "title": "Listas por segmento",
             "subtitle": "Lectura rapida de VIP, frecuentes, ocasionales e inactivas para planear acciones.",
             "href": reverse("binncrm:entities") if can_view_entities else "",
-            "cta": "Abrir base",
+            "cta": "Operar base",
             "empty_message": "No hay segmentos calculados todavia.",
             "items": [
                 _build_report_item(
@@ -4830,7 +5434,7 @@ def retail_hub(request):
             "title": "Wishlists y apartados",
             "subtitle": "Piezas deseadas, reservas y contexto para vender mejor sin inventario completo.",
             "href": reverse("binncrm:custom_object_records", kwargs={"object_key": wishlist_schema.key}) if wishlist_schema is not None and can_view_objects else "",
-            "cta": "Abrir wishlists",
+            "cta": "Operar wishlists",
             "empty_message": "No hay wishlists activas ni apartados registrados.",
             "items": [
                 _build_report_item(
@@ -4862,7 +5466,7 @@ def retail_hub(request):
             "title": "Clientes por reactivar",
             "subtitle": "Fichas que se enfriaron y merecen drop, mensaje o llamada esta semana.",
             "href": reverse("binncrm:entities") if can_view_entities else "",
-            "cta": "Abrir base",
+            "cta": "Operar base",
             "empty_message": "No hay clientas inactivas para reactivar en este momento.",
             "items": [
                 _build_report_item(
@@ -5327,7 +5931,7 @@ def reports(request):
             "title": "Seguimiento en riesgo",
             "subtitle": "Deals quietos y tareas vencidas que pueden costarte ingresos o contexto comercial.",
             "href": reverse("binncrm:activities") if can_view_activities else reverse("binncrm:index") if can_view_deals else "",
-            "cta": "Abrir modulo",
+            "cta": "Operar modulo",
             "empty_message": "No hay seguimiento en riesgo por ahora.",
             "items": at_risk_items,
         },
@@ -5335,7 +5939,7 @@ def reports(request):
             "title": "Vencimientos y compromisos",
             "subtitle": "Propuestas, cobranzas y documentos que merecen accion antes de que se escapen.",
             "href": reverse("binncrm:documents") if can_view_documents else reverse("binncrm:collections") if can_view_collections else reverse("binncrm:proposals") if can_view_proposals else "",
-            "cta": "Abrir modulo",
+            "cta": "Operar modulo",
             "empty_message": "No hay vencimientos criticos en este momento.",
             "items": upcoming_items,
         },
@@ -5453,6 +6057,7 @@ def custom_object_record_detail(request, object_key, pk):
 @login_required
 @tenant_permission_required(PERMISSION_OBJECTS_EDIT)
 def custom_object_record_create(request, object_key):
+    _require_crm_permission(request, PERMISSION_OBJECTS_EDIT)
     object_schema = get_object_or_404(
         ObjectSchema.objects.prefetch_related("fields", "views"),
         key=object_key,
@@ -5473,6 +6078,18 @@ def custom_object_record_create(request, object_key):
             record.updated_by = request.user
             record.save()
             log_object_record_created(record=record, actor=request.user)
+            _audit_crm_action(
+                request,
+                action="created",
+                object_type="object_record",
+                title=f"{object_schema.label} creado",
+                message=f"Se creo '{record.title or object_schema.label}'.",
+                metadata={
+                    "record_id": record.pk,
+                    "object_key": object_schema.key,
+                    "object_label": object_schema.label,
+                },
+            )
             messages.success(request, "Registro custom creado correctamente.")
             return redirect("binncrm:custom_object_record_detail", object_key=object_schema.key, pk=record.pk)
     else:
@@ -5492,6 +6109,7 @@ def custom_object_record_create(request, object_key):
 @login_required
 @tenant_permission_required(PERMISSION_OBJECTS_EDIT)
 def custom_object_record_edit(request, object_key, pk):
+    _require_crm_permission(request, PERMISSION_OBJECTS_EDIT)
     object_schema = get_object_or_404(
         ObjectSchema.objects.prefetch_related("fields", "views"),
         key=object_key,
@@ -5508,6 +6126,19 @@ def custom_object_record_edit(request, object_key, pk):
             record.save()
             if changed_fields:
                 log_object_record_updated(record=record, actor=request.user, changed_fields=changed_fields)
+                _audit_crm_action(
+                    request,
+                    action="updated",
+                    object_type="object_record",
+                    title=f"{object_schema.label} actualizado",
+                    message=f"Se actualizo '{record.title or object_schema.label}'.",
+                    metadata={
+                        "record_id": record.pk,
+                        "object_key": object_schema.key,
+                        "object_label": object_schema.label,
+                        "changed_fields": changed_fields,
+                    },
+                )
             messages.success(request, "Registro custom actualizado correctamente.")
             return redirect("binncrm:custom_object_record_detail", object_key=object_schema.key, pk=record.pk)
     else:
@@ -5528,6 +6159,7 @@ def custom_object_record_edit(request, object_key, pk):
 @tenant_permission_required(PERMISSION_DEALS_MOVE, capability="deals")
 @require_POST
 def deal_move(request, pk):
+    _require_crm_permission(request, PERMISSION_DEALS_MOVE, capability="deals")
     deal = get_object_or_404(Deal, pk=pk)
     stage = (request.POST.get("stage") or "").strip()
     try:
@@ -5553,6 +6185,33 @@ def deal_move(request, pk):
                 previous_stage=previous_stage,
                 previous_pipeline_name=previous_pipeline_name,
             )
+
+    _audit_crm_action(
+        request,
+        action="moved" if previous_stage != stage else "reordered",
+        object_type="deal",
+        title=(
+            f"{request.tenant.get_label('deal_singular', 'Deal')} movido"
+            if previous_stage != stage
+            else f"{request.tenant.get_label('deal_singular', 'Deal')} reordenado"
+        ),
+        message=(
+            f"Se movio '{deal.title}' de {previous_stage} a {stage}."
+            if previous_stage != stage
+            else f"Se reordeno '{deal.title}' dentro de {stage}."
+        ),
+        metadata={
+            "deal_id": deal.pk,
+            "deal_title": deal.title,
+            "entity_id": deal.entity_id,
+            "pipeline_id": deal.pipeline_id,
+            "pipeline_name": getattr(deal.pipeline, "name", ""),
+            "previous_pipeline_name": previous_pipeline_name,
+            "previous_stage": previous_stage,
+            "current_stage": stage,
+            "position": inserted_index if inserted_index is not None else position,
+        },
+    )
 
     return JsonResponse(
         {
@@ -5633,6 +6292,7 @@ def activities(request):
             "show_task_lanes": show_task_lanes,
             "timeline_title": timeline_title,
             "timeline_note": timeline_note,
+            "task_preset_cards": build_task_preset_cards(request.tenant, limit=4),
             "can_create_activity": _can(request, PERMISSION_ACTIVITIES_EDIT),
             "can_complete_tasks": _can(request, PERMISSION_ACTIVITIES_COMPLETE),
         },
@@ -5642,11 +6302,26 @@ def activities(request):
 @login_required
 @tenant_permission_required(PERMISSION_ACTIVITIES_EDIT, capability="activities")
 def activity_create(request):
+    _require_crm_permission(request, PERMISSION_ACTIVITIES_EDIT, capability="activities")
     initial = {}
     entity_id = (request.GET.get("entity") or "").strip()
     deal_id = (request.GET.get("deal") or "").strip()
     activity_type = (request.GET.get("activity_type") or "").strip()
     title = (request.GET.get("title") or "").strip()
+    preset_key = (request.GET.get("preset") or "").strip().lower()
+    entity_id_value = int(entity_id) if entity_id.isdigit() else None
+    deal_id_value = int(deal_id) if deal_id.isdigit() else None
+    selected_task_preset = get_task_preset(request.tenant, preset_key)
+    if selected_task_preset is not None:
+        initial.update(
+            build_task_preset_form_initial(
+                request.tenant,
+                preset_key,
+                entity_id=entity_id_value,
+                deal_id=deal_id_value,
+                current_user=request.user,
+            )
+        )
     if entity_id.isdigit():
         initial["entity"] = entity_id
     if deal_id.isdigit():
@@ -5665,10 +6340,41 @@ def activity_create(request):
                 activity.assigned_to = request.user
             activity.save()
             log_activity_created(activity=activity, actor=request.user)
+            _audit_crm_action(
+                request,
+                action="created",
+                object_type="activity",
+                title=f"{activity.get_activity_type_display()} creada",
+                message=f"Se creo '{activity.title}'.",
+                metadata={
+                    "activity_id": activity.pk,
+                    "activity_type": activity.activity_type,
+                    "entity_id": activity.entity_id,
+                    "deal_id": activity.deal_id,
+                    "assigned_to_id": activity.assigned_to_id,
+                    "due_at": activity.due_at,
+                    "preset_key": preset_key,
+                },
+            )
             messages.success(request, "Actividad creada correctamente.")
             return redirect("binncrm:activities")
     else:
         form = ActivityForm(initial=initial, tenant=request.tenant, current_user=request.user)
+
+    activity_ops = build_activity_operational_context(request.tenant)
+    selected_activity_type = (
+        str(form.data.get("activity_type") or "").strip()
+        if request.method == "POST"
+        else str(form.initial.get("activity_type") or "").strip()
+    )
+    task_preset_cards = build_task_preset_cards(
+        request.tenant,
+        entity_id=entity_id_value or initial.get("entity"),
+        deal_id=deal_id_value or initial.get("deal"),
+        selected_key=preset_key,
+        limit=6,
+    )
+    selected_task_preset_card = next((item for item in task_preset_cards if item["is_selected"]), None)
 
     return render(
         request,
@@ -5676,21 +6382,121 @@ def activity_create(request):
         {
             "labels": request.tenant.tenant_config.labels,
             "form": form,
-            "is_task_mode": (initial.get("activity_type") == Activity.TYPE_TASK),
-            "is_meeting_mode": (initial.get("activity_type") == Activity.TYPE_MEETING),
+            "activity_ops": activity_ops,
+            "task_preset_cards": task_preset_cards,
+            "selected_task_preset": selected_task_preset,
+            "selected_task_preset_card": selected_task_preset_card,
+            "is_task_mode": (selected_activity_type == Activity.TYPE_TASK),
+            "is_meeting_mode": (selected_activity_type == Activity.TYPE_MEETING),
         },
     )
+
+
+@login_required
+@tenant_permission_required(PERMISSION_ACTIVITIES_EDIT, capability="activities")
+@require_POST
+def activity_preset_create(request):
+    _require_crm_permission(request, PERMISSION_ACTIVITIES_EDIT, capability="activities")
+    preset_key = (request.POST.get("preset") or "").strip().lower()
+    raw_entity_id = (request.POST.get("entity") or "").strip()
+    raw_deal_id = (request.POST.get("deal") or "").strip()
+    entity_id_value = int(raw_entity_id) if raw_entity_id.isdigit() else None
+    deal_id_value = int(raw_deal_id) if raw_deal_id.isdigit() else None
+    fallback_url = build_task_preset_form_href(
+        preset_key=preset_key,
+        entity_id=entity_id_value,
+        deal_id=deal_id_value,
+    )
+    task_preset = get_task_preset(request.tenant, preset_key)
+    if task_preset is None:
+        messages.error(request, "Ese preset de tarea ya no esta disponible para esta empresa.")
+        return redirect("binncrm:activities")
+
+    entity = Entity.objects.filter(pk=entity_id_value, is_active=True).first() if entity_id_value else None
+    deal = Deal.objects.filter(pk=deal_id_value, is_active=True).first() if deal_id_value else None
+    if deal is not None and entity is None:
+        entity = getattr(deal, "entity", None)
+    if deal is not None and entity is not None and getattr(deal, "entity_id", None) != getattr(entity, "pk", None):
+        messages.error(request, "El deal seleccionado no pertenece a la ficha elegida.")
+        return redirect(fallback_url)
+    if entity is None:
+        messages.error(
+            request,
+            "Para usar un preset rapido primero entra desde una ficha o selecciona la entidad en el formulario.",
+        )
+        return redirect(fallback_url)
+
+    assignee = resolve_task_preset_assignee(
+        request.tenant,
+        task_preset=task_preset,
+        current_user=request.user,
+    )
+    due_at = build_task_preset_due_at(task_preset)
+    activity = Activity.objects.create(
+        entity=entity,
+        deal=deal,
+        activity_type=Activity.TYPE_TASK,
+        title=task_preset["label"],
+        description=task_preset.get("description", "") or f"Preset operativo: {task_preset['label']}.",
+        assigned_to=assignee,
+        due_at=due_at,
+        created_by=request.user,
+        updated_by=request.user,
+    )
+    log_activity_created(activity=activity, actor=request.user)
+    _audit_crm_action(
+        request,
+        action="created",
+        object_type="task",
+        title="Tarea creada desde preset",
+        message=f"Se creo '{activity.title}' para {entity.full_name}.",
+        metadata={
+            "activity_id": activity.pk,
+            "activity_type": activity.activity_type,
+            "entity_id": activity.entity_id,
+            "deal_id": activity.deal_id,
+            "assigned_to_id": activity.assigned_to_id,
+            "due_at": activity.due_at,
+            "preset_key": task_preset["key"],
+            "preset_priority": task_preset["priority"],
+            "preset_owner_role": task_preset["owner_role"],
+        },
+    )
+    messages.success(request, f"Tarea '{activity.title}' creada para {entity.full_name}.")
+    next_url = str(request.POST.get("next") or "").strip()
+    if next_url.startswith("/"):
+        return redirect(next_url)
+    return redirect("binncrm:entity_detail", pk=entity.pk)
 
 
 @login_required
 @tenant_permission_required(PERMISSION_ACTIVITIES_COMPLETE, capability="activities")
 @require_POST
 def activity_toggle_complete(request, pk):
+    _require_crm_permission(request, PERMISSION_ACTIVITIES_COMPLETE, capability="activities")
     activity = get_object_or_404(Activity, pk=pk, activity_type=Activity.TYPE_TASK)
     activity.completed_at = None if activity.completed_at else timezone.now()
     activity.updated_by = request.user
     activity.save(update_fields=["completed_at", "updated_by", "updated_at"])
     log_activity_completion_changed(activity=activity, actor=request.user)
+    _audit_crm_action(
+        request,
+        action="completed" if activity.completed_at else "reopened",
+        object_type="task",
+        title="Tarea completada" if activity.completed_at else "Tarea reabierta",
+        message=(
+            f"Se completo '{activity.title}'."
+            if activity.completed_at
+            else f"Se reabrio '{activity.title}'."
+        ),
+        metadata={
+            "activity_id": activity.pk,
+            "activity_type": activity.activity_type,
+            "entity_id": activity.entity_id,
+            "deal_id": activity.deal_id,
+            "completed_at": activity.completed_at,
+        },
+    )
     if request.GET.get("next") == "entity" and activity.entity_id:
         return redirect("binncrm:entity_detail", pk=activity.entity_id)
     return redirect("binncrm:activities")
@@ -5749,6 +6555,7 @@ def documents(request):
 @login_required
 @tenant_permission_required(PERMISSION_DOCUMENTS_EDIT, capability="documents")
 def document_create(request):
+    _require_crm_permission(request, PERMISSION_DOCUMENTS_EDIT, capability="documents")
     initial = {"is_active": True}
     entity_id = (request.GET.get("entity") or "").strip()
     deal_id = (request.GET.get("deal") or "").strip()
@@ -5773,6 +6580,22 @@ def document_create(request):
                 actor=request.user,
                 kind_label=request.tenant.get_label("document_singular", "Documento"),
             )
+            _audit_crm_action(
+                request,
+                action="created",
+                object_type="document",
+                title=f"{request.tenant.get_label('document_singular', 'Documento')} creado",
+                message=f"Se registro '{document.title}'.",
+                metadata={
+                    "document_id": document.pk,
+                    "document_title": document.title,
+                    "document_type": document.document_type,
+                    "entity_id": document.entity_id,
+                    "deal_id": document.deal_id,
+                    "storage_provider": document.storage_provider,
+                    "storage_key": document.storage_key,
+                },
+            )
             messages.success(request, "Documento registrado correctamente.")
             return redirect("binncrm:documents")
     else:
@@ -5789,6 +6612,7 @@ def document_create(request):
 @login_required
 @tenant_permission_required(PERMISSION_DOCUMENTS_EDIT, capability="documents")
 def document_edit(request, pk):
+    _require_crm_permission(request, PERMISSION_DOCUMENTS_EDIT, capability="documents")
     document = get_object_or_404(Document, pk=pk)
     if request.method == "POST":
         form = DocumentForm(request.POST, instance=document, tenant=request.tenant)
@@ -5805,6 +6629,23 @@ def document_edit(request, pk):
                     actor=request.user,
                     kind_label=request.tenant.get_label("document_singular", "Documento"),
                     changed_fields=changed_fields,
+                )
+                _audit_crm_action(
+                    request,
+                    action="updated",
+                    object_type="document",
+                    title=f"{request.tenant.get_label('document_singular', 'Documento')} actualizado",
+                    message=f"Se actualizo '{document.title}'.",
+                    metadata={
+                        "document_id": document.pk,
+                        "document_title": document.title,
+                        "document_type": document.document_type,
+                        "entity_id": document.entity_id,
+                        "deal_id": document.deal_id,
+                        "storage_provider": document.storage_provider,
+                        "storage_key": document.storage_key,
+                        "changed_fields": changed_fields,
+                    },
                 )
             messages.success(request, "Documento actualizado correctamente.")
             return redirect("binncrm:documents")

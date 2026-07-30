@@ -40,6 +40,7 @@ urlpatterns = [
     path("deals/<int:pk>/move/", views.deal_move, name="deal_move"),
     path("activities/", views.activities, name="activities"),
     path("activities/new/", views.activity_create, name="activity_create"),
+    path("activities/presets/create/", views.activity_preset_create, name="activity_preset_create"),
     path("activities/<int:pk>/toggle-complete/", views.activity_toggle_complete, name="activity_toggle_complete"),
     path("documents/", views.documents, name="documents"),
     path("documents/new/", views.document_create, name="document_create"),

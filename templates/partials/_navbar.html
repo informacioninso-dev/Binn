@@ -28,7 +28,7 @@
           </div>
           <div class="binn-sidebar-workspace">
             <div class="binn-sidebar-workspace-head">
-              <p class="binn-sidebar-eyebrow">Espacio</p>
+              <p class="binn-sidebar-eyebrow">Mesa de trabajo</p>
               {% if nav.role_label %}
                 <p class="binn-sidebar-workspace-meta">{{ nav.role_label }}</p>
               {% endif %}
@@ -40,8 +40,8 @@
         {% if nav.primary_items %}
           <section class="binn-sidebar-section">
             <div class="binn-sidebar-section-head">
-              <p class="binn-sidebar-label">Base comercial</p>
-              <span class="binn-sidebar-section-copy">CRM</span>
+              <p class="binn-sidebar-label">Frentes activos</p>
+              <span class="binn-sidebar-section-copy">Hoy</span>
             </div>
             <nav class="binn-sidebar-nav binn-sidebar-accordion-body">
               {% for item in nav.primary_items %}
@@ -92,13 +92,13 @@
       </div>
 
       <section class="binn-sidebar-footer">
-        <p class="binn-sidebar-footer-label">Acciones</p>
+        <p class="binn-sidebar-footer-label">Atajos de trabajo</p>
         <button type="button" class="binn-btn-secondary binn-btn-compact" data-command-palette-toggle title="Buscar en Binn" aria-label="Buscar en Binn">
           <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
             <circle cx="8.5" cy="8.5" r="4.5" />
             <path stroke-linecap="round" d="m12 12 4 4" />
           </svg>
-          <span>Buscar</span>
+          <span>Buscar en Binn</span>
         </button>
         {% if collab_enabled %}
           <a
@@ -129,13 +129,13 @@
         {% endfor %}
         <form method="post" action="{% url 'logout' %}">
           {% csrf_token %}
-          <button type="submit" class="binn-btn-danger binn-sidebar-signout w-full" title="Salir">
+          <button type="submit" class="binn-btn-secondary binn-sidebar-signout w-full" title="Cerrar sesion">
             <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M7 4.5H5.5A1.5 1.5 0 0 0 4 6v8a1.5 1.5 0 0 0 1.5 1.5H7" />
-              <path stroke-linecap="round" stroke-linejoin="round" d="M11 7.5 14.5 10 11 12.5" />
-              <path stroke-linecap="round" d="M14 10H8" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5h2A1.5 1.5 0 0 1 15.5 6v8a1.5 1.5 0 0 1-1.5 1.5h-2" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8.5 7 5 10l3.5 3" />
+              <path stroke-linecap="round" d="M5.5 10H13" />
             </svg>
-            <span>Salir</span>
+            <span>Cerrar sesion</span>
           </button>
         </form>
       </section>
@@ -217,12 +217,12 @@
         {% endfor %}
         <form method="post" action="{% url 'logout' %}">
           {% csrf_token %}
-          <button type="submit" class="binn-sidebar-mini-button binn-sidebar-mini-signout" title="Salir">
+          <button type="submit" class="binn-sidebar-mini-button binn-sidebar-mini-signout" title="Cerrar sesion" aria-label="Cerrar sesion">
             <span class="binn-sidebar-icon">
               <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M7 4.5H5.5A1.5 1.5 0 0 0 4 6v8a1.5 1.5 0 0 0 1.5 1.5H7" />
-                <path stroke-linecap="round" stroke-linejoin="round" d="M11 7.5 14.5 10 11 12.5" />
-                <path stroke-linecap="round" d="M14 10H8" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5h2A1.5 1.5 0 0 1 15.5 6v8a1.5 1.5 0 0 1-1.5 1.5h-2" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8.5 7 5 10l3.5 3" />
+                <path stroke-linecap="round" d="M5.5 10H13" />
               </svg>
             </span>
           </button>

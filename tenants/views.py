@@ -30,9 +30,9 @@ from .forms import (
     AddMemberForm,
     TenantAuthenticationForm,
     TenantCreateForm,
-    TenantEditForm,
     TenantListFilterForm,
 )
+from .tenant_edit_operational import OperationalTenantEditForm
 from .middleware import LOCAL_PREVIEW_SESSION_KEY, build_public_app_url
 from .models import Client
 from .observability import record_tenant_event
@@ -490,7 +490,7 @@ class TenantCreateView(LoginRequiredMixin, SuperAdminRequiredMixin, View):
 
 class TenantEditView(LoginRequiredMixin, SuperAdminRequiredMixin, UpdateView):
     model = Client
-    form_class = TenantEditForm
+    form_class = OperationalTenantEditForm
     template_name = "tenants/tenant_edit.html"
 
     def get_context_data(self, **kwargs):
@@ -511,6 +511,11 @@ class TenantEditView(LoginRequiredMixin, SuperAdminRequiredMixin, UpdateView):
             "role_policies_json": self.object.tenant_config.role_policies,
             "document_blueprints_json": self.object.tenant_config.document_blueprints,
             "pipeline_templates_json": self.object.tenant_config.pipeline_templates,
+            "task_presets_json": self.object.tenant_config.task_presets,
+            "collection_settings_json": self.object.tenant_config.collection_settings,
+            "communication_settings_json": self.object.tenant_config.communication_settings,
+            "quote_settings_json": self.object.tenant_config.quote_settings,
+            "homepage_layout_json": self.object.tenant_config.homepage_layout,
         }
         response = super().form_valid(form)
 
@@ -561,6 +566,11 @@ def _serialize_change_value(self, field, previous_values, previous_config):
         "role_policies_json",
         "document_blueprints_json",
         "pipeline_templates_json",
+        "task_presets_json",
+        "collection_settings_json",
+        "communication_settings_json",
+        "quote_settings_json",
+        "homepage_layout_json",
     }:
         source = previous_config[field] if previous_config is not None else getattr(config, field.replace("_json", ""))
         return json.dumps(source, ensure_ascii=True, sort_keys=isinstance(source, dict))
@@ -590,6 +600,30 @@ def _serialize_change_value(self, field, previous_values, previous_config):
         source_policies = previous_config["role_policies_json"] if previous_config is not None else config.role_policies
         role_key = field.replace("_permissions", "")
         return json.dumps(resolve_role_policies(source_policies)[role_key], ensure_ascii=True)
+    if field == "homepage_layout_mode":
+        source_layout = previous_config["homepage_layout_json"] if previous_config is not None else config.homepage_layout
+        return str((source_layout or {}).get("mode", ""))
+    if field == "homepage_layout_density":
+        source_layout = previous_config["homepage_layout_json"] if previous_config is not None else config.homepage_layout
+        return str((source_layout or {}).get("density", ""))
+    if field == "communication_primary_channel":
+        source_settings = previous_config["communication_settings_json"] if previous_config is not None else config.communication_settings
+        return str((source_settings or {}).get("primary_channel", ""))
+    if field == "communication_broadcast_enabled":
+        source_settings = previous_config["communication_settings_json"] if previous_config is not None else config.communication_settings
+        return json.dumps(bool((source_settings or {}).get("broadcast_enabled", False)))
+    if field == "quote_default_currency":
+        source_settings = previous_config["quote_settings_json"] if previous_config is not None else config.quote_settings
+        return str((source_settings or {}).get("default_currency", ""))
+    if field == "quote_validity_days":
+        source_settings = previous_config["quote_settings_json"] if previous_config is not None else config.quote_settings
+        return json.dumps((source_settings or {}).get("validity_days"))
+    if field == "collection_default_currency":
+        source_settings = previous_config["collection_settings_json"] if previous_config is not None else config.collection_settings
+        return str((source_settings or {}).get("default_currency", ""))
+    if field == "collection_risk_window_days":
+        source_settings = previous_config["collection_settings_json"] if previous_config is not None else config.collection_settings
+        return json.dumps((source_settings or {}).get("risk_window_days"))
     return str(previous_values.get(field, "")) if previous_values is not None else str(getattr(self.object, field, ""))
 
 

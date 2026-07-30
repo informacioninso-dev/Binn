@@ -135,7 +135,7 @@ def build_navigation_model(request) -> NavigationModel:
             current_namespace,
             current_url_name,
             icon="home",
-            hint="Operacion de hoy",
+            hint="Pulso del dia",
             url_names=("dashboard",),
         ),
     ]
@@ -147,7 +147,7 @@ def build_navigation_model(request) -> NavigationModel:
                 current_namespace,
                 current_url_name,
                 icon="chart",
-                hint="Tablero del condominio",
+                hint="Cartera, mora y operacion",
                 url_names=("condominio_hub",),
             )
         )
@@ -159,7 +159,7 @@ def build_navigation_model(request) -> NavigationModel:
                 current_namespace,
                 current_url_name,
                 icon="chart",
-                hint="Cartera y renovaciones",
+                hint="Renovaciones y cartera",
                 url_names=("broker_hub",),
             )
         )
@@ -171,7 +171,7 @@ def build_navigation_model(request) -> NavigationModel:
                 current_namespace,
                 current_url_name,
                 icon="chart",
-                hint="Servicios en marcha",
+                hint="Pipeline y delivery",
                 url_names=("services_hub",),
             )
         )
@@ -183,7 +183,7 @@ def build_navigation_model(request) -> NavigationModel:
                 current_namespace,
                 current_url_name,
                 icon="chart",
-                hint="Ventas retail",
+                hint="Recompra y clienteling",
                 url_names=("retail_hub",),
             )
         )
@@ -196,7 +196,7 @@ def build_navigation_model(request) -> NavigationModel:
             current_namespace,
             current_url_name,
             icon="users",
-            hint="Fichas y contexto",
+            hint="Fichas, contacto y contexto",
             url_names=("entities", "entity_import", "entity_create", "entity_detail", "entity_edit"),
         )
 
@@ -207,7 +207,7 @@ def build_navigation_model(request) -> NavigationModel:
             current_namespace,
             current_url_name,
             icon="pipeline",
-            hint="Pipeline comercial",
+            hint="Pipeline, etapas y cierres",
             url_names=("index", "deal_create", "deal_edit"),
         )
 
@@ -219,7 +219,7 @@ def build_navigation_model(request) -> NavigationModel:
     management_menu = None
     if management_items:
         management_menu = NavigationMenu(
-            label="Operacion",
+            label="Operacion diaria",
             items=tuple(management_items),
             active=any(item.active for item in management_items),
         )
@@ -377,7 +377,7 @@ def _build_role_label(request, user, membership) -> str:
         if active_context is not None and active_context.corporate_group_id:
             group_membership = get_active_group_membership(group_id=active_context.corporate_group_id, user=user)
             if group_membership is not None:
-                return f"Grupo · {group_membership.get_role_display()}"
+                return f"Grupo - {group_membership.get_role_display()}"
     return ""
 
 
@@ -395,7 +395,7 @@ def _build_utility_items(user, tenant, current_namespace: str, current_url_name:
                 current_namespace,
                 current_url_name,
                 icon="return",
-                hint="Cambiar workspace",
+                hint="Volver al selector de espacios",
                 namespaces=("tenants",),
                 url_names=("return_to_platform",),
             )
@@ -408,7 +408,7 @@ def _build_utility_items(user, tenant, current_namespace: str, current_url_name:
                 current_namespace,
                 current_url_name,
                 icon="lock",
-                hint="Seguridad de cuenta",
+                hint="Seguridad y acceso",
                 url_names=("password_change", "password_change_done"),
             )
         )
@@ -427,7 +427,7 @@ def _build_management_items(request, tenant, current_namespace: str, current_url
             current_namespace,
             current_url_name,
             icon="layers",
-            hint="Registros custom",
+            hint="Registros flexibles",
             url_names=("custom_object_catalog", "custom_object_records", "custom_object_record_detail", "custom_object_record_create", "custom_object_record_edit"),
         )
 
@@ -438,7 +438,7 @@ def _build_management_items(request, tenant, current_namespace: str, current_url
             current_namespace,
             current_url_name,
             icon="pulse",
-            hint="Tareas y seguimiento",
+            hint="Seguimiento, agenda y tareas",
             url_names=("activities", "activity_create"),
         )
 
@@ -449,7 +449,7 @@ def _build_management_items(request, tenant, current_namespace: str, current_url
             current_namespace,
             current_url_name,
             icon="chat",
-            hint="Conversaciones internas",
+            hint="Conversaciones y contexto",
             namespaces=("collab",),
             url_names=("inbox", "conversation_detail"),
         )
@@ -461,7 +461,7 @@ def _build_management_items(request, tenant, current_namespace: str, current_url
             current_namespace,
             current_url_name,
             icon="file",
-            hint="Soportes y vencimientos",
+            hint="Documentos, soportes y vigencias",
             url_names=("documents", "document_create", "document_edit"),
         )
 
@@ -472,7 +472,7 @@ def _build_management_items(request, tenant, current_namespace: str, current_url
             current_namespace,
             current_url_name,
             icon="spark",
-            hint="Cotizar y enviar",
+            hint="Cotizaciones y propuestas",
             url_names=("proposals", "proposal_create", "proposal_edit"),
         )
 
@@ -483,7 +483,7 @@ def _build_management_items(request, tenant, current_namespace: str, current_url
             current_namespace,
             current_url_name,
             icon="wallet",
-            hint="Cobros y cartera",
+            hint="Cobros, saldos y cartera",
             url_names=("collections", "collection_create", "collection_edit"),
         )
 
@@ -494,7 +494,7 @@ def _build_management_items(request, tenant, current_namespace: str, current_url
             current_namespace,
             current_url_name,
             icon="chart",
-            hint="Metricas del negocio",
+            hint="Alertas, cierres y lectura",
             url_names=("reports",),
         )
 

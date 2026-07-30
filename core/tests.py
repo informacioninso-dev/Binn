@@ -23,9 +23,10 @@ from access.models import TenantMembership
 from core.navigation import build_command_palette_model, build_navigation_model
 from core.preflight import run_platform_preflight, summarize_preflight
 from core.runtime_services import RuntimeProbeResult, get_runtime_services_status
-from core.views import build_dashboard_experience
+from core.views import _build_dashboard_action_lanes, build_dashboard_experience
 from identity.forms import StrictPasswordResetForm
 from tenants.defaults import PROFILE_BROKER, PROFILE_CONDOMINIO, PROFILE_GENERAL, PROFILE_MARKETING, PROFILE_RETAIL_MODA, PROFILE_SERVICIOS
+from tenants.operational_settings import merge_operational_defaults
 
 
 def _probe_result(healthy: bool, message: str):
@@ -144,12 +145,12 @@ class NavigationModelTests(SimpleTestCase):
         self.assertEqual([item.label for item in nav.primary_items], ["Inicio", "Asegurados", "Renovaciones"])
         self.assertEqual(
             [item.hint for item in nav.primary_items],
-            ["Operacion de hoy", "Fichas y contexto", "Pipeline comercial"],
+            ["Pulso del dia", "Fichas, contacto y contexto", "Pipeline, etapas y cierres"],
         )
         self.assertIsNotNone(nav.management_menu)
-        self.assertEqual(nav.management_menu.label, "Operacion")
+        self.assertEqual(nav.management_menu.label, "Operacion diaria")
         self.assertEqual([item.label for item in nav.management_menu.items], ["Seguimiento"])
-        self.assertEqual([item.hint for item in nav.management_menu.items], ["Tareas y seguimiento"])
+        self.assertEqual([item.hint for item in nav.management_menu.items], ["Seguimiento, agenda y tareas"])
         self.assertTrue(nav.management_menu.active)
 
     def test_disabled_modules_do_not_render_navigation_items(self):
@@ -658,8 +659,59 @@ class RuntimeServicesTests(SimpleTestCase):
         self.assertFalse(status["channels"].healthy)
 
 
+class DashboardActionLaneTests(SimpleTestCase):
+    def test_action_lanes_group_consult_follow_up_and_close(self):
+        lanes = _build_dashboard_action_lanes(
+            feature_flags={
+                "entities": True,
+                "deals": True,
+                "activities": True,
+                "documents": True,
+                "proposals": True,
+                "collections": True,
+                "reports": True,
+            },
+            permissions={
+                "entities.view": True,
+                "deals.view": True,
+                "activities.view": True,
+                "activities.edit": True,
+                "documents.view": True,
+                "proposals.view": True,
+                "collections.view": True,
+                "collections.edit": True,
+                "reports.view": True,
+            },
+        )
+
+        self.assertEqual([lane["title"] for lane in lanes], ["Consulta", "Seguimiento", "Cierre"])
+        self.assertEqual([item["label"] for item in lanes[0]["items"]], ["Mover pipeline", "Operar fichas", "Leer radar"])
+        self.assertEqual([item["label"] for item in lanes[1]["items"]], ["Seguir agenda", "Nueva actividad", "Operar documentos"])
+        self.assertEqual([item["label"] for item in lanes[2]["items"]], ["Seguir propuestas", "Cobrar cartera", "Cargar cobro"])
+
+    def test_action_lanes_hide_edit_shortcuts_when_role_is_read_only(self):
+        lanes = _build_dashboard_action_lanes(
+            feature_flags={
+                "activities": True,
+                "proposals": True,
+                "collections": False,
+            },
+            permissions={
+                "activities.view": True,
+                "activities.edit": False,
+                "proposals.view": True,
+                "proposals.edit": True,
+            },
+        )
+
+        self.assertEqual([lane["title"] for lane in lanes], ["Seguimiento", "Cierre"])
+        self.assertEqual([item["label"] for item in lanes[0]["items"]], ["Seguir agenda"])
+        self.assertEqual([item["label"] for item in lanes[1]["items"]], ["Seguir propuestas", "Sacar propuesta"])
+
+
 class DashboardExperienceTests(SimpleTestCase):
     def _tenant(self, *, profile, labels, feature_flags, module_order=None, dashboard_widgets=None):
+        operational_defaults = merge_operational_defaults(profile)
         return SimpleNamespace(
             tenant_config=SimpleNamespace(
                 profile=profile,
@@ -667,6 +719,7 @@ class DashboardExperienceTests(SimpleTestCase):
                 feature_flags=feature_flags,
                 module_order=module_order or [],
                 dashboard_widgets=dashboard_widgets or [],
+                homepage_layout=operational_defaults["homepage_layout"],
             )
         )
 
@@ -698,7 +751,7 @@ class DashboardExperienceTests(SimpleTestCase):
         self.assertEqual(dashboard["kicker"], "Broker de seguros")
         self.assertIn("Documentos de emision", dashboard["highlights"])
         self.assertTrue(any(card["title"] == "Documentos" for card in dashboard["summary_cards"]))
-        self.assertTrue(any(action["label"] == "Registrar documento" for action in dashboard["quick_actions"]))
+        self.assertTrue(any(action["label"] == "Cargar documento" for action in dashboard["quick_actions"]))
 
     def test_condominio_dashboard_uses_collection_copy(self):
         tenant = self._tenant(
@@ -756,7 +809,9 @@ class DashboardExperienceTests(SimpleTestCase):
         )
 
         self.assertFalse(dashboard["show_pipeline_panel"])
-        self.assertEqual(dashboard["summary_cards"][1]["cta"], "")
+        opportunity_card = next(card for card in dashboard["summary_cards"] if card["title"] == "Oportunidades")
+        self.assertEqual(opportunity_card["cta"], "")
+        self.assertEqual(opportunity_card["href"], "")
 
     def test_dashboard_uses_module_order_and_widget_visibility(self):
         tenant = self._tenant(
@@ -785,7 +840,7 @@ class DashboardExperienceTests(SimpleTestCase):
             {"entities": 18, "open_deals": 7, "activities_due": 3, "documents": 24},
         )
 
-        self.assertEqual([card["title"] for card in dashboard["summary_cards"][:3]], ["Documentos", "Renovaciones", "Asegurados"])
+        self.assertEqual([card["title"] for card in dashboard["summary_cards"][:3]], ["Renovaciones", "Documentos", "Asegurados"])
         self.assertEqual(dashboard["quick_actions"], [])
         self.assertEqual(dashboard["guided_steps"], [])
         self.assertTrue(dashboard["show_pipeline_panel"])
@@ -939,7 +994,7 @@ class DashboardExperienceTests(SimpleTestCase):
             {"entities": 18, "open_deals": 7, "activities_due": 3, "documents": 24},
         )
 
-        self.assertTrue(any(action["label"] == "Registrar documento" for action in dashboard["quick_actions"]))
+        self.assertTrue(any(action["label"] == "Cargar documento" for action in dashboard["quick_actions"]))
         self.assertTrue(any(action["label"] == "Nueva actividad" for action in dashboard["quick_actions"]))
 
     def test_dashboard_includes_proposals_and_collections_when_enabled(self):
@@ -981,8 +1036,8 @@ class DashboardExperienceTests(SimpleTestCase):
             },
         )
 
-        self.assertEqual([card["title"] for card in dashboard["summary_cards"][:2]], ["Cobros", "Cotizaciones"])
-        self.assertTrue(any(action["label"] == "Registrar cotizacion" for action in dashboard["quick_actions"]))
+        self.assertEqual([card["title"] for card in dashboard["summary_cards"][:3]], ["Renovaciones", "Cobros", "Cotizaciones"])
+        self.assertTrue(any(action["label"] == "Sacar cotizacion" for action in dashboard["quick_actions"]))
 
     def test_services_dashboard_surfaces_reports_module(self):
         tenant = self._tenant(
@@ -1027,7 +1082,7 @@ class DashboardExperienceTests(SimpleTestCase):
         )
 
         self.assertEqual(dashboard["summary_cards"][0]["title"], "Radar B2B")
-        self.assertTrue(any(action["label"] == "Abrir reportes" for action in dashboard["quick_actions"]))
+        self.assertTrue(any(action["label"] == "Leer radar" for action in dashboard["quick_actions"]))
 
 
 @override_settings(

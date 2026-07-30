@@ -2,42 +2,84 @@ services:
   web:
     build:
       context: .
-    command: daphne -b 0.0.0.0 -p 8007 config.asgi:application
+    command: sh -c "${WEB_COMMAND:-daphne -b 0.0.0.0 -p 8007 config.asgi:application}"
     env_file:
       - .env.production
+    environment:
+      WAIT_FOR_DB: "1"
+      RUN_MIGRATIONS_ON_BOOT: "0"
+      RUN_COLLECTSTATIC_ON_BOOT: "0"
+      MALLOC_ARENA_MAX: ${MALLOC_ARENA_MAX:-2}
+      PYTHONMALLOC: ${PYTHONMALLOC:-malloc}
     depends_on:
       db:
-        condition: service_healthy
-      redis:
         condition: service_healthy
     volumes:
       - static_data:/app/staticfiles
       - media_data:/app/media
+    init: true
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8007/health/ >/dev/null"]
       interval: 15s
       timeout: 5s
       retries: 5
       start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     restart: unless-stopped
 
   worker:
     build:
       context: .
-    command: celery -A config worker -l info
+    command: >-
+      sh -c "celery -A config worker -l ${CELERY_LOG_LEVEL:-warning}
+      --pool=${CELERY_WORKER_POOL:-solo}
+      --concurrency=${CELERY_WORKER_CONCURRENCY:-1}
+      --prefetch-multiplier=${CELERY_WORKER_PREFETCH_MULTIPLIER:-1}
+      --max-tasks-per-child=${CELERY_WORKER_MAX_TASKS_PER_CHILD:-200}
+      ${CELERY_WORKER_EXTRA_ARGS:---without-gossip --without-mingle}"
     env_file:
       - .env.production
+    environment:
+      WAIT_FOR_DB: "1"
+      RUN_MIGRATIONS_ON_BOOT: "0"
+      RUN_COLLECTSTATIC_ON_BOOT: "0"
+      MALLOC_ARENA_MAX: ${MALLOC_ARENA_MAX:-2}
+      PYTHONMALLOC: ${PYTHONMALLOC:-malloc}
     depends_on:
       db:
         condition: service_healthy
-      redis:
-        condition: service_healthy
     volumes:
       - media_data:/app/media
+    init: true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     restart: unless-stopped
 
   db:
-    image: postgres:16
+    image: postgres:16-alpine
+    command:
+      - postgres
+      - -c
+      - shared_buffers=${POSTGRES_SHARED_BUFFERS:-96MB}
+      - -c
+      - work_mem=${POSTGRES_WORK_MEM:-2MB}
+      - -c
+      - maintenance_work_mem=${POSTGRES_MAINTENANCE_WORK_MEM:-48MB}
+      - -c
+      - effective_cache_size=${POSTGRES_EFFECTIVE_CACHE_SIZE:-192MB}
+      - -c
+      - max_connections=${POSTGRES_MAX_CONNECTIONS:-30}
+      - -c
+      - wal_buffers=${POSTGRES_WAL_BUFFERS:-4MB}
+      - -c
+      - checkpoint_completion_target=${POSTGRES_CHECKPOINT_COMPLETION_TARGET:-0.9}
     env_file:
       - .env.production
     environment:
@@ -51,11 +93,19 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     restart: unless-stopped
 
   redis:
     image: redis:7-alpine
-    command: redis-server --save 60 1 --loglevel warning
+    command: >-
+      redis-server --save 60 1 --loglevel warning
+      --maxmemory ${REDIS_MAXMEMORY:-96mb}
+      --maxmemory-policy ${REDIS_MAXMEMORY_POLICY:-allkeys-lru}
     volumes:
       - redis_data:/data
     healthcheck:
@@ -63,6 +113,11 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     restart: unless-stopped
 
   nginx:
@@ -82,6 +137,11 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     restart: unless-stopped
 
 volumes:

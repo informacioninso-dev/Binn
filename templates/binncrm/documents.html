@@ -66,7 +66,7 @@
         <div class="binn-documents-action-card">
           <div class="binn-documents-toolbar-actions">
             {% if can_create_document %}
-              <a href="{% url 'binncrm:document_create' %}" class="binn-btn-primary binn-btn-compact">+ Nuevo documento</a>
+              <a href="{% url 'binncrm:document_create' %}" class="binn-btn-primary binn-btn-compact">+ Cargar documento</a>
             {% endif %}
           </div>
         </div>
@@ -85,7 +85,7 @@
                 <span class="rounded-full px-3 py-1 text-xs font-medium {{ item.expiry_status.tone }}">{{ item.expiry_status.label }}</span>
               </div>
               <h2 class="mt-3 font-semibold">{{ item.document.title }}</h2>
-              <p class="mt-1 text-sm text-gray-500">{% if item.description %}{{ item.description }}{% else %}Documento preparado para el flujo del tenant.{% endif %}</p>
+              <p class="mt-1 text-sm text-gray-500">{% if item.description %}{{ item.description }}{% else %}Documento listo para operar dentro del flujo.{% endif %}</p>
               {% if item.document.entity or item.document.deal %}
                 <p class="mt-2 text-sm text-gray-500">
                   {% if item.document.entity %}{{ item.document.entity.full_name }}{% endif %}
@@ -120,12 +120,12 @@
           {% if item.access_url or can_edit_document %}
             <div class="binn-record-toolbar mt-4">
               {% if item.access_url %}<a href="{{ item.access_url }}" target="_blank" rel="noreferrer" class="binn-record-action">Abrir documento</a>{% endif %}
-              {% if can_edit_document %}<a href="{% url 'binncrm:document_edit' item.document.pk %}" class="binn-record-action">Editar metadata</a>{% endif %}
+              {% if can_edit_document %}<a href="{% url 'binncrm:document_edit' item.document.pk %}" class="binn-record-action">Editar soporte</a>{% endif %}
             </div>
           {% endif %}
         </article>
       {% empty %}
-        <section class="binn-panel p-6 text-sm text-gray-500">Aun no hay documentos registrados.</section>
+        <section class="binn-panel p-6 text-sm text-gray-500">Todavia no hay documentos para operar.</section>
       {% endfor %}
     </section>
   </div>

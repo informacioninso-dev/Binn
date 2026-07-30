@@ -145,6 +145,8 @@ WSGI_APPLICATION = "config.wsgi.application"
 _db_engine = os.getenv("DB_ENGINE", "postgresql")
 if _db_engine != "postgresql":
     raise ImproperlyConfigured("DB_ENGINE debe ser postgresql para multitenancy por schemas.")
+DB_CONN_MAX_AGE = int(os.getenv("DB_CONN_MAX_AGE", "0" if DEBUG else "60"))
+DB_CONN_HEALTH_CHECKS = _env_bool("DB_CONN_HEALTH_CHECKS", default=not DEBUG)
 DATABASES = {
     "default": {
         "ENGINE": "django_tenants.postgresql_backend",
@@ -153,9 +155,10 @@ DATABASES = {
         "PASSWORD": os.getenv("DB_PASSWORD", ""),
         "HOST": os.getenv("DB_HOST", "localhost"),
         "PORT": os.getenv("DB_PORT", "5432"),
+        "CONN_MAX_AGE": DB_CONN_MAX_AGE,
+        "CONN_HEALTH_CHECKS": DB_CONN_HEALTH_CHECKS,
     }
 }
-
 if CACHE_URL:
     CACHES = {
         "default": {

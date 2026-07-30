@@ -1,6 +1,7 @@
 from functools import wraps
 
 from django.contrib import messages
+from django.core.exceptions import PermissionDenied
 from django.shortcuts import redirect
 
 from .models import TenantMembership
@@ -50,26 +51,37 @@ def tenant_capability_required(capability):
 
     return decorator
 
+def ensure_request_tenant_permission(request, permission_code: str, *, capability: str | None = None, membership=None):
+    tenant = getattr(request, "tenant", None)
+    if tenant is None:
+        raise PermissionDenied("missing_tenant")
+
+    if capability and not tenant.has_capability(capability):
+        raise PermissionDenied("disabled_capability")
+
+    membership = membership or getattr(request, "tenant_membership", None) or get_request_membership(request)
+    if membership is not None:
+        request.tenant_membership = membership
+
+    if not request_has_tenant_permission(request, permission_code, membership=membership):
+        raise PermissionDenied("missing_permission")
+    return tenant
+
 
 def tenant_permission_required(permission_code: str, *, capability: str | None = None):
     def decorator(view_func):
         @wraps(view_func)
         def wrapper(request, *args, **kwargs):
-            tenant = getattr(request, "tenant", None)
-            if tenant is None:
-                messages.error(request, "No se encontro un tenant activo para esta solicitud.")
-                return redirect("dashboard")
-
-            if capability and not tenant.has_capability(capability):
-                messages.error(request, "Este modulo no esta habilitado para este tenant.")
-                return redirect("dashboard")
-
-            membership = get_request_membership(request)
-            if membership is not None:
-                request.tenant_membership = membership
-
-            if not request_has_tenant_permission(request, permission_code, membership=membership):
-                messages.error(request, "Tu rol actual no tiene permisos para realizar esta accion.")
+            try:
+                ensure_request_tenant_permission(request, permission_code, capability=capability)
+            except PermissionDenied as exc:
+                reason = str(exc)
+                if reason == "missing_tenant":
+                    messages.error(request, "No se encontro un tenant activo para esta solicitud.")
+                elif reason == "disabled_capability":
+                    messages.error(request, "Este modulo no esta habilitado para este tenant.")
+                else:
+                    messages.error(request, "Tu rol actual no tiene permisos para realizar esta accion.")
                 return redirect("dashboard")
 
             return view_func(request, *args, **kwargs)

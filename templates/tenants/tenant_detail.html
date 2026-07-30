@@ -146,6 +146,50 @@
         <div class="binn-panel rounded-3xl p-6">
           <div class="flex items-start justify-between gap-4">
             <div>
+              <h2 class="text-lg font-semibold">Reglas operativas base</h2>
+              <p class="mt-2 text-sm text-gray-600">Vista rapida de portada, seguimiento, cobranzas y propuestas para esta empresa.</p>
+            </div>
+            <span class="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">{{ tenant.task_presets|length }} presets</span>
+          </div>
+
+          <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div class="rounded-2xl bg-gray-50 p-4">
+              <p class="text-xs uppercase tracking-wide text-gray-500">Portada</p>
+              <p class="mt-3 text-sm font-semibold text-gray-900">{{ tenant.homepage_layout.mode }}</p>
+              <p class="mt-2 text-xs text-gray-500">Densidad {{ tenant.homepage_layout.density }} | Hero {{ tenant.homepage_layout.hero_metric }}</p>
+            </div>
+            <div class="rounded-2xl bg-gray-50 p-4">
+              <p class="text-xs uppercase tracking-wide text-gray-500">Comunicacion</p>
+              <p class="mt-3 text-sm font-semibold text-gray-900">{{ tenant.communication_settings.primary_channel }}</p>
+              <p class="mt-2 text-xs text-gray-500">Canales: {{ tenant.communication_settings.channels|join:", " }}</p>
+            </div>
+            <div class="rounded-2xl bg-gray-50 p-4">
+              <p class="text-xs uppercase tracking-wide text-gray-500">Cotizaciones</p>
+              <p class="mt-3 text-sm font-semibold text-gray-900">{{ tenant.quote_settings.default_currency }} | {{ tenant.quote_settings.number_prefix }}</p>
+              <p class="mt-2 text-xs text-gray-500">Validez: {{ tenant.quote_settings.validity_days }} dias</p>
+            </div>
+            <div class="rounded-2xl bg-gray-50 p-4">
+              <p class="text-xs uppercase tracking-wide text-gray-500">Cobranzas</p>
+              <p class="mt-3 text-sm font-semibold text-gray-900">{{ tenant.collection_settings.default_currency }}</p>
+              <p class="mt-2 text-xs text-gray-500">Ventana de riesgo: {{ tenant.collection_settings.risk_window_days }} dias</p>
+            </div>
+          </div>
+
+          <div class="mt-4">
+            <p class="text-xs uppercase tracking-wide text-gray-500">Task presets</p>
+            <div class="mt-3 flex flex-wrap gap-2">
+              {% for preset in tenant.task_presets %}
+                <span class="rounded-full bg-white px-3 py-1 text-xs font-medium text-gray-700">{{ preset.label }} - {{ preset.due_in_days }}d</span>
+              {% empty %}
+                <span class="rounded-full bg-white px-3 py-1 text-xs font-medium text-gray-500">Sin presets definidos</span>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+
+        <div class="binn-panel rounded-3xl p-6">
+          <div class="flex items-start justify-between gap-4">
+            <div>
               <h2 class="text-lg font-semibold">Como saldra esta empresa al usuario</h2>
               <p class="mt-2 text-sm text-gray-600">{{ launchpad.summary }}</p>
             </div>
@@ -398,3 +442,4 @@
     </section>
   </div>
 {% endblock %}
+

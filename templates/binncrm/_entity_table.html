@@ -5,7 +5,7 @@
         {{ entities|length }} resultado{{ entities|length|pluralize }}
         {% if current_view.label %}| {{ current_view.label }}{% endif %}
       </p>
-      <p class="text-sm text-slate-500">Abre una ficha para seguir el contexto completo.</p>
+      <p class="text-sm text-slate-500">Opera una ficha para seguir todo el contexto.</p>
     </div>
   {% endif %}
 
@@ -18,7 +18,7 @@
             <div class="min-w-0 flex-1">
               <h2 class="text-base font-extrabold tracking-tight">{{ row.instance.full_name }}</h2>
               <p class="binn-list-meta">
-                {{ row.instance.legal_id|default:"Sin identificación" }}
+                {{ row.instance.legal_id|default:"Sin identificacion" }}.
                 {% if row.instance.phone %} | {{ row.instance.phone }}{% endif %}
                 {% if row.instance.email %} | {{ row.instance.email }}{% endif %}
               </p>
@@ -49,7 +49,7 @@
             <div class="binn-meta-strip mt-3">
               {% for extra in row.extra_values %}
                 {% if extra.value %}
-                  <span class="binn-pill">{{ extra.label }} · {{ extra.value }}</span>
+                  <span class="binn-pill">{{ extra.label }} &middot; {{ extra.value }}</span>.
                 {% endif %}
               {% endfor %}
             </div>
@@ -60,27 +60,27 @@
           {% if row.instance.whatsapp_url %}
             <a href="{{ row.instance.whatsapp_url }}" target="_blank" rel="noreferrer" class="binn-record-action">WhatsApp</a>
           {% endif %}
-          <a href="{% url 'binncrm:entity_detail' row.instance.pk %}" class="binn-record-action binn-record-action-primary">Ver ficha</a>
+          <a href="{% url 'binncrm:entity_detail' row.instance.pk %}" class="binn-record-action binn-record-action-primary">Operar ficha</a>
         </div>
       </div>
 
       {% if can_manage_related.deals or can_manage_related.proposals or can_manage_related.collections or can_manage_related.activities or can_manage_related.documents %}
         <div class="binn-record-toolbar mt-4 border-t border-slate-200 pt-4">
           {% if can_manage_related.deals %}
-            <a href="{% url 'binncrm:deal_create' %}?entity={{ row.instance.pk }}" class="binn-record-action">Nuevo {{ labels.deal_singular|default:"movimiento" }}</a>
+            <a href="{% url 'binncrm:deal_create' %}?entity={{ row.instance.pk }}" class="binn-record-action">Abrir {{ labels.deal_singular|default:"movimiento" }}</a>
           {% endif %}
           {% if can_manage_related.proposals %}
-            <a href="{% url 'binncrm:proposal_create' %}?entity={{ row.instance.pk }}" class="binn-record-action">Nueva {{ labels.proposal_singular|default:"propuesta" }}</a>
+            <a href="{% url 'binncrm:proposal_create' %}?entity={{ row.instance.pk }}" class="binn-record-action">Sacar {{ labels.proposal_singular|default:"propuesta" }}</a>
           {% endif %}
           {% if can_manage_related.collections %}
-            <a href="{% url 'binncrm:collection_create' %}?entity={{ row.instance.pk }}" class="binn-record-action">Nueva {{ labels.collection_singular|default:"cobranza" }}</a>
+            <a href="{% url 'binncrm:collection_create' %}?entity={{ row.instance.pk }}" class="binn-record-action">Cargar {{ labels.collection_singular|default:"cobranza" }}</a>
           {% endif %}
           {% if can_manage_related.activities %}
-            <a href="{% url 'binncrm:activity_create' %}?entity={{ row.instance.pk }}" class="binn-record-action">Nueva actividad</a>
-            <a href="{% url 'binncrm:activity_create' %}?entity={{ row.instance.pk }}&activity_type=meeting&title=Reunion+de+seguimiento" class="binn-record-action">Nueva reunion</a>
+            <a href="{% url 'binncrm:activity_create' %}?entity={{ row.instance.pk }}" class="binn-record-action">Nueva actividad</a>.
+            <a href="{% url 'binncrm:activity_create' %}?entity={{ row.instance.pk }}&activity_type=meeting&title=Reunion+de+seguimiento" class="binn-record-action">Nueva reunion</a>.
           {% endif %}
           {% if can_manage_related.documents %}
-            <a href="{% url 'binncrm:document_create' %}?entity={{ row.instance.pk }}" class="binn-record-action">Nuevo {{ labels.document_singular|default:"documento" }}</a>
+            <a href="{% url 'binncrm:document_create' %}?entity={{ row.instance.pk }}" class="binn-record-action">Cargar {{ labels.document_singular|default:"documento" }}</a>
           {% endif %}
         </div>
       {% endif %}
@@ -88,7 +88,7 @@
   {% empty %}
     <section class="binn-panel p-6">
       <div class="binn-empty">
-        Todavia no hay registros. Empieza creando una ficha nueva para trabajar mejor el seguimiento.
+        Todavia no hay fichas en juego. Crea la primera y deja el siguiente paso listo.
       </div>
     </section>
   {% endfor %}

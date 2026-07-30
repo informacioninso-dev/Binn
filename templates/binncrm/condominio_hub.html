@@ -29,7 +29,7 @@
         <div class="binn-condo-control-card">
           <div class="binn-condo-headline-row">
             <div class="binn-condo-toolbar-copy">
-              <span class="binn-kicker">Condominio hub</span>
+              <span class="binn-kicker">Operacion condominio</span>
             </div>
             <p class="binn-condo-inline-note">Generado {{ generated_at|date:"d/m/Y H:i" }} | revisa primero mora, promesas de pago, incidencias y documentos que sostienen la operacion diaria.</p>
           </div>
@@ -44,7 +44,7 @@
           </div>
         </div>
         <div class="binn-condo-action-card">
-          <p class="binn-condo-inline-note">Este cockpit elimina lenguaje comercial clasico y te deja operar residentes, cartera y novedades desde una sola pantalla.</p>
+          <p class="binn-condo-inline-note">Este radar te deja operar residentes, cobrar cartera y resolver novedades desde una sola pantalla.</p>
           {% if quick_actions %}
             <div class="binn-condo-actions">
               {% for action in quick_actions %}
@@ -64,7 +64,7 @@
               <span class="rounded-full px-3 py-1 text-xs font-medium {{ card.tone }}">{{ card.label }}</span>
               <p class="mt-4 text-4xl font-bold tracking-tight">{{ card.value }}</p>
               <p class="mt-3 text-sm text-gray-600">{{ card.caption }}</p>
-              {% if card.href %}<a href="{{ card.href }}" class="mt-4 inline-flex text-sm font-semibold text-slate-900 hover:underline">Abrir modulo</a>{% endif %}
+              {% if card.href %}<a href="{{ card.href }}" class="mt-4 inline-flex text-sm font-semibold text-slate-900 hover:underline">{{ card.cta|default:"Operar" }}</a>{% endif %}
             </article>
           {% endfor %}
         </div>
@@ -73,7 +73,7 @@
 
     <section class="grid grid-cols-1 gap-4 xl:grid-cols-[1.05fr_0.95fr]">
       <article class="binn-panel binn-record-card">
-        <h2 class="text-lg font-semibold">Cadencia sugerida</h2>
+        <h2 class="text-lg font-semibold">Ritmo sugerido</h2>
         <div class="mt-4 space-y-3">
           {% for item in workspace_pack.rituals %}
             <div class="rounded-2xl border border-black/5 px-4 py-3 text-sm text-gray-700">{{ item }}</div>
@@ -81,7 +81,7 @@
         </div>
       </article>
       <article class="binn-panel binn-record-card">
-        <h2 class="text-lg font-semibold">Foco del vertical</h2>
+        <h2 class="text-lg font-semibold">Enfoque del vertical</h2>
         <div class="mt-4 space-y-3">
           {% for item in workspace_pack.pillars %}
             <div class="rounded-2xl border border-black/5 px-4 py-3 text-sm text-gray-700">{{ item }}</div>

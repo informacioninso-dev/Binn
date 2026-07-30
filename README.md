@@ -53,11 +53,13 @@ En produccion:
 - `static/` sale por Nginx desde `STATIC_ROOT`
 - `media/` sale por Nginx desde `MEDIA_ROOT`
 - la app ASGI corre por `daphne`
-- el worker corre por `celery`
+- el worker corre por `celery` con defaults conservadores de memoria
 
 Si necesitas paths distintos, define `STATIC_ROOT`, `MEDIA_ROOT`, `STATIC_URL` y `MEDIA_URL` por entorno.
 
 ## Realtime y workers
+
+El stack productivo principal corre completo con Redis y worker dedicado, pero con defaults conservadores para no disparar consumo en VPS pequenos.
 
 Para operar con realtime y colas reales:
 
@@ -74,7 +76,21 @@ python manage.py bootstrap_demo_stack --admin-user admin --admin-password "BinnA
 
 ## Release reproducible
 
-El repo ahora fija dependencias operativas en `requirements.lock.txt` y trae CI en `.github/workflows/ci.yml`.
+Antes de desplegar por primera vez:
+
+```bash
+cp .env.production.example .env.production
+```
+
+Luego completa en `.env.production` al menos:
+
+- `SECRET_KEY`
+- `ALLOWED_HOSTS`
+- `CSRF_TRUSTED_ORIGINS`
+- `TENANT_BASE_DOMAIN`
+- `DB_PASSWORD`
+- `EMAIL_HOST`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`
+- dominios de cookie si usaras subdominios compartidos
 
 Flujo recomendado:
 
@@ -82,10 +98,42 @@ Flujo recomendado:
 docker compose --env-file .env.production -f docker-compose.prod.yml build
 docker compose --env-file .env.production -f docker-compose.prod.yml up -d
 ./deploy/release.sh
-python manage.py platform_preflight --strict
 ```
 
-`docker-compose.prod.yml` espera que `DB_NAME`, `DB_USER` y `DB_PASSWORD` vengan del mismo `.env.production` para que Postgres y Django queden alineados.
+`deploy/release.sh` ahora puede correr desde el host con Docker Compose y ejecuta dentro del contenedor web:
+
+- `migrate_schemas`
+- `audit_identity_cutover --strict`
+- `check`
+- `check --deploy`
+- `collectstatic`
+- `platform_preflight --strict`
+
+En el stack productivo principal el runtime queda mas liviano por defecto:
+
+- `web` y `worker` ya no corren migraciones ni `collectstatic` en cada reinicio
+- `worker` arranca con `solo`, concurrencia `1`, prefetch minimo y reciclado de procesos
+- Postgres y Redis quedan con defaults conservadores para VPS pequenos
+- los logs de Docker rotan para no comerse el disco
+
+Si quieres ajustar memoria sin abrir otro perfil de deploy, usa estas variables del mismo `.env.production`:
+
+- `MALLOC_ARENA_MAX`
+- `PYTHONMALLOC`
+- `DB_CONN_MAX_AGE`
+- `POSTGRES_SHARED_BUFFERS`
+- `POSTGRES_MAX_CONNECTIONS`
+- `REDIS_MAXMEMORY`
+- `CELERY_WORKER_CONCURRENCY`
+- `CELERY_WORKER_MAX_TASKS_PER_CHILD`
+
+Si quieres agregar una validacion operativa completa despues del release:
+
+```bash
+RUN_OPERATIONAL_SMOKE_TEST=1 RELEASE_TENANT_SCHEMA=public ./deploy/release.sh
+```
+
+El stack espera que `DB_NAME`, `DB_USER` y `DB_PASSWORD` vengan del mismo `.env.production` para que Postgres y Django queden alineados.
 
 Si quieres terminar TLS dentro del mismo stack Docker, usa tambien:
 
@@ -94,7 +142,6 @@ docker compose --env-file .env.production -f docker-compose.prod.yml -f docker-c
 ```
 
 El override TLS espera certificados en `deploy/certs/fullchain.pem` y `deploy/certs/privkey.pem`.
-
 ## Observabilidad y operacion
 
 Variables nuevas para operacion:
@@ -114,6 +161,19 @@ Variables nuevas para operacion:
 - `DEFAULT_FROM_EMAIL`
 - `SERVER_EMAIL`
 - `PASSWORD_RESET_TIMEOUT`
+- `RUN_MIGRATIONS_ON_BOOT`
+- `RUN_COLLECTSTATIC_ON_BOOT`
+- `DB_CONN_MAX_AGE`
+- `DB_CONN_HEALTH_CHECKS`
+- `POSTGRES_SHARED_BUFFERS`
+- `POSTGRES_WORK_MEM`
+- `POSTGRES_MAINTENANCE_WORK_MEM`
+- `POSTGRES_EFFECTIVE_CACHE_SIZE`
+- `POSTGRES_MAX_CONNECTIONS`
+- `REDIS_MAXMEMORY`
+- `CELERY_WORKER_CONCURRENCY`
+- `CELERY_WORKER_POOL`
+- `CELERY_WORKER_MAX_TASKS_PER_CHILD`
 
 Comandos operativos:
 

@@ -18,6 +18,39 @@
         </p>
       </div>
 
+      {% if task_preset_cards %}
+        <section class="mb-6 rounded-2xl border border-black/5 bg-slate-50/80 p-4">
+          <p class="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-slate-500">Presets operativos</p>
+          <div class="mt-3 flex flex-wrap gap-2">
+            {% for preset in task_preset_cards %}
+              <a href="{{ preset.href }}" class="{% if preset.is_selected %}binn-btn-primary{% else %}binn-btn-secondary{% endif %} binn-btn-compact">{{ preset.label }} | {{ preset.due_label }}</a>
+            {% endfor %}
+          </div>
+          {% if selected_task_preset_card %}
+            <p class="mt-3 text-sm text-slate-600">
+              Preset activo: {{ selected_task_preset_card.label }}.
+              Prioridad {{ selected_task_preset_card.priority_label|lower }},
+              responsable sugerido {{ selected_task_preset_card.owner_role_label|lower }}
+              y vencimiento {{ selected_task_preset_card.due_label|lower }}.
+            </p>
+            {% if selected_task_preset.description %}
+              <p class="mt-2 text-sm text-slate-500">{{ selected_task_preset.description }}</p>
+            {% endif %}
+          {% endif %}
+        </section>
+      {% endif %}
+
+      {% if activity_ops %}
+        <section class="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4 text-sm text-slate-700">
+          <p class="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-emerald-700">Operacion del tenant</p>
+          <div class="mt-3 space-y-2">
+            <p>Canal principal: {{ activity_ops.primary_channel_label }}. Si entras sin tipo, Binn propone ese canal y un titulo base.</p>
+            <p>Canales activos: {{ activity_ops.channels_label }}.</p>
+            <p>{% if activity_ops.consent_required %}La configuracion exige consentimiento antes de contactar.{% else %}La configuracion no exige consentimiento previo.{% endif %} {% if activity_ops.broadcast_enabled %}La difusion masiva esta habilitada.{% else %}La difusion masiva esta apagada.{% endif %}</p>
+          </div>
+        </section>
+      {% endif %}
+
       <form method="post" class="space-y-6">
         {% csrf_token %}
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2">

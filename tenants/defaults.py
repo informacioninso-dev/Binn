@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from copy import deepcopy
 
@@ -12,11 +12,11 @@ PROFILE_RETAIL_MODA = "retail_moda"
 
 PROFILE_CHOICES = [
     (PROFILE_GENERAL, "General"),
-    (PROFILE_CONDOMINIO, "Administracion de condominios"),
+    (PROFILE_CONDOMINIO, "Operacion de condominios"),
     (PROFILE_BROKER, "Broker de seguros"),
-    (PROFILE_SERVICIOS, "Consultoria y servicios corporativos"),
-    (PROFILE_RETAIL_MODA, "Retail y marcas de ropa"),
-    (PROFILE_MARKETING, "Agencia de marketing (legacy)"),
+    (PROFILE_SERVICIOS, "Servicios B2B"),
+    (PROFILE_RETAIL_MODA, "Retail y clienteling"),
+    (PROFILE_MARKETING, "Agencia comercial"),
 ]
 
 DEFAULT_MODULE_ORDER = [
@@ -74,16 +74,16 @@ ROLE_PERMISSION_LABELS = {
     "deals.view": "Ver deals",
     "deals.edit": "Crear y editar deals",
     "deals.move": "Mover deals en kanban",
-    "proposals.view": "Ver propuestas",
+    "proposals.view": "Seguir propuestas",
     "proposals.edit": "Crear y editar propuestas",
-    "collections.view": "Ver cobranzas",
+    "collections.view": "Cobrar cartera",
     "collections.edit": "Crear y editar cobranzas",
     "activities.view": "Ver actividades",
     "activities.edit": "Crear y editar actividades",
     "activities.complete": "Completar tareas",
     "collab.view": "Ver conversacion interna",
     "collab.edit": "Escribir mensajes internos",
-    "documents.view": "Ver documentos",
+    "documents.view": "Operar documentos",
     "documents.edit": "Crear y editar documentos",
     "reports.view": "Ver reportes",
 }
@@ -155,8 +155,8 @@ DEFAULT_FEATURE_FLAGS = {
 
 DEFAULT_LABELS = {
     "brand_name": "Binn",
-    "dashboard_title": "Centro de control",
-    "dashboard_subtitle": "Complejidad oculta para microempresas",
+    "dashboard_title": "Radar Binn",
+    "dashboard_subtitle": "Operacion comercial sin ruido",
     "entity_singular": "Contacto",
     "entity_plural": "Contactos",
     "deal_singular": "Oportunidad",
@@ -170,7 +170,7 @@ DEFAULT_LABELS = {
     "collection_singular": "Cobranza",
     "collection_plural": "Cobranzas",
     "pipeline_label": "Pipeline",
-    "search_placeholder": "Busca por nombre, identificacion o telefono",
+    "search_placeholder": "Busca por nombre, identificacion o dato clave",
 }
 
 CAPABILITY_LABELS = {
@@ -190,7 +190,7 @@ CAPABILITY_LABELS = {
 PROFILE_ONBOARDING = {
     PROFILE_GENERAL: {
         "headline": "CRM base listo para operar",
-        "summary": "Activa el flujo comercial esencial sin cargar modulos que no hacen falta de entrada.",
+        "summary": "Activa el flujo comercial esencial sin cargar frentes que no hacen falta de entrada.",
         "next_steps": [
             "Importar tus primeros contactos y referencias comerciales.",
             "Ajustar labels si tu negocio usa otra nomenclatura.",
@@ -202,7 +202,7 @@ PROFILE_ONBOARDING = {
         "summary": "Prioriza residentes, cartera y seguimiento operativo sin mostrar un CRM comercial tradicional.",
         "next_steps": [
             "Cargar residentes y completar torre, departamento y alicuota.",
-            "Revisar el pipeline de recaudacion segun tu proceso de cobro.",
+            "Ajustar el flujo de recaudacion segun tu proceso de cobro.",
             "Asignar al menos un operador para seguimiento diario.",
         ],
     },
@@ -225,11 +225,11 @@ PROFILE_ONBOARDING = {
         ],
     },
     PROFILE_SERVICIOS: {
-        "headline": "Operacion comercial lista para consultoria y servicios",
+        "headline": "Operacion comercial lista para servicios B2B",
         "summary": "Prioriza oportunidades, propuestas, reuniones y seguimiento postventa con lenguaje B2B sencillo.",
         "next_steps": [
             "Cargar clientes y prospectos con su empresa y servicio principal.",
-            "Revisar el pipeline de propuestas y cierres antes de invitar al equipo.",
+            "Ajustar el pipeline de propuestas y cierres antes de invitar al equipo.",
             "Definir responsables para discovery, propuesta y cobranza.",
         ],
     },

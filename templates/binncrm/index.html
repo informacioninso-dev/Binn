@@ -452,7 +452,7 @@
 
               {% if saved_views %}
                 <div class="binn-kanban-view-row">
-                  <span class="binn-module-tools-label">Vistas</span>
+                  <span class="binn-module-tools-label">Cortes</span>
                   <div class="binn-module-shortcuts">
                     {% for view in saved_views %}
                       <a
@@ -480,7 +480,7 @@
                       </form>
                     </span>
                   {% empty %}
-                    <p class="binn-kanban-inline-note">Guarda un corte por pipeline, vista y busqueda para volver a tu radar comercial con un click.</p>
+                    <p class="binn-kanban-inline-note">Guarda un corte por pipeline y busqueda para volver a tu radar comercial con un click.</p>
                   {% endfor %}
                 </div>
               </div>
@@ -492,7 +492,7 @@
                 <input type="hidden" name="pipeline" value="{% if current_pipeline %}{{ current_pipeline.pk }}{% endif %}" />
                 <div class="binn-kanban-filter-save-grid">
                   {{ saved_filter_form.label }}
-                  <button type="submit" class="binn-btn-secondary binn-btn-compact">Guardar filtro actual</button>
+                  <button type="submit" class="binn-btn-secondary binn-btn-compact">Guardar radar actual</button>
                 </div>
               </form>
             </div>
@@ -502,7 +502,7 @@
         <div class="binn-kanban-action-card">
           <div class="binn-kanban-toolbar-actions">
             {% if can_manage_pipelines %}
-              <a href="{% url 'binncrm:pipeline_settings' %}" class="binn-btn-secondary binn-btn-compact">Configurar pipeline</a>
+              <a href="{% url 'binncrm:pipeline_settings' %}" class="binn-btn-secondary binn-btn-compact">Ajustar pipeline</a>
             {% endif %}
             {% if can_create_deal %}
               <a href="{% url 'binncrm:deal_create' %}" class="binn-btn-primary binn-btn-compact">+ Nuevo {{ labels.deal_singular|default:"deal" }}</a>

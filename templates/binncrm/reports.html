@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Reportes | Binn{% endblock %}
+{% block title %}Radar | Binn{% endblock %}
 
 {% block head_extra %}
 <style>
@@ -28,7 +28,7 @@
             <div class="binn-reports-toolbar-copy">
               <span class="binn-kicker">{{ report_copy.kicker }}</span>
             </div>
-            <p class="binn-reports-inline-note">Generado {{ generated_at|date:"d/m/Y H:i" }} · empieza por lo vencido o frio.</p>
+            <p class="binn-reports-inline-note">Generado {{ generated_at|date:"d/m/Y H:i" }} | arranca por lo vencido, frio o sin siguiente paso.</p>
           </div>
           {% if report_copy.highlights %}
             <div class="binn-meta-strip">
@@ -39,7 +39,7 @@
           {% endif %}
         </div>
         <div class="binn-reports-action-card">
-          <p class="binn-reports-inline-note">Abre solo el modulo que vayas a mover. Esta vista es para decidir rapido, no para navegar de mas.</p>
+          <p class="binn-reports-inline-note">Mueve solo el frente que vayas a trabajar. Esta vista es para decidir rapido, no para navegar de mas.</p>
         </div>
       </div>
     </section>
@@ -59,7 +59,7 @@
       </article>
 
       <article class="binn-panel binn-record-card">
-        <h2 class="text-lg font-semibold">Cadencia sugerida</h2>
+        <h2 class="text-lg font-semibold">Ritmo sugerido</h2>
         <div class="mt-4 space-y-3">
           {% for item in workspace_pack.rituals %}
             <div class="rounded-2xl border border-black/5 px-4 py-3 text-sm text-gray-700">{{ item }}</div>
@@ -76,7 +76,7 @@
               <span class="rounded-full px-3 py-1 text-xs font-medium {{ card.tone }}">{{ card.label }}</span>
               <p class="mt-4 text-4xl font-bold tracking-tight">{{ card.value }}</p>
               <p class="mt-3 text-sm text-gray-600">{{ card.caption }}</p>
-              {% if card.href %}<a href="{{ card.href }}" class="mt-4 inline-flex text-sm font-semibold text-slate-900 hover:underline">Abrir modulo</a>{% endif %}
+              {% if card.href %}<a href="{{ card.href }}" class="mt-4 inline-flex text-sm font-semibold text-slate-900 hover:underline">{{ card.cta|default:"Mover" }}</a>{% endif %}
             </article>
           {% endfor %}
         </div>
@@ -91,7 +91,7 @@
               <h2 class="text-lg font-semibold">{{ section.title }}</h2>
               <p class="mt-2 text-sm text-gray-600">{{ section.subtitle }}</p>
             </div>
-            {% if section.href %}<a href="{{ section.href }}" class="text-sm font-medium text-slate-900 hover:underline">{{ section.cta|default:"Abrir" }}</a>{% endif %}
+            {% if section.href %}<a href="{{ section.href }}" class="text-sm font-medium text-slate-900 hover:underline">{{ section.cta|default:"Operar" }}</a>{% endif %}
           </div>
           <div class="mt-5 space-y-3">
             {% for item in section.items %}

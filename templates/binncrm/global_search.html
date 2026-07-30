@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Buscar en CRM | Binn{% endblock %}
+{% block title %}Radar de busqueda | Binn{% endblock %}
 
 {% block head_extra %}
 <style>
@@ -119,9 +119,9 @@
   <div class="binn-search-shell">
     <section class="binn-panel binn-search-hero">
       <div>
-        <span class="binn-kicker">Busqueda global</span>
-        <h1 class="binn-section-title mt-3">Busca en todo el CRM desde una sola pantalla</h1>
-        <p class="binn-search-copy mt-2">Contactos, deals, actividades, propuestas, cobranzas y documentos. Si ya sabes el nombre, referencia o contexto, deberias encontrarlo aqui sin saltar modulo por modulo.</p>
+        <span class="binn-kicker">Radar de busqueda</span>
+        <h1 class="binn-section-title mt-3">Encuentra fichas, deals y cobros sin saltar de frente</h1>
+        <p class="binn-search-copy mt-2">Fichas, deals, seguimiento, propuestas, cobros y documentos. Si ya conoces el nombre, referencia o contexto, deberias encontrarlo aqui sin saltar frente por frente.</p>
       </div>
 
       <form method="get" class="binn-search-form">
@@ -131,7 +131,7 @@
             name="q"
             value="{{ q }}"
             class="binn-input w-full"
-            placeholder="Ej. Acme, renovacion, POL-001, cobranza vencida"
+            placeholder="Ej. Acme, renovacion, POL-001, promesa vencida"
             autofocus
           />
           <button type="submit" class="binn-btn-primary">Buscar</button>
@@ -141,7 +141,7 @@
       {% if has_query %}
         <p class="binn-search-note">{{ total_results }} coincidencia{{ total_results|pluralize }} visibles para "{{ q }}".</p>
       {% else %}
-        <p class="binn-search-note">Tip: tambien puedes abrir esta pantalla desde `Ctrl/Cmd + K` con "Buscar en CRM".</p>
+        <p class="binn-search-note">Tip: tambien puedes abrir esta pantalla desde `Ctrl/Cmd + K` con "Buscar en CRM" para moverte mas rapido.</p>
       {% endif %}
     </section>
 

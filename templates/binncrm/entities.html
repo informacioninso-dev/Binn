@@ -219,7 +219,7 @@
               <div class="binn-entities-toolbar-copy">
                 <span class="binn-kicker">{{ labels.entity_plural|default:"Contactos" }}</span>
               </div>
-              <p class="binn-entities-inline-note">{{ entities|length }} visibles{% if searchable_fields %} · {{ searchable_fields|length }} campos buscables{% endif %}</p>
+              <p class="binn-entities-inline-note">{{ entities|length }} visibles{% if searchable_fields %} &middot; {{ searchable_fields|length }} campos buscables{% endif %}</p>
             </div>
 
             <div class="binn-entities-query-row">
@@ -237,7 +237,7 @@
 
               {% if saved_views %}
                 <div class="binn-entities-view-row">
-                  <span class="binn-module-tools-label">Vistas</span>
+                  <span class="binn-module-tools-label">Cortes</span>
                   <div class="binn-module-shortcuts">
                     {% for view in saved_views %}
                       <a
@@ -254,18 +254,18 @@
 
             <div class="binn-entities-saved-stack">
               <div class="binn-entities-saved-row">
-                <span class="binn-module-tools-label">Filtros guardados</span>
+                <span class="binn-module-tools-label">Radares guardados</span>
                 <div class="binn-entities-saved-list">
                   {% for saved_filter in saved_filters %}
                     <span class="binn-entities-filter-pill {% if saved_filter.is_active %}is-active{% endif %}">
                       <a href="{{ saved_filter.href }}" class="binn-entities-filter-link">{{ saved_filter.label }}</a>
                       <form method="post" action="{% url 'binncrm:entity_filter_delete' saved_filter.pk %}">
                         {% csrf_token %}
-                        <button type="submit" class="binn-entities-filter-delete" aria-label="Eliminar filtro">×</button>
+                        <button type="submit" class="binn-entities-filter-delete" aria-label="Eliminar filtro">&times;</button>
                       </form>
                     </span>
                   {% empty %}
-                    <p class="binn-entities-inline-note">Guarda una combinacion de vista y busqueda para reusar tus cortes mas frecuentes.</p>
+                    <p class="binn-entities-inline-note">Guarda un corte de vista y busqueda para volver rapido a tu base.</p>
                   {% endfor %}
                 </div>
               </div>
@@ -276,7 +276,7 @@
                 <input type="hidden" name="view" value="{{ current_view.key }}" />
                 <div class="binn-entities-filter-save-grid">
                   {{ saved_filter_form.label }}
-                  <button type="submit" class="binn-btn-secondary binn-btn-compact">Guardar filtro actual</button>
+                  <button type="submit" class="binn-btn-secondary binn-btn-compact">Guardar radar actual</button>
                 </div>
               </form>
             </div>
@@ -286,7 +286,7 @@
         <div class="binn-entities-action-card">
           <div class="binn-entities-toolbar-actions">
             {% if can_import_entities %}
-              <a href="{% url 'binncrm:entity_import' %}" class="binn-btn-secondary binn-btn-compact">Importar CSV</a>
+              <a href="{% url 'binncrm:entity_import' %}" class="binn-btn-secondary binn-btn-compact">Cargar base CSV</a>
             {% endif %}
             {% if can_create_entity %}
               <a href="{% url 'binncrm:entity_create' %}" class="binn-btn-primary binn-btn-compact">+ Nueva {{ labels.entity_singular|default:"entidad" }}</a>

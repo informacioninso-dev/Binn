@@ -13,6 +13,14 @@ from .defaults import (
     resolve_module_order,
     resolve_role_policies,
 )
+from .operational_settings import (
+    merge_operational_defaults,
+    resolve_collection_settings,
+    resolve_communication_settings,
+    resolve_homepage_layout,
+    resolve_quote_settings,
+    resolve_task_presets,
+)
 
 
 class Client(TenantMixin):
@@ -41,9 +49,11 @@ class Client(TenantMixin):
 
     @cached_property
     def tenant_config(self):
+        defaults = merge_with_profile_defaults(PROFILE_GENERAL)
+        defaults.update(merge_operational_defaults(PROFILE_GENERAL))
         config, _ = TenantConfig.objects.get_or_create(
             tenant=self,
-            defaults=merge_with_profile_defaults(PROFILE_GENERAL),
+            defaults=defaults,
         )
         return config
 
@@ -87,6 +97,26 @@ class Client(TenantMixin):
     def role_policies(self) -> dict[str, list[str]]:
         return resolve_role_policies(self.tenant_config.role_policies)
 
+    @property
+    def task_presets(self) -> list[dict]:
+        return resolve_task_presets(self.tenant_config.task_presets)
+
+    @property
+    def collection_settings(self) -> dict:
+        return resolve_collection_settings(self.tenant_config.collection_settings)
+
+    @property
+    def communication_settings(self) -> dict:
+        return resolve_communication_settings(self.tenant_config.communication_settings)
+
+    @property
+    def quote_settings(self) -> dict:
+        return resolve_quote_settings(self.tenant_config.quote_settings)
+
+    @property
+    def homepage_layout(self) -> dict:
+        return resolve_homepage_layout(self.tenant_config.homepage_layout)
+
 
 class TenantConfig(models.Model):
     tenant = models.OneToOneField(Client, on_delete=models.CASCADE, related_name="config")
@@ -100,6 +130,11 @@ class TenantConfig(models.Model):
     role_policies = models.JSONField(default=dict, blank=True)
     document_blueprints = models.JSONField(default=list, blank=True)
     pipeline_templates = models.JSONField(default=list, blank=True)
+    task_presets = models.JSONField(default=list, blank=True)
+    collection_settings = models.JSONField(default=dict, blank=True)
+    communication_settings = models.JSONField(default=dict, blank=True)
+    quote_settings = models.JSONField(default=dict, blank=True)
+    homepage_layout = models.JSONField(default=dict, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -122,6 +157,14 @@ class TenantConfig(models.Model):
             document_blueprints=[] if overwrite else self.document_blueprints,
             pipeline_templates=[] if overwrite else self.pipeline_templates,
         )
+        merged_operational = merge_operational_defaults(
+            self.profile,
+            task_presets=[] if overwrite else self.task_presets,
+            collection_settings={} if overwrite else self.collection_settings,
+            communication_settings={} if overwrite else self.communication_settings,
+            quote_settings={} if overwrite else self.quote_settings,
+            homepage_layout={} if overwrite else self.homepage_layout,
+        )
         self.feature_flags = merged["feature_flags"]
         self.labels = merged["labels"]
         self.entity_fields = merged["entity_fields"]
@@ -131,6 +174,11 @@ class TenantConfig(models.Model):
         self.role_policies = merged["role_policies"]
         self.document_blueprints = merged["document_blueprints"]
         self.pipeline_templates = merged["pipeline_templates"]
+        self.task_presets = merged_operational["task_presets"]
+        self.collection_settings = merged_operational["collection_settings"]
+        self.communication_settings = merged_operational["communication_settings"]
+        self.quote_settings = merged_operational["quote_settings"]
+        self.homepage_layout = merged_operational["homepage_layout"]
 
 
 class Domain(DomainMixin):

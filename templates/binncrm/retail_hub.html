@@ -29,7 +29,7 @@
         <div class="binn-retail-control-card">
           <div class="binn-retail-headline-row">
             <div class="binn-retail-toolbar-copy">
-              <span class="binn-kicker">Retail hub</span>
+              <span class="binn-kicker">Operacion retail</span>
             </div>
             <p class="binn-retail-inline-note">Generado {{ generated_at|date:"d/m/Y H:i" }} | prioriza recompra, WhatsApp y clientas frias antes de que el ciclo se rompa.</p>
           </div>
@@ -44,7 +44,7 @@
           </div>
         </div>
         <div class="binn-retail-action-card">
-          <p class="binn-retail-inline-note">Este cockpit aterriza el clienteling en acciones concretas sin convertir Binn en un ERP de inventario.</p>
+          <p class="binn-retail-inline-note">Este radar aterriza el clienteling en acciones concretas sin volver Binn un ERP de inventario.</p>
           {% if quick_actions %}
             <div class="binn-retail-actions">
               {% for action in quick_actions %}
@@ -64,7 +64,7 @@
               <span class="rounded-full px-3 py-1 text-xs font-medium {{ card.tone }}">{{ card.label }}</span>
               <p class="mt-4 text-4xl font-bold tracking-tight">{{ card.value }}</p>
               <p class="mt-3 text-sm text-gray-600">{{ card.caption }}</p>
-              {% if card.href %}<a href="{{ card.href }}" class="mt-4 inline-flex text-sm font-semibold text-slate-900 hover:underline">Abrir modulo</a>{% endif %}
+              {% if card.href %}<a href="{{ card.href }}" class="mt-4 inline-flex text-sm font-semibold text-slate-900 hover:underline">{{ card.cta|default:"Operar" }}</a>{% endif %}
             </article>
           {% endfor %}
         </div>
@@ -73,7 +73,7 @@
 
     <section class="grid grid-cols-1 gap-4 xl:grid-cols-[1.05fr_0.95fr]">
       <article class="binn-panel binn-record-card">
-        <h2 class="text-lg font-semibold">Cadencia sugerida</h2>
+        <h2 class="text-lg font-semibold">Ritmo sugerido</h2>
         <div class="mt-4 space-y-3">
           {% for item in workspace_pack.rituals %}
             <div class="rounded-2xl border border-black/5 px-4 py-3 text-sm text-gray-700">{{ item }}</div>
@@ -81,7 +81,7 @@
         </div>
       </article>
       <article class="binn-panel binn-record-card">
-        <h2 class="text-lg font-semibold">Foco del vertical</h2>
+        <h2 class="text-lg font-semibold">Enfoque del vertical</h2>
         <div class="mt-4 space-y-3">
           {% for item in workspace_pack.pillars %}
             <div class="rounded-2xl border border-black/5 px-4 py-3 text-sm text-gray-700">{{ item }}</div>

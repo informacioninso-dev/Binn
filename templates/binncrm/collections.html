@@ -306,9 +306,9 @@
                 <input id="collection-search" type="text" name="q" value="{{ q }}" class="binn-input w-full" placeholder="Titulo, referencia, cliente o deal" />
               </div>
               <div class="binn-collections-view-row">
-                <span class="binn-module-tools-label">Vistas</span>
+                <span class="binn-module-tools-label">Cortes</span>
                 <div class="binn-module-shortcuts">
-                  <a href="{% url 'binncrm:collections' %}{% if q %}?q={{ q|urlencode }}{% endif %}" class="binn-module-shortcut {% if not selected_status %}binn-record-action-primary{% endif %}">Todas</a>
+                  <a href="{% url 'binncrm:collections' %}{% if q %}?q={{ q|urlencode }}{% endif %}" class="binn-module-shortcut {% if not selected_status %}binn-record-action-primary{% endif %}">Todo el flujo</a>
                   {% for key, label in collection_statuses %}
                     <a href="{% url 'binncrm:collections' %}?status={{ key }}{% if q %}&q={{ q|urlencode }}{% endif %}" class="binn-module-shortcut {% if selected_status == key %}binn-record-action-primary{% endif %}">{{ label }}</a>
                   {% endfor %}
@@ -320,8 +320,10 @@
         <div class="binn-collections-action-card">
           <div class="binn-collections-toolbar-actions">
             {% if can_create_collection %}
-              <a href="{% url 'binncrm:collection_create' %}" class="binn-btn-primary binn-btn-compact">+ Nueva {{ labels.collection_singular|default:"cobranza" }}</a>
+              <a href="{% url 'binncrm:collection_create' %}" class="binn-btn-primary binn-btn-compact">+ Cargar {{ labels.collection_singular|default:"cobranza" }}</a>
             {% endif %}
+            <p class="binn-collections-inline-note">Base {{ collection_ops.default_currency }} | riesgo {{ collection_ops.risk_window_days }}d | seguimiento {{ collection_ops.follow_up_label }}</p>
+            <p class="binn-collections-inline-note">Flujo {{ collection_ops.state_labels|join:", " }}</p>
           </div>
         </div>
       </div>

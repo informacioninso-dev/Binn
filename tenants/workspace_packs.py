@@ -17,19 +17,19 @@ PROFILE_LABEL_MAP = dict(PROFILE_CHOICES)
 
 WORKSPACE_PACKS = {
     PROFILE_GENERAL: {
-        "title": "Pack CRM Base",
-        "subtitle": "Operacion comercial ligera para equipos que necesitan orden sin ruido extra.",
+        "title": "Operacion base Binn",
+        "subtitle": "Fichas, pipeline y seguimiento con criterio comercial y sin ruido extra.",
         "pillars": ["Base de contactos limpia", "Pipeline simple", "Seguimiento diario"],
         "rituals": [
-            "Revisar fichas sin contacto claro cada semana.",
-            "Cerrar tareas vencidas antes de abrir nuevas.",
-            "Limpiar deals quietos antes de fin de mes.",
+            "Seguir fichas sin contexto claro cada semana.",
+            "Cerrar tareas vencidas antes de abrir frente nuevo.",
+            "Mover deals quietos antes de fin de mes.",
         ],
         "report_focus": ["Seguimiento en riesgo", "Deals sin movimiento", "Base incompleta"],
     },
     PROFILE_CONDOMINIO: {
-        "title": "Pack Condominios",
-        "subtitle": "Recaudo, residentes y trazabilidad operativa con lenguaje administrativo.",
+        "title": "Operacion condominio",
+        "subtitle": "Cobro, residentes y novedades con lenguaje de operacion diaria.",
         "pillars": ["Residentes claros", "Cartera visible", "Gestiones repetibles"],
         "rituals": [
             "Separar cartera vencida, prometida y cobrada por semana.",
@@ -39,30 +39,30 @@ WORKSPACE_PACKS = {
         "report_focus": ["Cartera vencida", "Residentes sin seguimiento", "Cobros por promesa"],
     },
     PROFILE_BROKER: {
-        "title": "Pack Broker de Seguros",
-        "subtitle": "Renovaciones, checklist documental y cobranza sin perder trazabilidad.",
+        "title": "Operacion broker",
+        "subtitle": "Renovaciones, checklist documental y cobro con criterio comercial.",
         "pillars": ["Asegurados completos", "Renovaciones vivas", "Docs bajo control"],
         "rituals": [
-            "Revisar renovaciones proximas todos los lunes.",
+            "Seguir renovaciones proximas todos los lunes.",
             "Cerrar checklist documental antes de emitir.",
             "Escalar siniestros abiertos desde la ficha del asegurado.",
         ],
         "report_focus": ["Renovaciones proximas", "Checklist incompleto", "Documentos por vencer"],
     },
     PROFILE_MARKETING: {
-        "title": "Pack Agencia Comercial",
-        "subtitle": "Leads, propuestas y oportunidades con flujo rapido y sin burocracia.",
+        "title": "Operacion captacion",
+        "subtitle": "Leads, propuestas y oportunidades con ritmo comercial y sin burocracia.",
         "pillars": ["Leads calificados", "Pipeline visible", "Propuestas vigentes"],
         "rituals": [
             "Mover leads frios antes de que se pierda el contexto.",
             "Mantener una fuente de campana consistente.",
-            "Revisar propuestas por vencer dos veces por semana.",
+            "Seguir propuestas por vencer dos veces por semana.",
         ],
         "report_focus": ["Leads sin seguimiento", "Embudo enfriandose", "Propuestas vigentes"],
     },
     PROFILE_SERVICIOS: {
-        "title": "Pack Servicios B2B",
-        "subtitle": "Clientes, propuestas y follow-up comercial en una sola cadencia operativa.",
+        "title": "Operacion servicios B2B",
+        "subtitle": "Clientes, propuestas y follow-up en una sola cadencia de cierre.",
         "pillars": ["Cuentas activas", "Propuestas ordenadas", "Cobro disciplinado"],
         "rituals": [
             "Validar siguiente paso por cuenta cada viernes.",
@@ -72,8 +72,8 @@ WORKSPACE_PACKS = {
         "report_focus": ["Deals quietos", "Cobros por empujar", "Clientes sin siguiente paso"],
     },
     PROFILE_RETAIL_MODA: {
-        "title": "Pack Retail y Moda",
-        "subtitle": "Clienteling, recompra y listas VIP sin meter complejidad de ERP.",
+        "title": "Operacion retail",
+        "subtitle": "Clienteling, recompra y listas VIP sin ruido de ERP.",
         "pillars": ["Clientes activos", "Recompra visible", "Pedidos especiales"],
         "rituals": [
             "Reactivar clientes frios con cadencia semanal.",
