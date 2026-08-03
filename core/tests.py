@@ -23,7 +23,12 @@ from access.models import TenantMembership
 from core.navigation import build_command_palette_model, build_navigation_model
 from core.preflight import run_platform_preflight, summarize_preflight
 from core.runtime_services import RuntimeProbeResult, get_runtime_services_status
-from core.views import _build_dashboard_action_lanes, build_dashboard_experience
+from core.views import (
+    _build_dashboard_action_lanes,
+    _build_dashboard_chart_rows,
+    _build_dashboard_signal_rows,
+    build_dashboard_experience,
+)
 from identity.forms import StrictPasswordResetForm
 from tenants.defaults import PROFILE_BROKER, PROFILE_CONDOMINIO, PROFILE_GENERAL, PROFILE_MARKETING, PROFILE_RETAIL_MODA, PROFILE_SERVICIOS
 from tenants.operational_settings import merge_operational_defaults
@@ -145,12 +150,12 @@ class NavigationModelTests(SimpleTestCase):
         self.assertEqual([item.label for item in nav.primary_items], ["Inicio", "Asegurados", "Renovaciones"])
         self.assertEqual(
             [item.hint for item in nav.primary_items],
-            ["Pulso del dia", "Fichas, contacto y contexto", "Pipeline, etapas y cierres"],
+            ["Andon", "Fichas", "Pipeline"],
         )
         self.assertIsNotNone(nav.management_menu)
-        self.assertEqual(nav.management_menu.label, "Operacion diaria")
+        self.assertEqual(nav.management_menu.label, "Operar")
         self.assertEqual([item.label for item in nav.management_menu.items], ["Seguimiento"])
-        self.assertEqual([item.hint for item in nav.management_menu.items], ["Seguimiento, agenda y tareas"])
+        self.assertEqual([item.hint for item in nav.management_menu.items], ["Agenda"])
         self.assertTrue(nav.management_menu.active)
 
     def test_disabled_modules_do_not_render_navigation_items(self):
@@ -707,6 +712,52 @@ class DashboardActionLaneTests(SimpleTestCase):
         self.assertEqual([lane["title"] for lane in lanes], ["Seguimiento", "Cierre"])
         self.assertEqual([item["label"] for item in lanes[0]["items"]], ["Seguir agenda"])
         self.assertEqual([item["label"] for item in lanes[1]["items"]], ["Seguir propuestas", "Sacar propuesta"])
+
+
+class DashboardVisualHelperTests(SimpleTestCase):
+    def test_chart_rows_compute_widths_and_skip_zero_counts(self):
+        rows = _build_dashboard_chart_rows(
+            [
+                {"stage": "Prospecto", "count": 6, "amount_label": "USD 600"},
+                {"stage": "Cierre", "count": 3, "amount_label": "USD 300"},
+                {"stage": "Dormido", "count": 0, "amount_label": "USD 0"},
+            ],
+            label_key="stage",
+            meta_key="amount_label",
+        )
+
+        self.assertEqual([row["label"] for row in rows], ["Prospecto", "Cierre"])
+        self.assertEqual([row["width_pct"] for row in rows], [100, 50])
+
+    def test_signal_rows_include_inbox_and_use_peak_for_width(self):
+        rows = _build_dashboard_signal_rows(
+            summary={
+                "report_alerts": 4,
+                "activities_due": 2,
+                "open_deals": 7,
+                "open_collections": 1,
+            },
+            feature_flags={
+                "reports": True,
+                "activities": True,
+                "deals": True,
+                "collections": True,
+                "collab": True,
+            },
+            permissions={
+                "reports.view": True,
+                "activities.view": True,
+                "deals.view": True,
+                "collections.view": True,
+            },
+            unread_messages=3,
+            show_conversation_panel=True,
+        )
+
+        self.assertEqual([row["label"] for row in rows], ["Alertas", "Tareas", "Pipeline", "Cobros", "Inbox"])
+        self.assertEqual(rows[0]["meta"], "Atender ahora")
+        self.assertEqual(rows[2]["width_pct"], 100)
+        self.assertEqual(rows[-1]["value"], 3)
 
 
 class DashboardExperienceTests(SimpleTestCase):

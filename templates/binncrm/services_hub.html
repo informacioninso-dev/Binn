@@ -31,7 +31,7 @@
             <div class="binn-services-toolbar-copy">
               <span class="binn-kicker">Operacion servicios</span>
             </div>
-            <p class="binn-services-inline-note">Generado {{ generated_at|date:"d/m/Y H:i" }} | mira primero propuestas, reuniones y handoffs que pueden romper la experiencia del cliente.</p>
+            <p class="binn-services-inline-note">Actualizado {{ generated_at|date:"d/m/Y H:i" }} | Propuestas, reuniones, handoffs.</p>
           </div>
           <div>
             <h1 class="text-2xl font-semibold tracking-tight">{{ workspace_pack.title }}</h1>
@@ -44,7 +44,7 @@
           </div>
         </div>
         <div class="binn-services-action-card">
-          <p class="binn-services-inline-note">Este radar junta comercial y delivery sin volver Binn otro PM tool. Decide aqui y ejecuta en el frente correcto.</p>
+          <p class="binn-services-inline-note">Acciones clave.</p>
           {% if quick_actions %}
             <div class="binn-services-actions">
               {% for action in quick_actions %}

@@ -28,7 +28,7 @@
             <div class="binn-reports-toolbar-copy">
               <span class="binn-kicker">{{ report_copy.kicker }}</span>
             </div>
-            <p class="binn-reports-inline-note">Generado {{ generated_at|date:"d/m/Y H:i" }} | arranca por lo vencido, frio o sin siguiente paso.</p>
+            <p class="binn-reports-inline-note">Actualizado {{ generated_at|date:"d/m/Y H:i" }} | Vencidos, frios, sin siguiente paso.</p>
           </div>
           {% if report_copy.highlights %}
             <div class="binn-meta-strip">
@@ -39,7 +39,7 @@
           {% endif %}
         </div>
         <div class="binn-reports-action-card">
-          <p class="binn-reports-inline-note">Mueve solo el frente que vayas a trabajar. Esta vista es para decidir rapido, no para navegar de mas.</p>
+          <p class="binn-reports-inline-note">Vista de decision.</p>
         </div>
       </div>
     </section>

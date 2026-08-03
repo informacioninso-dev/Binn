@@ -417,14 +417,14 @@
           {% elif existing_conversation %}
             <p class="binn-thread-description">
               {% if deal %}
-                Ya existe un canal para este deal, pero solo entra al inbox de quienes deciden seguirlo.
+                Ya existe un canal para este deal.
               {% else %}
-                Ya existe un canal para esta ficha, pero solo entra al inbox de quienes deciden seguirlo.
+                Ya existe un canal para esta ficha.
               {% endif %}
             </p>
           {% else %}
             <p class="binn-thread-description">
-              Este contexto no crea ruido por solo abrirse. El canal nace cuando alguien lo sigue o deja la primera nota.
+              El canal se activa solo cuando requiere seguimiento compartido.
             </p>
           {% endif %}
           <div class="binn-thread-meta">
@@ -596,7 +596,7 @@
             </article>
           {% empty %}
             <div class="binn-thread-empty">
-              <strong>Canal listo, historial vacio.</strong>
+              <strong>Canal listo.</strong>
               Usa este espacio para dejar acuerdos, bloqueos, siguiente paso o contexto de operacion antes de que el caso se enfrie.
             </div>
           {% endfor %}
@@ -606,17 +606,17 @@
               {% if existing_conversation %}
                 {% if deal %}Todavia no sigues este deal.{% else %}Todavia no sigues este caso.{% endif %}
               {% else %}
-                Canal aun no creado.
+                Canal no creado.
               {% endif %}
             </strong>
             {% if existing_conversation %}
               {% if deal %}
-                Sigue este deal para tenerlo en tu inbox sin meter ruido a todo el tenant. Si necesitas mover algo ya, deja la primera nota y quedas dentro.
+                Sigue este deal para llevarlo al inbox del equipo.
               {% else %}
-                Sigue este caso para tenerlo en tu inbox sin meter ruido a todo el tenant. Si necesitas mover algo ya, deja la primera nota y quedas dentro.
+                Sigue este caso para llevarlo al inbox del equipo.
               {% endif %}
             {% else %}
-              La conversacion aparece cuando el caso necesita contexto compartido de verdad, no por simple navegacion.
+              La conversacion aparece cuando el caso requiere contexto compartido.
             {% endif %}
           </div>
         {% endif %}
@@ -691,7 +691,7 @@
               {% if conversation %}
                 Escribe corto, claro y accionable.
               {% else %}
-                Tu primera nota crea el canal y te agrega como seguidor.
+                La primera nota crea el canal y te agrega como seguidor.
               {% endif %}
             </p>
             <button type="submit" class="binn-btn-primary">
@@ -702,7 +702,7 @@
       {% else %}
         <div class="binn-thread-composer">
           <div class="binn-thread-composer-foot">
-            <p class="text-xs text-slate-500">Tu rol puede seguir y leer este canal, pero no publicar mensajes.</p>
+            <p class="text-xs text-slate-500">Tu rol puede leer y seguir este canal.</p>
           </div>
         </div>
       {% endif %}
@@ -715,17 +715,17 @@
           {% if conversation and conversation.description %}
             {{ conversation.description }}
           {% elif conversation and conversation.kind == "team" %}
-            Canal general del equipo para coordinar operacion, handoffs y decisiones compartidas.
+            Canal general para coordinacion del equipo.
           {% elif conversation and conversation.kind == "entity" %}
-            Canal pegado a la ficha para que el contexto no se pierda entre tareas, ventas y cobros.
+            Canal de la ficha para conservar contexto.
           {% elif conversation and conversation.kind == "deal" %}
-            Canal del deal para alinear avance comercial y siguiente movimiento del pipeline.
+            Canal del deal para alinear avance y siguiente movimiento.
           {% elif deal %}
-            Canal contextual del deal para que el avance comercial, el bloqueo y el siguiente paso no queden perdidos en notas sueltas.
+            Canal del deal para seguimiento compartido.
           {% elif existing_conversation %}
-            El canal ya existe, pero ahora solo aparece para quienes decidieron seguir este contexto.
+            El canal ya existe y solo aparece para quienes lo siguen.
           {% else %}
-            No se abren canales por mirar una ficha o un deal. Aqui solo entra lo que merece seguimiento compartido.
+            Los canales solo se abren para seguimiento compartido.
           {% endif %}
         </p>
       </section>
@@ -771,7 +771,7 @@
               <span class="binn-thread-avatar">#</span>
               <div class="binn-thread-member-copy">
                 <strong>{{ existing_members_count }} siguiendo</strong>
-                <span>Solo reciben este canal quienes decidieron meterlo en su inbox.</span>
+                <span>Solo lo reciben quienes siguen este canal.</span>
               </div>
             </div>
           {% else %}

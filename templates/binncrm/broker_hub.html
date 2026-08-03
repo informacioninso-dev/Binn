@@ -31,7 +31,7 @@
             <div class="binn-broker-toolbar-copy">
               <span class="binn-kicker">Operacion broker</span>
             </div>
-            <p class="binn-broker-inline-note">Generado {{ generated_at|date:"d/m/Y H:i" }} | prioriza renovaciones, siniestros y documentos que pueden frenarse hoy.</p>
+            <p class="binn-broker-inline-note">Actualizado {{ generated_at|date:"d/m/Y H:i" }} | Renovaciones, siniestros, documentos.</p>
           </div>
           <div>
             <h1 class="text-2xl font-semibold tracking-tight">{{ workspace_pack.title }}</h1>
@@ -44,7 +44,7 @@
           </div>
         </div>
         <div class="binn-broker-action-card">
-          <p class="binn-broker-inline-note">Usa este radar para decidir que mover primero y luego caer al frente correcto.</p>
+          <p class="binn-broker-inline-note">Acciones clave.</p>
           {% if quick_actions %}
             <div class="binn-broker-actions">
               {% for action in quick_actions %}

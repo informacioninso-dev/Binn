@@ -143,7 +143,11 @@ def build_dashboard_experience(tenant, summary: dict, permissions: dict | None =
 
     summary_cards = []
     if "summary_cards" in dashboard_widgets:
-        summary_cards = [summary_card_map[key] for key in module_order if key in summary_card_map][:summary_card_limit]
+        summary_cards = [
+            _decorate_dashboard_summary_card(key, summary_card_map[key])
+            for key in module_order
+            if key in summary_card_map
+        ][:summary_card_limit]
 
     quick_action_map = {}
     if feature_flags.get("entities") and permissions.get(PERMISSION_ENTITIES_EDIT, False):
@@ -213,8 +217,8 @@ def build_dashboard_experience(tenant, summary: dict, permissions: dict | None =
         "welcome_copy": copy["welcome_copy"],
         "highlights": copy["highlights"] if "highlights" in dashboard_widgets else [],
         "guided_steps": guided_steps if "guided_steps" in dashboard_widgets else [],
-        "guided_steps_title": "Para empezar rapido",
-        "guided_steps_copy": "Pasos simples para dejar este espacio listo para trabajar.",
+        "guided_steps_title": "Poka-yoke",
+        "guided_steps_copy": "Pasos cortos para evitar huecos antes de avanzar.",
         "summary_cards": summary_cards,
         "summary_card_limit": summary_card_limit,
         "quick_actions": quick_actions,
@@ -256,6 +260,129 @@ def build_dashboard_experience(tenant, summary: dict, permissions: dict | None =
         "activity_empty": copy["activity_empty"],
         "activity_cta": copy["activity_cta"],
     }
+
+
+def _decorate_dashboard_summary_card(metric_key: str, card: dict) -> dict:
+    value = int(card.get("value") or 0)
+    tone_map = {
+        "entities": {"accent": "#475467", "soft": "rgba(71, 84, 103, 0.10)"},
+        "deals": {"accent": "#0f766e", "soft": "rgba(15, 118, 110, 0.10)"},
+        "activities": {"accent": "#2563eb", "soft": "rgba(37, 99, 235, 0.10)"},
+        "documents": {"accent": "#7c3aed", "soft": "rgba(124, 58, 237, 0.10)"},
+        "proposals": {"accent": "#b45309", "soft": "rgba(180, 83, 9, 0.10)"},
+        "collections": {"accent": "#dc2626", "soft": "rgba(220, 38, 38, 0.10)"},
+        "reports": {"accent": "#b91c1c", "soft": "rgba(185, 28, 28, 0.10)"},
+    }
+    state_label = {
+        "entities": "Base" if value else "Arranca",
+        "deals": "Activo" if value else "Vacio",
+        "activities": "Pendiente" if value else "Al dia",
+        "documents": "Listos" if value else "Sin base",
+        "proposals": "En juego" if value else "Vacio",
+        "collections": "Cobro" if value else "Al dia",
+        "reports": "Andon" if value else "Limpio",
+    }.get(metric_key, "Activo")
+    return {
+        **card,
+        "tone": tone_map.get(metric_key, {"accent": "#2563eb", "soft": "rgba(37, 99, 235, 0.10)"}),
+        "state_label": state_label,
+    }
+
+
+def _build_dashboard_chart_rows(
+    rows: list[dict],
+    *,
+    label_key: str,
+    meta_key: str,
+    include_zero: bool = False,
+    default_tone: dict | None = None,
+) -> list[dict]:
+    default_tone = default_tone or {"accent": "#2563eb", "soft": "rgba(37, 99, 235, 0.10)"}
+    peak = max((int(row.get("count") or 0) for row in rows), default=0)
+    chart_rows = []
+    for row in rows:
+        value = int(row.get("count") or 0)
+        if value <= 0 and not include_zero:
+            continue
+        chart_rows.append(
+            {
+                "label": row.get(label_key, ""),
+                "value": value,
+                "meta": row.get(meta_key, ""),
+                "width_pct": 0 if peak == 0 or value == 0 else max(14, round((value / peak) * 100)),
+                "tone": row.get("tone") or default_tone,
+            }
+        )
+    return chart_rows
+
+
+def _build_dashboard_signal_rows(
+    *,
+    summary: dict,
+    feature_flags: dict,
+    permissions: dict,
+    unread_messages: int,
+    show_conversation_panel: bool,
+) -> list[dict]:
+    rows = []
+    if _dashboard_module_enabled(feature_flags, permissions, "reports", PERMISSION_REPORTS_VIEW):
+        value = int(summary.get("report_alerts") or 0)
+        rows.append(
+            {
+                "label": "Alertas",
+                "value": value,
+                "meta": "Atender ahora" if value else "Radar limpio",
+                "href": reverse("binncrm:reports"),
+                "tone": {"accent": "#b91c1c", "soft": "rgba(185, 28, 28, 0.10)"},
+            }
+        )
+    if _dashboard_module_enabled(feature_flags, permissions, "activities", PERMISSION_ACTIVITIES_VIEW):
+        value = int(summary.get("activities_due") or 0)
+        rows.append(
+            {
+                "label": "Tareas",
+                "value": value,
+                "meta": "Vencidas o para hoy" if value else "Agenda al dia",
+                "href": reverse("binncrm:activities"),
+                "tone": {"accent": "#2563eb", "soft": "rgba(37, 99, 235, 0.10)"},
+            }
+        )
+    if _dashboard_module_enabled(feature_flags, permissions, "deals", PERMISSION_DEALS_VIEW):
+        value = int(summary.get("open_deals") or 0)
+        rows.append(
+            {
+                "label": "Pipeline",
+                "value": value,
+                "meta": "Oportunidades abiertas" if value else "Sin oportunidades",
+                "href": reverse("binncrm:index"),
+                "tone": {"accent": "#0f766e", "soft": "rgba(15, 118, 110, 0.10)"},
+            }
+        )
+    if _dashboard_module_enabled(feature_flags, permissions, "collections", PERMISSION_COLLECTIONS_VIEW):
+        value = int(summary.get("open_collections") or 0)
+        rows.append(
+            {
+                "label": "Cobros",
+                "value": value,
+                "meta": "Cartera abierta" if value else "Cobro al dia",
+                "href": reverse("binncrm:collections"),
+                "tone": {"accent": "#dc2626", "soft": "rgba(220, 38, 38, 0.10)"},
+            }
+        )
+    if show_conversation_panel:
+        rows.append(
+            {
+                "label": "Inbox",
+                "value": int(unread_messages or 0),
+                "meta": "Sin leer" if unread_messages else "Inbox al dia",
+                "href": reverse("collab:inbox"),
+                "tone": {"accent": "#7c3aed", "soft": "rgba(124, 58, 237, 0.10)"},
+            }
+        )
+    peak = max((row["value"] for row in rows), default=0)
+    for row in rows:
+        row["width_pct"] = 0 if peak == 0 or row["value"] == 0 else max(14, round((row["value"] / peak) * 100))
+    return rows
 
 
 def _prioritize_dashboard_modules(module_order: list[str], *, hero_metric: str) -> list[str]:
@@ -334,8 +461,8 @@ def _dashboard_copy(profile: str, labels: dict) -> dict:
     profiles = {
         PROFILE_GENERAL: {
             "kicker": "Radar de hoy",
-            "welcome_title": "Que mover hoy",
-            "welcome_copy": "Lee rapido que frente operar, seguir o cerrar antes de entrar al detalle.",
+            "welcome_title": "Resumen operativo",
+            "welcome_copy": "Primero mira alertas. Luego ejecuta.",
             "highlights": ["Contactos", "Seguimiento", "Pipeline"],
             "guided_steps": [
                 f"Primero registra tus {entity_plural.lower()} o clientes.",
@@ -360,8 +487,8 @@ def _dashboard_copy(profile: str, labels: dict) -> dict:
         },
         PROFILE_CONDOMINIO: {
             "kicker": "Operacion de condominios",
-            "welcome_title": "Residentes, cobro y novedades en una sola lectura.",
-            "welcome_copy": "Este tablero esta pensado para saber rapido quien debe, que gestion toca hoy y que residente necesita atencion.",
+            "welcome_title": "Cartera y seguimiento",
+            "welcome_copy": "Primero mora y vencidos. Luego gestion del dia.",
             "highlights": ["Padron de residentes", "Recaudacion diaria", "Seguimiento de cartera"],
             "guided_steps": [
                 "Carga o busca al residente que vas a gestionar.",
@@ -386,8 +513,8 @@ def _dashboard_copy(profile: str, labels: dict) -> dict:
         },
         PROFILE_BROKER: {
             "kicker": "Broker de seguros",
-            "welcome_title": "Renovaciones, documentos y seguimiento en un solo lugar.",
-            "welcome_copy": "Cuando abras el panel deberias poder saber de inmediato que asegurado revisar, que renovacion avanza y que documento falta.",
+            "welcome_title": "Renovaciones y documentos",
+            "welcome_copy": "Primero renovaciones en riesgo y documentos faltantes.",
             "highlights": ["Asegurados al dia", "Renovaciones activas", "Documentos de emision"],
             "guided_steps": [
                 "Busca al asegurado o crea uno nuevo si aun no existe.",
@@ -412,8 +539,8 @@ def _dashboard_copy(profile: str, labels: dict) -> dict:
         },
         PROFILE_MARKETING: {
             "kicker": "Agencia comercial",
-            "welcome_title": "Todo el embudo comercial, claro y facil de seguir.",
-            "welcome_copy": "El objetivo de esta pantalla es ayudarte a ver rapido cuantos leads entraron, en que etapa esta cada oportunidad y que seguimiento toca hoy.",
+            "welcome_title": "Pipeline comercial",
+            "welcome_copy": "Primero leads calientes y tareas vencidas.",
             "highlights": ["Captura de leads", "Embudo visual", "Seguimiento comercial"],
             "guided_steps": [
                 "Carga un lead nuevo o busca uno existente.",
@@ -438,8 +565,8 @@ def _dashboard_copy(profile: str, labels: dict) -> dict:
         },
         PROFILE_SERVICIOS: {
             "kicker": "Servicios B2B",
-            "welcome_title": "Clientes, propuestas y seguimiento comercial sin enredos.",
-            "welcome_copy": "Este panel esta pensado para saber rapido que oportunidad sigue viva, que propuesta se vence y que cliente necesita seguimiento hoy.",
+            "welcome_title": "Cuentas y propuestas",
+            "welcome_copy": "Primero propuestas por vencer y cuentas en riesgo.",
             "highlights": ["Pipeline B2B", "Propuestas vigentes", "Cobros y renovaciones"],
             "guided_steps": [
                 "Carga al cliente o prospecto con su empresa y servicio principal.",
@@ -464,8 +591,8 @@ def _dashboard_copy(profile: str, labels: dict) -> dict:
         },
         PROFILE_RETAIL_MODA: {
             "kicker": "Retail y clienteling",
-            "welcome_title": "Clienteling claro para vender mejor y reactivar compras.",
-            "welcome_copy": "Cuando abras el panel deberias ver que clientes volver a tocar, que pedidos especiales siguen abiertos y quien merece seguimiento por WhatsApp.",
+            "welcome_title": "Clienteling y recompra",
+            "welcome_copy": "Primero clientas frias, pedidos abiertos y follow-up.",
             "highlights": ["Clientes VIP", "Pedidos especiales", "Recompra e inactividad"],
             "guided_steps": [
                 "Busca al cliente o crea su ficha con talla y estilo favorito.",
@@ -716,7 +843,7 @@ def _build_dashboard_action_lanes(*, feature_flags, permissions):
         follow_up_items.append(
             {
                 "label": "Seguir agenda",
-                "help": "Revisa tareas vencidas y compromisos de hoy en una sola vista.",
+                "help": "Tareas vencidas y compromisos del dia.",
                 "href": reverse("binncrm:activities"),
             }
         )
@@ -894,7 +1021,7 @@ def _build_dashboard_priority_panels(*, feature_flags, permissions, today, now):
                 "href": reverse("binncrm:index"),
                 "cta": "Mover pipeline",
                 "items": deal_items,
-                "empty_message": "Todavia no hay oportunidades abiertas. Cuando entren, este panel te mostrara las que piden accion primero.",
+                "empty_message": "Todavia no hay oportunidades abiertas.",
                 "tone": {"accent": "#0f766e", "soft": "rgba(15, 118, 110, 0.10)"},
             }
         )
@@ -1104,8 +1231,8 @@ def dashboard(request):
                     "dashboard_access_denied": True,
                     "dashboard": {
                         "kicker": "Acceso restringido",
-                        "welcome_title": "Tu rol no puede abrir este panel.",
-                        "welcome_copy": "Pide a un owner o manager que ajuste los permisos de este tenant si necesitas ver el dashboard.",
+                        "welcome_title": "Acceso restringido.",
+                        "welcome_copy": "Pide acceso operativo para ver este tablero.",
                         "highlights": [],
                         "guided_steps": [],
                         "quick_actions": [],
@@ -1173,14 +1300,40 @@ def dashboard(request):
             ),
             hero_metric=dashboard_experience["hero_metric"],
         )
+        pipeline_summary = metrics_bundle["pipeline_summary"] if feature_flags.get("deals") and dashboard_permissions[PERMISSION_DEALS_VIEW] else []
+        collection_summary = metrics_bundle["collection_summary"] if feature_flags.get("collections") and dashboard_permissions[PERMISSION_COLLECTIONS_VIEW] else []
+        signal_rows = _build_dashboard_signal_rows(
+            summary=summary,
+            feature_flags=feature_flags,
+            permissions=dashboard_permissions,
+            unread_messages=unread_messages,
+            show_conversation_panel=show_conversation_panel,
+        )
+        signal_focus = signal_rows[0] if signal_rows else {"label": "Andon", "value": 0, "href": ""}
+        pipeline_chart_rows = _build_dashboard_chart_rows(
+            pipeline_summary,
+            label_key="stage",
+            meta_key="amount_label",
+            default_tone={"accent": "#0f766e", "soft": "rgba(15, 118, 110, 0.10)"},
+        )
+        collection_chart_rows = _build_dashboard_chart_rows(
+            [item for item in collection_summary if item.get("status") != "paid"],
+            label_key="label",
+            meta_key="amount_label",
+            default_tone={"accent": "#dc2626", "soft": "rgba(220, 38, 38, 0.10)"},
+        )
         context.update(
             {
                 "labels": labels,
                 "summary": summary,
                 "dashboard": dashboard_experience,
                 "active_pipeline": active_pipeline,
-                "pipeline_summary": metrics_bundle["pipeline_summary"] if feature_flags.get("deals") and dashboard_permissions[PERMISSION_DEALS_VIEW] else [],
-                "collection_summary": metrics_bundle["collection_summary"] if feature_flags.get("collections") and dashboard_permissions[PERMISSION_COLLECTIONS_VIEW] else [],
+                "pipeline_summary": pipeline_summary,
+                "collection_summary": collection_summary,
+                "pipeline_chart_rows": pipeline_chart_rows,
+                "collection_chart_rows": collection_chart_rows,
+                "signal_rows": signal_rows,
+                "signal_focus": signal_focus,
                 "recent_conversations": recent_conversations,
                 "action_lanes": _build_dashboard_action_lanes(feature_flags=feature_flags, permissions=dashboard_permissions),
                 "priority_panels": priority_panels,

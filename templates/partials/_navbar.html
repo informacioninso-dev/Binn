@@ -11,7 +11,7 @@
               <span class="binn-mark" aria-hidden="true">Bn</span>
               <span class="binn-brand-stack">
                 <span class="binn-brand-title">{{ request.tenant.name }}</span>
-                <span class="binn-brand-copy">{{ request.tenant.tenant_config.get_profile_display }}</span>
+                <span class="binn-brand-copy">{{ nav.role_label|default:request.tenant.tenant_config.get_profile_display }}</span>
               </span>
             </a>
             <button
@@ -28,20 +28,21 @@
           </div>
           <div class="binn-sidebar-workspace">
             <div class="binn-sidebar-workspace-head">
-              <p class="binn-sidebar-eyebrow">Mesa de trabajo</p>
+              <p class="binn-sidebar-eyebrow">Andon</p>
               {% if nav.role_label %}
                 <p class="binn-sidebar-workspace-meta">{{ nav.role_label }}</p>
               {% endif %}
             </div>
-            <p class="binn-sidebar-tenant">{{ request.tenant.tenant_config.labels.dashboard_title|default:"Operacion comercial" }}</p>
+            <p class="binn-sidebar-tenant">{{ request.tenant.tenant_config.labels.dashboard_title|default:"Operacion" }}</p>
+            <p class="binn-sidebar-workspace-meta">Tablero activo</p>
           </div>
         </section>
 
         {% if nav.primary_items %}
           <section class="binn-sidebar-section">
             <div class="binn-sidebar-section-head">
-              <p class="binn-sidebar-label">Frentes activos</p>
-              <span class="binn-sidebar-section-copy">Hoy</span>
+              <p class="binn-sidebar-label">Modulos</p>
+              <span class="binn-sidebar-section-copy">Operar</span>
             </div>
             <nav class="binn-sidebar-nav binn-sidebar-accordion-body">
               {% for item in nav.primary_items %}
@@ -54,9 +55,6 @@
                   <span class="binn-sidebar-icon">{% include "partials/_nav_icon.html" with icon=item.icon %}</span>
                   <span class="binn-sidebar-link-copy">
                     <span class="binn-sidebar-link-label">{{ item.label }}</span>
-                    {% if item.hint %}
-                      <span class="binn-sidebar-link-help">{{ item.hint }}</span>
-                    {% endif %}
                   </span>
                 </a>
               {% endfor %}
@@ -80,9 +78,6 @@
                   <span class="binn-sidebar-icon">{% include "partials/_nav_icon.html" with icon=item.icon %}</span>
                   <span class="binn-sidebar-link-copy">
                     <span class="binn-sidebar-link-label">{{ item.label }}</span>
-                    {% if item.hint %}
-                      <span class="binn-sidebar-link-help">{{ item.hint }}</span>
-                    {% endif %}
                   </span>
                 </a>
               {% endfor %}
@@ -92,13 +87,13 @@
       </div>
 
       <section class="binn-sidebar-footer">
-        <p class="binn-sidebar-footer-label">Atajos de trabajo</p>
-        <button type="button" class="binn-btn-secondary binn-btn-compact" data-command-palette-toggle title="Buscar en Binn" aria-label="Buscar en Binn">
+        <p class="binn-sidebar-footer-label">Poka-yoke</p>
+        <button type="button" class="binn-btn-secondary binn-btn-compact" data-command-palette-toggle title="Buscar" aria-label="Buscar">
           <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
             <circle cx="8.5" cy="8.5" r="4.5" />
             <path stroke-linecap="round" d="m12 12 4 4" />
           </svg>
-          <span>Buscar en Binn</span>
+          <span>Buscar</span>
         </button>
         {% if collab_enabled %}
           <a
@@ -184,7 +179,7 @@
           {% endfor %}
         {% endif %}
         <div class="binn-sidebar-mini-separator" aria-hidden="true"></div>
-        <button type="button" class="binn-sidebar-mini-button" data-command-palette-toggle title="Buscar en Binn" aria-label="Buscar en Binn">
+        <button type="button" class="binn-sidebar-mini-button" data-command-palette-toggle title="Buscar" aria-label="Buscar">
           <span class="binn-sidebar-icon">
             <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
               <circle cx="8.5" cy="8.5" r="4.5" />
@@ -240,7 +235,7 @@
               <span class="binn-mark" aria-hidden="true">Bn</span>
               <span class="binn-platform-meta">
                 <span class="binn-platform-title">Binn</span>
-                <span class="binn-platform-copy">Control plane para identidades, tenants y holdings.</span>
+                <span class="binn-platform-copy">Tenants, acceso y holdings.</span>
               </span>
             </a>
 
@@ -264,7 +259,7 @@
 
           {% if nav.primary_items %}
             <div class="binn-platform-context">
-              <p class="binn-platform-help">Administra estructura, acceso y visibilidad sin entrar al trabajo operativo de cada empresa.</p>
+              <p class="binn-platform-help">Entra, configura o pausa empresas sin rodeos.</p>
               <nav class="binn-segment-nav" aria-label="Navegacion principal">
                 {% for item in nav.primary_items %}
                   <a
@@ -286,7 +281,7 @@
             <span class="binn-mark" aria-hidden="true">Bn</span>
             <span class="binn-brand-stack">
               <span class="binn-brand-title">Binn</span>
-              <span class="binn-brand-copy">CRM y gobernanza multi-tenant.</span>
+              <span class="binn-brand-copy">Operacion multi-tenant.</span>
             </span>
           </a>
 

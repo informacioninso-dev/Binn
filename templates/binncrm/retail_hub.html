@@ -31,7 +31,7 @@
             <div class="binn-retail-toolbar-copy">
               <span class="binn-kicker">Operacion retail</span>
             </div>
-            <p class="binn-retail-inline-note">Generado {{ generated_at|date:"d/m/Y H:i" }} | prioriza recompra, WhatsApp y clientas frias antes de que el ciclo se rompa.</p>
+            <p class="binn-retail-inline-note">Actualizado {{ generated_at|date:"d/m/Y H:i" }} | Recompra, WhatsApp, clientas frias.</p>
           </div>
           <div>
             <h1 class="text-2xl font-semibold tracking-tight">{{ workspace_pack.title }}</h1>
@@ -44,7 +44,7 @@
           </div>
         </div>
         <div class="binn-retail-action-card">
-          <p class="binn-retail-inline-note">Este radar aterriza el clienteling en acciones concretas sin volver Binn un ERP de inventario.</p>
+          <p class="binn-retail-inline-note">Acciones clave.</p>
           {% if quick_actions %}
             <div class="binn-retail-actions">
               {% for action in quick_actions %}

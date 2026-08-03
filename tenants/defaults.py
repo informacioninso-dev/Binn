@@ -235,7 +235,7 @@ PROFILE_ONBOARDING = {
     },
     PROFILE_RETAIL_MODA: {
         "headline": "Clienteling listo para marcas de ropa y retail",
-        "summary": "Enfoca el CRM en clientes, recompra, listas VIP y seguimiento por WhatsApp sin meter ruido operativo de ERP.",
+        "summary": "Clientes, recompra y listas VIP.",
         "next_steps": [
             "Cargar clientes frecuentes con talla, estilo y canal favorito.",
             "Definir un flujo simple para apartados, pedidos especiales y recompra.",
@@ -281,7 +281,7 @@ PROFILE_DEFAULTS = {
         "labels": {
             **DEFAULT_LABELS,
             "dashboard_title": "Centro de recaudo",
-            "dashboard_subtitle": "Residentes, seguimiento y cartera sin friccion",
+            "dashboard_subtitle": "Cartera y residentes",
             "entity_singular": "Residente",
             "entity_plural": "Residentes",
             "deal_singular": "Cobro",
@@ -431,7 +431,7 @@ PROFILE_DEFAULTS = {
         "labels": {
             **DEFAULT_LABELS,
             "dashboard_title": "Centro de renovaciones",
-            "dashboard_subtitle": "Asegurados, documentos y seguimiento de polizas",
+            "dashboard_subtitle": "Asegurados y polizas",
             "entity_singular": "Asegurado",
             "entity_plural": "Asegurados",
             "deal_singular": "Renovacion",
@@ -494,7 +494,7 @@ PROFILE_DEFAULTS = {
         "labels": {
             **DEFAULT_LABELS,
             "dashboard_title": "Centro de captacion",
-            "dashboard_subtitle": "Leads, campanas y pipeline visual completo",
+            "dashboard_subtitle": "Leads y pipeline",
             "entity_singular": "Lead",
             "entity_plural": "Leads",
             "deal_singular": "Oportunidad",
@@ -531,7 +531,7 @@ PROFILE_DEFAULTS = {
         "labels": {
             **DEFAULT_LABELS,
             "dashboard_title": "Centro comercial B2B",
-            "dashboard_subtitle": "Clientes, propuestas y renovaciones en una sola vista",
+            "dashboard_subtitle": "Cuentas y propuestas",
             "entity_singular": "Cliente",
             "entity_plural": "Clientes",
             "deal_singular": "Oportunidad",
@@ -681,7 +681,7 @@ PROFILE_DEFAULTS = {
         "labels": {
             **DEFAULT_LABELS,
             "dashboard_title": "Centro de clienteling",
-            "dashboard_subtitle": "Clientes, recompra y seguimiento por WhatsApp",
+            "dashboard_subtitle": "Clientes y recompra",
             "entity_singular": "Cliente",
             "entity_plural": "Clientes",
             "deal_singular": "Pedido especial",

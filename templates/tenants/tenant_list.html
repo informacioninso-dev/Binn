@@ -106,27 +106,19 @@
     <section class="binn-admin-hero">
       <article class="binn-panel rounded-3xl p-6 sm:p-8">
         <span class="binn-kicker">Tenants</span>
-        <h1 class="binn-title mt-4">Gestiona cada tenant desde una sola pantalla.</h1>
-        <p class="binn-subtitle mt-3">Desde aqui creas empresas nuevas, entras a operarlas y ajustas accesos, perfiles, modulos y configuracion general por tenant.</p>
+        <h1 class="binn-title mt-4">Tenants listos para operar.</h1>
+        <p class="binn-subtitle mt-3">Entra, configura o pausa empresas desde aqui.</p>
 
-        <div class="binn-admin-hero-pills">
-          <span class="binn-pill">Crear tenant</span>
-          <span class="binn-pill">Entrar al tenant</span>
-          <span class="binn-pill">Configurar tenant</span>
-        </div>
       </article>
 
       <aside class="binn-panel rounded-3xl p-6">
         <p class="text-xs font-semibold uppercase tracking-[0.12em] text-gray-500">Accion principal</p>
         <h2 class="mt-3 text-2xl font-semibold tracking-tight">Crear un tenant nuevo</h2>
-        <p class="mt-3 text-sm leading-6 text-gray-600">Usa esta accion cuando sumas un cliente nuevo a Binn y necesitas dejar listo su espacio inicial.</p>
+        <p class="mt-3 text-sm leading-6 text-gray-600">Crea un espacio nuevo y dejalo listo para entrar.</p>
 
         <a href="{% url 'tenants:create' %}" class="binn-btn-primary mt-5 w-full">Nuevo tenant</a>
         <a href="{% url 'governance:group_list' %}" class="binn-btn-secondary mt-3 w-full">Ver holdings</a>
 
-        <div class="binn-note mt-5 text-sm">
-          <strong class="text-gray-900">Todo aqui:</strong> desde esta pantalla puedes entrar a un tenant o configurarlo sin cambiar de seccion.
-        </div>
       </aside>
     </section>
 
@@ -134,22 +126,22 @@
       <article class="binn-panel binn-admin-metric rounded-2xl">
         <p class="binn-metric-label">Tenants totales</p>
         <p class="binn-admin-metric-value">{{ summary.total }}</p>
-        <p class="binn-admin-metric-copy">Cantidad total de tenants registrados en la plataforma.</p>
+        <p class="binn-admin-metric-copy">Base total.</p>
       </article>
       <article class="binn-panel binn-admin-metric rounded-2xl">
         <p class="binn-metric-label">Tenants activos</p>
         <p class="binn-admin-metric-value">{{ summary.active }}</p>
-        <p class="binn-admin-metric-copy">Tenants que hoy pueden iniciar sesion y trabajar normal.</p>
+        <p class="binn-admin-metric-copy">Operando hoy.</p>
       </article>
       <article class="binn-panel binn-admin-metric rounded-2xl">
         <p class="binn-metric-label">Plan base</p>
         <p class="binn-admin-metric-value">{{ summary.shared }}</p>
-        <p class="binn-admin-metric-copy">Clientes operando en el esquema compartido actual.</p>
+        <p class="binn-admin-metric-copy">Plan base.</p>
       </article>
       <article class="binn-panel binn-admin-metric rounded-2xl">
         <p class="binn-metric-label">Enterprise</p>
         <p class="binn-admin-metric-value">{{ summary.enterprise }}</p>
-        <p class="binn-admin-metric-copy">Empresas marcadas para configuraciones mas avanzadas.</p>
+        <p class="binn-admin-metric-copy">Plan extendido.</p>
       </article>
     </section>
 
@@ -157,7 +149,7 @@
       <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h2 class="binn-section-title">Buscar y filtrar tenants</h2>
-          <p class="binn-section-copy mt-2">Encuentra un tenant por nombre, acceso, plan o estado para entrar o configurarlo rapido.</p>
+          <p class="binn-section-copy mt-2">Filtra y entra rapido.</p>
         </div>
         <a href="{% url 'tenants:list' %}" class="binn-btn-secondary">Limpiar filtros</a>
       </div>
@@ -196,7 +188,7 @@
               </div>
 
               <h3 class="text-2xl font-semibold tracking-tight">{{ tenant.name }}</h3>
-              <p class="mt-2 text-sm leading-6 text-gray-600">{{ tenant.tenant_config.labels.dashboard_subtitle|default:"Tenant listo para operar dentro de Binn." }}</p>
+              <p class="mt-2 text-sm leading-6 text-gray-600">{{ tenant.tenant_config.labels.dashboard_subtitle|default:"Listo para operar." }}</p>
             </div>
 
             <dl class="binn-admin-company-meta">
@@ -210,7 +202,7 @@
               </div>
               <div class="binn-admin-meta-row">
                 <dt>Estado</dt>
-                <dd>{% if tenant.is_active %}Lista para trabajar{% else %}Pausada temporalmente{% endif %}</dd>
+                <dd>{% if tenant.is_active %}Operativo{% else %}Pausado{% endif %}</dd>
               </div>
               <div class="binn-admin-meta-row">
                 <dt>ID tecnico</dt>

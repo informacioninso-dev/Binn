@@ -31,7 +31,7 @@
             <div class="binn-condo-toolbar-copy">
               <span class="binn-kicker">Operacion condominio</span>
             </div>
-            <p class="binn-condo-inline-note">Generado {{ generated_at|date:"d/m/Y H:i" }} | revisa primero mora, promesas de pago, incidencias y documentos que sostienen la operacion diaria.</p>
+            <p class="binn-condo-inline-note">Actualizado {{ generated_at|date:"d/m/Y H:i" }} | Mora, promesas, incidencias.</p>
           </div>
           <div>
             <h1 class="text-2xl font-semibold tracking-tight">{{ workspace_pack.title }}</h1>
@@ -44,7 +44,7 @@
           </div>
         </div>
         <div class="binn-condo-action-card">
-          <p class="binn-condo-inline-note">Este radar te deja operar residentes, cobrar cartera y resolver novedades desde una sola pantalla.</p>
+          <p class="binn-condo-inline-note">Acciones clave.</p>
           {% if quick_actions %}
             <div class="binn-condo-actions">
               {% for action in quick_actions %}

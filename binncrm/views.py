@@ -1982,39 +1982,39 @@ def _build_reports_copy(profile: str, labels: dict) -> dict:
     profiles = {
         "broker": {
             "kicker": "Radar broker",
-            "title": "Renovaciones, siniestros y documentos listos para operar.",
-            "subtitle": "Este radar junta lo que se enfria, vence o queda incompleto para que el equipo reaccione antes de perder una renovacion.",
+            "title": "Renovaciones y documentos",
+            "subtitle": "Vencimientos, siniestros y faltantes.",
             "highlights": ["Renovaciones proximas", "Siniestros abiertos", "Checklist documental"],
         },
         "condominio": {
             "kicker": "Radar de cobro",
-            "title": "Cartera, residentes y seguimiento en una sola lectura.",
-            "subtitle": "Aqui ves rapido que cuentas siguen vencidas, que residente lleva tiempo sin gestion y donde toca insistir hoy.",
+            "title": "Cartera y residentes",
+            "subtitle": "Mora, promesas y seguimiento.",
             "highlights": ["Cartera vencida", "Residentes sin contacto", "Gestiones atrasadas"],
         },
         "servicios": {
             "kicker": "Radar B2B",
-            "title": "Propuestas, cobros y oportunidades que piden cierre.",
-            "subtitle": "Usa este panel para detectar deals quietos, propuestas a punto de vencer y clientes que quedaron sin siguiente paso claro.",
+            "title": "Propuestas y cobros",
+            "subtitle": "Deals quietos, cierres y cuentas en riesgo.",
             "highlights": ["Deals quietos", "Propuestas por vencer", "Cobros por empujar"],
         },
         "retail_moda": {
             "kicker": "Radar de recompra",
-            "title": "Clienteling simple para no dejar enfriar clientes valiosos.",
-            "subtitle": "La idea es identificar clientes inactivos, pedidos abiertos y seguimientos de WhatsApp que conviene mover hoy.",
+            "title": "Recompra y clientas",
+            "subtitle": "Inactivas, pedidos y seguimiento.",
             "highlights": ["Clientes inactivos", "Pedidos especiales", "Seguimientos de recompra"],
         },
         "marketing": {
             "kicker": "Radar de captacion",
-            "title": "Leads y oportunidades con prioridad clara para operar.",
-            "subtitle": "Este panel sirve para descubrir oportunidades frias, tareas vencidas y propuestas que pueden escaparse si nadie actua.",
+            "title": "Leads y pipeline",
+            "subtitle": "Embudo, tareas y propuestas.",
             "highlights": ["Embudo enfriandose", "Propuestas vigentes", "Seguimiento atrasado"],
         },
     }
     shared = {
         "kicker": "Radar Binn",
-        "title": f"Radar operativo de {entity_plural.lower()} y {deal_plural.lower()}.",
-        "subtitle": "Este radar prioriza seguimiento, vencimientos y dinero pendiente para que el equipo actue sin perderse en tablas largas.",
+        "title": "Radar operativo",
+        "subtitle": "Seguimiento, vencimientos y dinero pendiente.",
         "highlights": ["Seguimiento", "Vencimientos", "Alertas del negocio"],
     }
     return {**shared, **profiles.get(profile, {})}
