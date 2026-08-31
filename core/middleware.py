@@ -14,6 +14,7 @@ PUBLIC_PATHS = {
 PUBLIC_PREFIXES = (
     '/static/',
     '/accounts/reset/',  # /accounts/reset/<uidb64>/<token>/
+    '/crm/levantamientos/publico/',
 )
 
 

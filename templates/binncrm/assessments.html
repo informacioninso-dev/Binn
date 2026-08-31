@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Levantamientos | Binn{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-7xl px-5 py-8">
+  <section class="binn-panel rounded-3xl p-6 md:p-8">
+    <div class="flex flex-wrap items-start justify-between gap-5">
+      <div><span class="binn-kicker">Diagnosticos</span><h1 class="binn-title mt-4">Levantamientos de situacion</h1><p class="binn-subtitle mt-3">Cuestionarios vinculados a una ficha u oportunidad. Capturalos en campo o comparte un enlace seguro al cliente.</p></div>
+      {% if can_manage %}<div class="flex flex-wrap gap-3"><a class="binn-btn-secondary" href="{% url 'binncrm:assessment_templates' %}">Configurar plantillas</a><a class="binn-btn-primary" href="{% url 'binncrm:assessment_submission_create' %}">+ Nuevo levantamiento</a></div>{% endif %}
+    </div>
+    <div class="mt-6 flex flex-wrap gap-2"><a class="binn-pill {% if not status %}bg-blue-50 text-blue-700{% endif %}" href="{% url 'binncrm:assessments' %}">Todos</a>{% for key, label in status_choices %}<a class="binn-pill {% if status == key %}bg-blue-50 text-blue-700{% endif %}" href="?status={{ key }}">{{ label }}</a>{% endfor %}</div>
+  </section>
+  <section class="mt-5 grid gap-3">
+    {% for submission in submissions %}
+      <a href="{% url 'binncrm:assessment_submission_detail' submission.pk %}" class="binn-panel rounded-2xl p-5 no-underline transition hover:-translate-y-0.5">
+        <div class="flex flex-wrap items-start justify-between gap-3"><div><p class="font-bold text-slate-950">{{ submission.template.name }}</p><p class="mt-1 text-sm text-slate-500">{{ submission.entity.full_name }}{% if submission.deal %} · {{ submission.deal.title }}{% endif %}</p></div><span class="binn-pill">{{ submission.get_status_display }}</span></div>
+        <p class="mt-3 text-sm text-slate-500">{{ submission.get_capture_mode_display }} · actualizado {{ submission.updated_at|date:"d/m/Y H:i" }}</p>
+      </a>
+    {% empty %}<div class="binn-panel rounded-2xl p-8 text-slate-500">No hay levantamientos todavia. Crea uno desde esta bandeja o desde la ficha de un cliente.</div>{% endfor %}
+  </section>
+</div>
+{% endblock %}

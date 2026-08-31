@@ -1,4 +1,5 @@
 import re
+import uuid
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -268,6 +269,126 @@ class Deal(AuditModel):
     def clean(self):
         if self.pipeline_id and self.stage and self.stage not in self.pipeline.stage_choices:
             raise ValidationError({"stage": "La etapa no existe dentro del pipeline seleccionado."})
+
+
+class AssessmentTemplate(AuditModel):
+    """Tenant-local blueprint for an operational diagnostic or questionnaire."""
+
+    name = models.CharField(max_length=140)
+    description = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+    is_default = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["name", "id"]
+
+    def __str__(self):
+        return self.name
+
+
+class AssessmentSection(AuditModel):
+    template = models.ForeignKey(AssessmentTemplate, on_delete=models.CASCADE, related_name="sections")
+    title = models.CharField(max_length=160)
+    description = models.TextField(blank=True)
+    position = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["template__name", "position", "id"]
+
+    def __str__(self):
+        return f"{self.template.name}: {self.title}"
+
+
+class AssessmentQuestion(AuditModel):
+    TYPE_TEXT = "text"
+    TYPE_TEXTAREA = "textarea"
+    TYPE_SINGLE_CHOICE = "single_choice"
+    TYPE_MULTIPLE_CHOICE = "multiple_choice"
+    TYPE_BOOLEAN = "boolean"
+    TYPE_NUMBER = "number"
+    TYPE_RATING = "rating"
+    TYPE_CHOICES = [
+        (TYPE_TEXT, "Texto corto"),
+        (TYPE_TEXTAREA, "Texto largo"),
+        (TYPE_SINGLE_CHOICE, "Una opcion"),
+        (TYPE_MULTIPLE_CHOICE, "Varias opciones"),
+        (TYPE_BOOLEAN, "Si / No"),
+        (TYPE_NUMBER, "Numero"),
+        (TYPE_RATING, "Escala"),
+    ]
+
+    section = models.ForeignKey(AssessmentSection, on_delete=models.CASCADE, related_name="questions")
+    key = models.SlugField(max_length=60)
+    label = models.CharField(max_length=240)
+    help_text = models.TextField(blank=True)
+    question_type = models.CharField(max_length=24, choices=TYPE_CHOICES, default=TYPE_TEXT)
+    required = models.BooleanField(default=False)
+    choices = models.JSONField(default=list, blank=True)
+    config = models.JSONField(default=dict, blank=True)
+    position = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["section__template__name", "section__position", "position", "id"]
+        unique_together = ("section", "key")
+
+    def __str__(self):
+        return self.label
+
+
+class AssessmentSubmission(AuditModel):
+    MODE_FIELD = "field"
+    MODE_CLIENT = "client"
+    MODE_CHOICES = [(MODE_FIELD, "Levantamiento interno"), (MODE_CLIENT, "Enlace para cliente")]
+    STATUS_DRAFT = "draft"
+    STATUS_SENT = "sent"
+    STATUS_IN_PROGRESS = "in_progress"
+    STATUS_COMPLETED = "completed"
+    STATUS_CHOICES = [
+        (STATUS_DRAFT, "Borrador"),
+        (STATUS_SENT, "Enviado"),
+        (STATUS_IN_PROGRESS, "En progreso"),
+        (STATUS_COMPLETED, "Completado"),
+    ]
+
+    template = models.ForeignKey(AssessmentTemplate, on_delete=models.PROTECT, related_name="submissions")
+    entity = models.ForeignKey(Entity, on_delete=models.CASCADE, related_name="assessment_submissions")
+    deal = models.ForeignKey(Deal, null=True, blank=True, on_delete=models.SET_NULL, related_name="assessment_submissions")
+    capture_mode = models.CharField(max_length=20, choices=MODE_CHOICES, default=MODE_FIELD)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_DRAFT, db_index=True)
+    public_token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False, db_index=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+    submitted_at = models.DateTimeField(null=True, blank=True)
+    submitted_by_name = models.CharField(max_length=160, blank=True)
+    score = models.DecimalField(max_digits=7, decimal_places=2, null=True, blank=True)
+    snapshot = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ["-updated_at", "-id"]
+        indexes = [
+            models.Index(fields=["entity", "status"], name="binn_assessment_entity_idx"),
+            models.Index(fields=["deal", "status"], name="binn_assessment_deal_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.template.name} · {self.entity.full_name}"
+
+    @property
+    def is_expired(self):
+        return bool(self.expires_at and self.expires_at <= timezone.now())
+
+
+class AssessmentAnswer(AuditModel):
+    submission = models.ForeignKey(AssessmentSubmission, on_delete=models.CASCADE, related_name="answers")
+    question_key = models.SlugField(max_length=60)
+    question_label = models.CharField(max_length=240)
+    value = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ["id"]
+        unique_together = ("submission", "question_key")
+
+    def __str__(self):
+        return f"{self.submission} · {self.question_label}"
 
 
 class Activity(AuditModel):

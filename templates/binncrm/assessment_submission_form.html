@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}Nuevo levantamiento | Binn{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-3xl px-5 py-8"><form method="post" class="binn-panel rounded-3xl p-6 md:p-8">{% csrf_token %}<span class="binn-kicker">Levantamiento</span><h1 class="binn-title mt-4">Abrir diagnostico</h1><p class="binn-subtitle mt-3">Selecciona una plantilla, el cliente y, si aplica, la oportunidad vinculada.</p>
+{% for field in form %}<div class="mt-5"><label class="mb-2 block text-sm font-bold text-slate-700">{{ field.label }}</label>{{ field }}{% if field.help_text %}<p class="mt-1 text-xs text-slate-500">{{ field.help_text }}</p>{% endif %}{% for error in field.errors %}<p class="mt-1 text-sm text-red-600">{{ error }}</p>{% endfor %}</div>{% endfor %}
+<div class="mt-7 flex gap-3"><a href="{% url 'binncrm:assessments' %}" class="binn-btn-secondary">Cancelar</a><button class="binn-btn-primary">Crear levantamiento</button></div></form></div>
+{% endblock %}

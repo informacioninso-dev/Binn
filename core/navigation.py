@@ -87,6 +87,15 @@ def build_navigation_model(request) -> NavigationModel:
             item
             for item in (
                 _nav_item(
+                    "Inicio",
+                    "dashboard",
+                    current_namespace,
+                    current_url_name,
+                    icon="home",
+                    hint="Control de plataforma",
+                    url_names=("dashboard",),
+                ),
+                _nav_item(
                     "Tenants",
                     "tenants:list",
                     current_namespace,
@@ -440,6 +449,20 @@ def _build_management_items(request, tenant, current_namespace: str, current_url
             icon="pulse",
             hint="Agenda",
             url_names=("activities", "activity_create"),
+        )
+
+    if tenant.has_capability("assessments") and _can_access(request, PERMISSION_ENTITIES_VIEW):
+        item_map["assessments"] = _nav_item(
+            "Levantamientos",
+            "binncrm:assessments",
+            current_namespace,
+            current_url_name,
+            icon="spark",
+            hint="Diagnosticos",
+            url_names=(
+                "assessments", "assessment_submission_create", "assessment_submission_detail",
+                "assessment_submission_respond", "assessment_templates", "assessment_template_detail",
+            ),
         )
 
     if tenant.has_capability("collab") and _can_access(request, PERMISSION_COLLAB_VIEW):

@@ -281,6 +281,9 @@
           {% if can_create_deal %}
             <a href="{% url 'binncrm:deal_create' %}?entity={{ entity.pk }}" class="binn-btn-secondary binn-btn-compact">Nueva {{ labels.deal_singular|default:"oportunidad" }}</a>
           {% endif %}
+          {% if can_create_assessment %}
+            <a href="{% url 'binncrm:assessment_submission_create' %}?entity={{ entity.pk }}" class="binn-btn-secondary binn-btn-compact">Nuevo levantamiento</a>
+          {% endif %}
           {% if can_create_proposal %}
             <a href="{% url 'binncrm:proposal_create' %}?entity={{ entity.pk }}" class="binn-btn-secondary binn-btn-compact">Nueva {{ labels.proposal_singular|default:"propuesta" }}</a>
           {% endif %}

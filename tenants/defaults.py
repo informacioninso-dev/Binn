@@ -29,6 +29,7 @@ DEFAULT_MODULE_ORDER = [
     "collab",
     "documents",
     "reports",
+    "assessments",
 ]
 
 MODULE_ORDER_LABELS = {
@@ -41,6 +42,7 @@ MODULE_ORDER_LABELS = {
     "collab": "Colaboracion",
     "documents": "Documentos",
     "reports": "Reportes",
+    "assessments": "Levantamientos",
 }
 
 DEFAULT_DASHBOARD_WIDGETS = [
@@ -149,6 +151,7 @@ DEFAULT_FEATURE_FLAGS = {
     "proposals": True,
     "collections": False,
     "reports": True,
+    "assessments": True,
     "fiscal_lookup": False,
     "kanban": True,
 }
@@ -183,6 +186,7 @@ CAPABILITY_LABELS = {
     "collab": "Colaboracion",
     "documents": "Documentos",
     "reports": "Reportes",
+    "assessments": "Levantamientos",
     "fiscal_lookup": "Lookup fiscal",
     "kanban": "Kanban",
 }

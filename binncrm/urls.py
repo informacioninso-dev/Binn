@@ -45,4 +45,11 @@ urlpatterns = [
     path("documents/", views.documents, name="documents"),
     path("documents/new/", views.document_create, name="document_create"),
     path("documents/<int:pk>/edit/", views.document_edit, name="document_edit"),
+    path("levantamientos/", views.assessments, name="assessments"),
+    path("levantamientos/nuevo/", views.assessment_submission_create, name="assessment_submission_create"),
+    path("levantamientos/plantillas/", views.assessment_templates, name="assessment_templates"),
+    path("levantamientos/plantillas/<int:pk>/", views.assessment_template_detail, name="assessment_template_detail"),
+    path("levantamientos/<int:pk>/", views.assessment_submission_detail, name="assessment_submission_detail"),
+    path("levantamientos/<int:pk>/responder/", views.assessment_submission_respond, name="assessment_submission_respond"),
+    path("levantamientos/publico/<uuid:token>/", views.assessment_public_response, name="assessment_public_response"),
 ]

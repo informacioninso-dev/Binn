@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}{{ submission.template.name }} | Binn{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-3xl px-5 py-8"><form method="post" class="binn-panel rounded-3xl p-6 md:p-8">{% csrf_token %}<span class="binn-kicker">{% if is_public %}Formulario seguro{% else %}Levantamiento interno{% endif %}</span><h1 class="binn-title mt-4">{{ submission.snapshot.template_name }}</h1><p class="binn-subtitle mt-3">{% if is_public %}Completa las preguntas para que el equipo pueda preparar el siguiente paso.{% else %}Registra la situacion tal como fue levantada con el cliente.{% endif %}</p>
+{% for group in question_groups %}<section class="mt-8 border-t border-slate-200 pt-6"><h2 class="binn-section-title">{{ group.title }}</h2>{% if group.description %}<p class="mt-2 text-sm text-slate-500">{{ group.description }}</p>{% endif %}{% for field in group.fields %}<div class="mt-5"><label class="mb-2 block font-bold text-slate-700">{{ field.label }}{% if field.field.required %} <span class="text-red-600">*</span>{% endif %}</label>{{ field }}{% if field.help_text %}<p class="mt-1 text-xs text-slate-500">{{ field.help_text }}</p>{% endif %}{% for error in field.errors %}<p class="mt-1 text-sm text-red-600">{{ error }}</p>{% endfor %}</div>{% endfor %}</section>{% endfor %}
+<div class="mt-8"><button class="binn-btn-primary">Enviar respuestas</button>{% if not is_public %}<a href="{% url 'binncrm:assessment_submission_detail' submission.pk %}" class="binn-btn-secondary ml-2">Cancelar</a>{% endif %}</div></form></div>
+{% endblock %}

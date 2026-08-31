@@ -54,6 +54,11 @@ from .document_blueprints import (
 )
 from .forms import (
     ActivityForm,
+    AssessmentQuestionForm,
+    AssessmentResponseForm,
+    AssessmentSectionForm,
+    AssessmentSubmissionCreateForm,
+    AssessmentTemplateForm,
     CollectionRecordForm,
     DealForm,
     DocumentForm,
@@ -64,7 +69,11 @@ from .forms import (
     ProposalForm,
     SavedWorkspaceFilterForm,
 )
-from .models import Activity, CollectionRecord, Deal, Document, Entity, ObjectRecord, ObjectSchema, Pipeline, Proposal, SavedWorkspaceFilter
+from .models import (
+    Activity, AssessmentSection, AssessmentSubmission, AssessmentTemplate, CollectionRecord, Deal, Document,
+    Entity, ObjectRecord, ObjectSchema, Pipeline, Proposal, SavedWorkspaceFilter,
+)
+from .assessments import build_template_snapshot, ensure_default_template, save_submission_answers, submission_answer_map
 from .operational_context import (
     build_activity_operational_context,
     build_collection_operational_context,
@@ -94,6 +103,7 @@ from .timeline import (
     log_object_record_updated,
     log_proposal_created,
     log_proposal_updated,
+    record_timeline_event,
 )
 from .task_presets import (
     build_task_preset_cards,
@@ -3428,6 +3438,7 @@ def entity_detail(request, pk):
         "can_create_collection": _can(request, PERMISSION_COLLECTIONS_EDIT),
         "can_create_activity": _can(request, PERMISSION_ACTIVITIES_EDIT),
         "can_create_document": _can(request, PERMISSION_DOCUMENTS_EDIT),
+        "can_create_assessment": _can(request, PERMISSION_ENTITIES_EDIT) and request.tenant.has_capability("assessments"),
         "can_complete_tasks": _can(request, PERMISSION_ACTIVITIES_COMPLETE),
         "can_view_objects": _can(request, PERMISSION_OBJECTS_VIEW),
         "can_edit_objects": _can(request, PERMISSION_OBJECTS_EDIT),
@@ -6659,3 +6670,153 @@ def document_edit(request, pk):
         page_title=f"Editar {request.tenant.get_label('document_singular', 'Documento')}",
         submit_label="Guardar cambios",
     )
+
+
+def _assessment_question_groups(form, snapshot):
+    groups = []
+    for section in snapshot.get("sections", []):
+        groups.append({
+            "title": section.get("title", "Preguntas"),
+            "description": section.get("description", ""),
+            "fields": [form[f"answer__{question['key']}"] for question in section.get("questions", [])],
+        })
+    return groups
+
+
+@login_required
+@tenant_permission_required(PERMISSION_ENTITIES_VIEW, capability="assessments")
+def assessments(request):
+    ensure_default_template()
+    submissions = AssessmentSubmission.objects.select_related("template", "entity", "deal").all()
+    status = (request.GET.get("status") or "").strip()
+    if status in dict(AssessmentSubmission.STATUS_CHOICES):
+        submissions = submissions.filter(status=status)
+    return render(request, "binncrm/assessments.html", {
+        "submissions": submissions[:80], "status": status, "status_choices": AssessmentSubmission.STATUS_CHOICES,
+        "can_manage": _can(request, PERMISSION_ENTITIES_EDIT),
+    })
+
+
+@login_required
+@tenant_permission_required(PERMISSION_ENTITIES_EDIT, capability="assessments")
+def assessment_submission_create(request):
+    ensure_default_template()
+    entity = Entity.objects.filter(pk=request.GET.get("entity")).first()
+    deal = Deal.objects.select_related("entity").filter(pk=request.GET.get("deal")).first()
+    if request.method == "POST":
+        form = AssessmentSubmissionCreateForm(request.POST, entity=entity, deal=deal)
+        if form.is_valid():
+            submission = form.save(commit=False)
+            submission.snapshot = build_template_snapshot(submission.template)
+            submission.status = AssessmentSubmission.STATUS_SENT if submission.capture_mode == AssessmentSubmission.MODE_CLIENT else AssessmentSubmission.STATUS_DRAFT
+            submission.created_by = request.user
+            submission.updated_by = request.user
+            submission.save()
+            record_timeline_event(
+                category="entity", event_key="assessment.created", kind_label="Levantamiento", title=submission.template.name,
+                meta=submission.get_capture_mode_display(), description="Diagnostico creado para seguimiento.", actor=request.user,
+                entity=submission.entity, deal=submission.deal, payload={"assessment_submission_id": submission.pk},
+            )
+            messages.success(request, "Levantamiento creado. Ya puedes responderlo o compartir el enlace.")
+            return redirect("binncrm:assessment_submission_detail", pk=submission.pk)
+    else:
+        form = AssessmentSubmissionCreateForm(entity=entity, deal=deal)
+    return render(request, "binncrm/assessment_submission_form.html", {"form": form, "entity": entity, "deal": deal})
+
+
+@login_required
+@tenant_permission_required(PERMISSION_ENTITIES_VIEW, capability="assessments")
+def assessment_submission_detail(request, pk):
+    submission = get_object_or_404(AssessmentSubmission.objects.select_related("template", "entity", "deal").prefetch_related("answers"), pk=pk)
+    return render(request, "binncrm/assessment_submission_detail.html", {
+        "submission": submission,
+        "public_url": request.build_absolute_uri(reverse("binncrm:assessment_public_response", kwargs={"token": submission.public_token})),
+        "answers": submission.answers.all(), "can_manage": _can(request, PERMISSION_ENTITIES_EDIT),
+    })
+
+
+@login_required
+@tenant_permission_required(PERMISSION_ENTITIES_EDIT, capability="assessments")
+def assessment_submission_respond(request, pk):
+    submission = get_object_or_404(AssessmentSubmission.objects.prefetch_related("answers"), pk=pk)
+    if submission.is_expired:
+        messages.error(request, "Este levantamiento ya vencio.")
+        return redirect("binncrm:assessment_submission_detail", pk=submission.pk)
+    initial_answers = submission_answer_map(submission)
+    form = AssessmentResponseForm(request.POST or None, snapshot=submission.snapshot, initial_answers=initial_answers)
+    if request.method == "POST" and form.is_valid():
+        save_submission_answers(submission, form.cleaned_data, submitted_by_name=request.user.get_full_name() or request.user.username, complete=True)
+        record_timeline_event(
+            category="entity", event_key="assessment.completed", kind_label="Levantamiento", title=submission.template.name,
+            meta="Completado por equipo", description="Diagnostico registrado.", actor=request.user,
+            entity=submission.entity, deal=submission.deal, payload={"assessment_submission_id": submission.pk},
+        )
+        messages.success(request, "Levantamiento completado y registrado en la ficha.")
+        return redirect("binncrm:assessment_submission_detail", pk=submission.pk)
+    return render(request, "binncrm/assessment_response_form.html", {
+        "form": form, "submission": submission, "question_groups": _assessment_question_groups(form, submission.snapshot), "is_public": False,
+    })
+
+
+@login_required
+@tenant_role_required(*CRM_ADMIN_ALLOWED_ROLES)
+@tenant_permission_required(PERMISSION_ENTITIES_EDIT, capability="assessments")
+def assessment_templates(request):
+    ensure_default_template()
+    form = AssessmentTemplateForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        template = form.save(commit=False)
+        template.created_by = request.user
+        template.updated_by = request.user
+        template.save()
+        messages.success(request, "Plantilla creada. Agrega secciones y preguntas.")
+        return redirect("binncrm:assessment_template_detail", pk=template.pk)
+    return render(request, "binncrm/assessment_templates.html", {"templates": AssessmentTemplate.objects.all(), "form": form})
+
+
+@login_required
+@tenant_role_required(*CRM_ADMIN_ALLOWED_ROLES)
+@tenant_permission_required(PERMISSION_ENTITIES_EDIT, capability="assessments")
+def assessment_template_detail(request, pk):
+    template = get_object_or_404(AssessmentTemplate.objects.prefetch_related("sections__questions"), pk=pk)
+    action = request.POST.get("action") if request.method == "POST" else ""
+    section_form = AssessmentSectionForm(request.POST if action == "section" else None)
+    question_form = AssessmentQuestionForm(request.POST if action == "question" else None)
+    if action == "section" and section_form.is_valid():
+        section = section_form.save(commit=False)
+        section.template = template
+        section.created_by = request.user
+        section.updated_by = request.user
+        section.save()
+        messages.success(request, "Seccion agregada.")
+        return redirect("binncrm:assessment_template_detail", pk=template.pk)
+    if action == "question" and question_form.is_valid():
+        section = get_object_or_404(template.sections.all(), pk=request.POST.get("section_id"))
+        question = question_form.save(commit=False)
+        question.section = section
+        question.created_by = request.user
+        question.updated_by = request.user
+        question.save()
+        messages.success(request, "Pregunta agregada.")
+        return redirect("binncrm:assessment_template_detail", pk=template.pk)
+    return render(request, "binncrm/assessment_template_detail.html", {"template": template, "section_form": section_form, "question_form": question_form})
+
+
+def assessment_public_response(request, token):
+    """Public access is restricted to one opaque, frozen and non-expired execution."""
+    submission = get_object_or_404(AssessmentSubmission.objects.prefetch_related("answers"), public_token=token)
+    if submission.is_expired or submission.status == AssessmentSubmission.STATUS_COMPLETED:
+        return render(request, "binncrm/assessment_public_closed.html", {"submission": submission}, status=410)
+    initial_answers = submission_answer_map(submission)
+    form = AssessmentResponseForm(request.POST or None, snapshot=submission.snapshot, initial_answers=initial_answers)
+    if request.method == "POST" and form.is_valid():
+        save_submission_answers(submission, form.cleaned_data, submitted_by_name="Cliente", complete=True)
+        record_timeline_event(
+            category="entity", event_key="assessment.client_completed", kind_label="Levantamiento", title=submission.template.name,
+            meta="Respondido por cliente", description="Respuesta recibida desde enlace seguro.",
+            entity=submission.entity, deal=submission.deal, payload={"assessment_submission_id": submission.pk},
+        )
+        return render(request, "binncrm/assessment_public_complete.html", {"submission": submission})
+    return render(request, "binncrm/assessment_response_form.html", {
+        "form": form, "submission": submission, "question_groups": _assessment_question_groups(form, submission.snapshot), "is_public": True,
+    })

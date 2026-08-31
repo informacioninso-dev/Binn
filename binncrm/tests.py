@@ -13,7 +13,10 @@ from .document_blueprints import (
     get_document_type_label,
 )
 from .demo_seed import build_demo_scenario
-from .forms import ActivityForm, CollectionRecordForm, EntityForm, ObjectRecordForm, PipelineTemplateEditorForm, ProposalForm, SavedWorkspaceFilterForm
+from .forms import (
+    ActivityForm, AssessmentResponseForm, CollectionRecordForm, EntityForm, ObjectRecordForm,
+    PipelineTemplateEditorForm, ProposalForm, SavedWorkspaceFilterForm,
+)
 from .importers import import_entities_from_csv
 from .models import CollectionRecord, Document, Entity, ObjectRecord, ObjectSchema, Proposal, SavedWorkspaceFilter
 from .object_engine import get_entity_field_definitions, resolve_object_record_title
@@ -1142,3 +1145,22 @@ class DemoSeedScenarioTests(SimpleTestCase):
         self.assertTrue(any(item["extra"].get("canal_preferido") == "whatsapp" for item in scenario["entities"]))
         self.assertTrue(any(item["object_key"] == "wishlist" for item in scenario["object_records"]))
         self.assertTrue(any(item["data"].get("prioridad") == "alta" for item in scenario["object_records"]))
+
+
+class AssessmentResponseFormTests(SimpleTestCase):
+    def test_builds_and_validates_frozen_questions(self):
+        snapshot = {
+            "sections": [
+                {
+                    "title": "Contexto",
+                    "questions": [
+                        {"key": "reto", "label": "Reto principal", "question_type": "textarea", "required": True},
+                        {"key": "prioridad", "label": "Prioridad", "question_type": "rating", "required": True, "config": {"min": 1, "max": 5}},
+                    ],
+                }
+            ]
+        }
+        form = AssessmentResponseForm(data={"answer__reto": "Ordenar ventas", "answer__prioridad": "4"}, snapshot=snapshot)
+
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data["answer__prioridad"], 4)

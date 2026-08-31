@@ -13,7 +13,10 @@ from .document_blueprints import (
     build_document_type_choices,
     get_document_blueprint_map,
 )
-from .models import Activity, CollectionRecord, Deal, Document, Entity, ObjectRecord, Pipeline, Proposal, SavedWorkspaceFilter
+from .models import (
+    Activity, AssessmentQuestion, AssessmentSection, AssessmentSubmission, AssessmentTemplate, CollectionRecord, Deal, Document, Entity,
+    ObjectRecord, Pipeline, Proposal, SavedWorkspaceFilter,
+)
 from .operational_context import (
     build_activity_operational_context,
     build_collection_operational_context,
@@ -55,6 +58,142 @@ def _build_dynamic_field(field_definition: dict):
             widget=forms.Select(attrs=INPUT),
         )
     return forms.CharField(label=label, required=required, widget=forms.TextInput(attrs=INPUT))
+
+
+class AssessmentSubmissionCreateForm(forms.ModelForm):
+    class Meta:
+        model = AssessmentSubmission
+        fields = ("template", "entity", "deal", "capture_mode", "expires_at")
+        widgets = {
+            "template": forms.Select(attrs=INPUT),
+            "entity": forms.Select(attrs=INPUT),
+            "deal": forms.Select(attrs=INPUT),
+            "capture_mode": forms.Select(attrs=INPUT),
+            "expires_at": forms.DateTimeInput(attrs={**INPUT, "type": "datetime-local"}),
+        }
+
+    def __init__(self, *args, entity=None, deal=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["template"].queryset = AssessmentTemplate.objects.filter(is_active=True)
+        self.fields["entity"].queryset = Entity.objects.filter(is_active=True)
+        self.fields["deal"].queryset = Deal.objects.filter(is_active=True).select_related("entity", "pipeline")
+        self.fields["deal"].required = False
+        if entity is not None:
+            self.fields["entity"].initial = entity
+        if deal is not None:
+            self.fields["entity"].initial = deal.entity
+            self.fields["deal"].initial = deal
+        self.fields["expires_at"].required = False
+        self.fields["expires_at"].help_text = "Solo aplica al enlace que responde el cliente."
+
+    def clean(self):
+        cleaned = super().clean()
+        entity = cleaned.get("entity")
+        deal = cleaned.get("deal")
+        template = cleaned.get("template")
+        if deal is not None and entity is not None and deal.entity_id != entity.pk:
+            self.add_error("deal", "La oportunidad debe pertenecer al cliente seleccionado.")
+        if template is not None and not template.sections.filter(questions__isnull=False).exists():
+            self.add_error("template", "La plantilla necesita al menos una pregunta antes de usarse.")
+        return cleaned
+
+
+class AssessmentResponseForm(forms.Form):
+    """Builds an answer form from the frozen submission snapshot."""
+
+    def __init__(self, *args, snapshot=None, initial_answers=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.snapshot = snapshot or {}
+        initial_answers = initial_answers or {}
+        for section in self.snapshot.get("sections", []):
+            for question in section.get("questions", []):
+                key = question["key"]
+                name = f"answer__{key}"
+                attrs = {**INPUT}
+                qtype = question.get("question_type", "text")
+                choices = [(str(item.get("value", item)), str(item.get("label", item))) if isinstance(item, dict) else (str(item), str(item)) for item in question.get("choices", [])]
+                common = {"label": question.get("label", key), "help_text": question.get("help_text", ""), "required": bool(question.get("required"))}
+                if qtype == "textarea":
+                    field = forms.CharField(widget=forms.Textarea(attrs=TEXTAREA), **common)
+                elif qtype == "single_choice":
+                    field = forms.ChoiceField(choices=[("", "Selecciona")] + choices, widget=forms.Select(attrs=attrs), **common)
+                elif qtype == "multiple_choice":
+                    field = forms.MultipleChoiceField(choices=choices, widget=forms.CheckboxSelectMultiple, **common)
+                elif qtype == "boolean":
+                    field = forms.TypedChoiceField(choices=[("", "Selecciona"), ("true", "Si"), ("false", "No")], coerce=lambda value: value == "true", empty_value=None, widget=forms.Select(attrs=attrs), **common)
+                elif qtype in {"number", "rating"}:
+                    config = question.get("config", {}) or {}
+                    field = forms.DecimalField(min_value=config.get("min"), max_value=config.get("max"), widget=forms.NumberInput(attrs=attrs), **common)
+                else:
+                    field = forms.CharField(widget=forms.TextInput(attrs=attrs), **common)
+                self.fields[name] = field
+                if key in initial_answers:
+                    self.initial[name] = initial_answers[key]
+
+
+class AssessmentTemplateForm(forms.ModelForm):
+    class Meta:
+        model = AssessmentTemplate
+        fields = ("name", "description", "is_active")
+        widgets = {
+            "name": forms.TextInput(attrs=INPUT),
+            "description": forms.Textarea(attrs=TEXTAREA),
+        }
+
+
+class AssessmentSectionForm(forms.ModelForm):
+    class Meta:
+        model = AssessmentSection
+        fields = ("title", "description", "position")
+        widgets = {
+            "title": forms.TextInput(attrs=INPUT),
+            "description": forms.Textarea(attrs={**TEXTAREA, "rows": 2}),
+            "position": forms.NumberInput(attrs=INPUT),
+        }
+
+
+class AssessmentQuestionForm(forms.ModelForm):
+    choices_text = forms.CharField(
+        required=False,
+        label="Opciones",
+        help_text="Una opcion por linea. Solo aplica a preguntas de seleccion.",
+        widget=forms.Textarea(attrs={**TEXTAREA, "rows": 3}),
+    )
+    min_value = forms.DecimalField(required=False, label="Minimo", widget=forms.NumberInput(attrs=INPUT))
+    max_value = forms.DecimalField(required=False, label="Maximo", widget=forms.NumberInput(attrs=INPUT))
+
+    class Meta:
+        model = AssessmentQuestion
+        fields = ("key", "label", "help_text", "question_type", "required", "position")
+        widgets = {
+            "key": forms.TextInput(attrs=INPUT),
+            "label": forms.TextInput(attrs=INPUT),
+            "help_text": forms.Textarea(attrs={**TEXTAREA, "rows": 2}),
+            "question_type": forms.Select(attrs=INPUT),
+            "position": forms.NumberInput(attrs=INPUT),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk:
+            self.fields["choices_text"].initial = "\n".join(str(item.get("label", item)) if isinstance(item, dict) else str(item) for item in self.instance.choices)
+            self.fields["min_value"].initial = (self.instance.config or {}).get("min")
+            self.fields["max_value"].initial = (self.instance.config or {}).get("max")
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        instance.choices = [{"value": slugify(line) or line, "label": line} for line in self.cleaned_data["choices_text"].splitlines() if line.strip()]
+        config = dict(instance.config or {})
+        for key in ("min", "max"):
+            value = self.cleaned_data[f"{key}_value"]
+            if value is None:
+                config.pop(key, None)
+            else:
+                config[key] = float(value)
+        instance.config = config
+        if commit:
+            instance.save()
+        return instance
 
 
 def _parse_pipeline_stage_lines(raw_value: str) -> list[str]:
