@@ -228,7 +228,7 @@ def build_navigation_model(request) -> NavigationModel:
     management_menu = None
     if management_items:
         management_menu = NavigationMenu(
-            label="Operar",
+            label="Herramientas",
             items=tuple(management_items),
             active=any(item.active for item in management_items),
         )

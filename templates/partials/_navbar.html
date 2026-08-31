@@ -28,13 +28,12 @@
           </div>
           <div class="binn-sidebar-workspace">
             <div class="binn-sidebar-workspace-head">
-              <p class="binn-sidebar-eyebrow">Andon</p>
+              <p class="binn-sidebar-eyebrow">Espacio activo</p>
               {% if nav.role_label %}
                 <p class="binn-sidebar-workspace-meta">{{ nav.role_label }}</p>
               {% endif %}
             </div>
             <p class="binn-sidebar-tenant">{{ request.tenant.tenant_config.labels.dashboard_title|default:"Operacion" }}</p>
-            <p class="binn-sidebar-workspace-meta">Tablero activo</p>
           </div>
         </section>
 
@@ -42,7 +41,6 @@
           <section class="binn-sidebar-section">
             <div class="binn-sidebar-section-head">
               <p class="binn-sidebar-label">Modulos</p>
-              <span class="binn-sidebar-section-copy">Operar</span>
             </div>
             <nav class="binn-sidebar-nav binn-sidebar-accordion-body">
               {% for item in nav.primary_items %}
