@@ -75,10 +75,16 @@ from .forms import (
     TenantWorkspaceSettingsForm,
 )
 from .models import (
-    Activity, AssessmentSection, AssessmentSubmission, AssessmentTemplate, CollectionRecord, Deal, Document,
+    Activity, AssessmentQuestion, AssessmentSection, AssessmentSubmission, AssessmentTemplate, CollectionRecord, Deal, Document,
     Entity, ObjectRecord, ObjectSchema, Pipeline, Proposal, SavedWorkspaceFilter,
 )
-from .assessments import build_template_snapshot, ensure_default_template, save_submission_answers, submission_answer_map
+from .assessments import (
+    build_proposal_summary_from_assessment,
+    build_template_snapshot,
+    ensure_default_template,
+    save_submission_answers,
+    submission_answer_map,
+)
 from .operational_context import (
     build_activity_operational_context,
     build_collection_operational_context,
@@ -3778,7 +3784,7 @@ def proposal_create(request):
             "entity": assessment.entity_id,
             "deal": assessment.deal_id or "",
             "title": f"Proforma | {assessment.entity.full_name}",
-            "summary": f"Proforma preparada a partir del levantamiento: {assessment.template.name}.",
+            "summary": build_proposal_summary_from_assessment(assessment),
         })
     if request.method == "POST":
         form = ProposalForm(request.POST, tenant=request.tenant)
@@ -6983,9 +6989,23 @@ def assessment_submission_respond(request, pk):
         messages.error(request, "Este levantamiento ya vencio.")
         return redirect("binncrm:assessment_submission_detail", pk=submission.pk)
     initial_answers = submission_answer_map(submission)
-    form = AssessmentResponseForm(request.POST or None, snapshot=submission.snapshot, initial_answers=initial_answers)
+    save_as_draft = request.POST.get("action") == "save"
+    form = AssessmentResponseForm(
+        request.POST or None,
+        snapshot=submission.snapshot,
+        initial_answers=initial_answers,
+        require_all=not save_as_draft,
+    )
     if request.method == "POST" and form.is_valid():
-        save_submission_answers(submission, form.cleaned_data, submitted_by_name=request.user.get_full_name() or request.user.username, complete=True)
+        save_submission_answers(
+            submission,
+            form.cleaned_data,
+            submitted_by_name=request.user.get_full_name() or request.user.username,
+            complete=not save_as_draft,
+        )
+        if save_as_draft:
+            messages.success(request, "Avance guardado. Puedes continuar el levantamiento cuando lo necesites.")
+            return redirect("binncrm:assessment_submission_respond", pk=submission.pk)
         record_timeline_event(
             category="entity", event_key="assessment.completed", kind_label="Levantamiento", title=submission.template.name,
             meta="Completado por equipo", description="Diagnostico registrado.", actor=request.user,
@@ -7020,8 +7040,33 @@ def assessment_templates(request):
 def assessment_template_detail(request, pk):
     template = get_object_or_404(AssessmentTemplate.objects.prefetch_related("sections__questions"), pk=pk)
     action = request.POST.get("action") if request.method == "POST" else ""
-    section_form = AssessmentSectionForm(request.POST if action == "section" else None)
-    question_form = AssessmentQuestionForm(request.POST if action == "question" else None)
+    edit_section = template.sections.filter(pk=request.GET.get("edit_section")).first()
+    edit_question = AssessmentQuestion.objects.filter(section__template=template, pk=request.GET.get("edit_question")).first()
+    template_form = AssessmentTemplateForm(request.POST if action == "template" else None, instance=template)
+    section_form = AssessmentSectionForm(
+        request.POST if action in {"section", "update_section"} else None,
+        instance=edit_section if action == "update_section" or edit_section else None,
+    )
+    question_form = AssessmentQuestionForm(
+        request.POST if action in {"question", "update_question"} else None,
+        instance=edit_question if action == "update_question" or edit_question else None,
+    )
+    if action == "template" and template_form.is_valid():
+        updated_template = template_form.save(commit=False)
+        updated_template.updated_by = request.user
+        updated_template.save()
+        messages.success(request, "Plantilla actualizada.")
+        return redirect("binncrm:assessment_template_detail", pk=template.pk)
+    if action == "delete_section":
+        section = get_object_or_404(template.sections.all(), pk=request.POST.get("section_id"))
+        section.delete()
+        messages.success(request, "Seccion eliminada junto con sus preguntas.")
+        return redirect("binncrm:assessment_template_detail", pk=template.pk)
+    if action == "delete_question":
+        question = get_object_or_404(AssessmentQuestion.objects.filter(section__template=template), pk=request.POST.get("question_id"))
+        question.delete()
+        messages.success(request, "Pregunta eliminada.")
+        return redirect("binncrm:assessment_template_detail", pk=template.pk)
     if action == "section" and section_form.is_valid():
         section = section_form.save(commit=False)
         section.template = template
@@ -7029,6 +7074,12 @@ def assessment_template_detail(request, pk):
         section.updated_by = request.user
         section.save()
         messages.success(request, "Seccion agregada.")
+        return redirect("binncrm:assessment_template_detail", pk=template.pk)
+    if action == "update_section" and edit_section and section_form.is_valid():
+        section = section_form.save(commit=False)
+        section.updated_by = request.user
+        section.save()
+        messages.success(request, "Seccion actualizada.")
         return redirect("binncrm:assessment_template_detail", pk=template.pk)
     if action == "question" and question_form.is_valid():
         section = get_object_or_404(template.sections.all(), pk=request.POST.get("section_id"))
@@ -7039,7 +7090,20 @@ def assessment_template_detail(request, pk):
         question.save()
         messages.success(request, "Pregunta agregada.")
         return redirect("binncrm:assessment_template_detail", pk=template.pk)
-    return render(request, "binncrm/assessment_template_detail.html", {"template": template, "section_form": section_form, "question_form": question_form})
+    if action == "update_question" and edit_question and question_form.is_valid():
+        question = question_form.save(commit=False)
+        question.updated_by = request.user
+        question.save()
+        messages.success(request, "Pregunta actualizada.")
+        return redirect("binncrm:assessment_template_detail", pk=template.pk)
+    return render(request, "binncrm/assessment_template_detail.html", {
+        "template": template,
+        "template_form": template_form,
+        "section_form": section_form,
+        "question_form": question_form,
+        "edit_section": edit_section,
+        "edit_question": edit_question,
+    })
 
 
 def assessment_public_response(request, token):

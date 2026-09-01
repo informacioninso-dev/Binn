@@ -150,7 +150,7 @@ class AssessmentSubmissionCreateForm(forms.ModelForm):
 class AssessmentResponseForm(forms.Form):
     """Builds an answer form from the frozen submission snapshot."""
 
-    def __init__(self, *args, snapshot=None, initial_answers=None, **kwargs):
+    def __init__(self, *args, snapshot=None, initial_answers=None, require_all=True, **kwargs):
         super().__init__(*args, **kwargs)
         self.snapshot = snapshot or {}
         initial_answers = initial_answers or {}
@@ -161,7 +161,11 @@ class AssessmentResponseForm(forms.Form):
                 attrs = {**INPUT}
                 qtype = question.get("question_type", "text")
                 choices = [(str(item.get("value", item)), str(item.get("label", item))) if isinstance(item, dict) else (str(item), str(item)) for item in question.get("choices", [])]
-                common = {"label": question.get("label", key), "help_text": question.get("help_text", ""), "required": bool(question.get("required"))}
+                common = {
+                    "label": question.get("label", key),
+                    "help_text": question.get("help_text", ""),
+                    "required": bool(question.get("required")) and require_all,
+                }
                 if qtype == "textarea":
                     field = forms.CharField(widget=forms.Textarea(attrs=TEXTAREA), **common)
                 elif qtype == "single_choice":

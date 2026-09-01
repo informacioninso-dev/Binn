@@ -56,6 +56,25 @@ def submission_answer_map(submission):
     return {answer.question_key: answer.value.get("value") for answer in submission.answers.all()}
 
 
+def build_proposal_summary_from_assessment(submission):
+    """Turn the captured diagnostic into a concise, editable commercial brief."""
+    answers = submission_answer_map(submission)
+    findings = []
+    for section in submission.snapshot.get("sections", []):
+        for question in section.get("questions", []):
+            value = answers.get(question["key"])
+            if value in (None, "", []):
+                continue
+            if isinstance(value, list):
+                value = ", ".join(str(item) for item in value)
+            findings.append(f"- {question.get('label', question['key'])}: {value}")
+
+    header = f"Propuesta basada en el levantamiento: {submission.snapshot.get('template_name', submission.template.name)}."
+    if not findings:
+        return f"{header}\n\nCompleta el levantamiento para incorporar los hallazgos comerciales."
+    return f"{header}\n\nHallazgos levantados:\n" + "\n".join(findings)
+
+
 @transaction.atomic
 def save_submission_answers(submission, cleaned_data, *, submitted_by_name="", complete=False):
     rating_values = []
