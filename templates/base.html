@@ -393,6 +393,7 @@
   .binn-view-standard {
     display: grid;
     gap: 1rem;
+    align-content: start;
   }
   .binn-view-context {
     display: flex;
@@ -633,10 +634,14 @@
     display: grid;
     gap: 0;
     align-items: start;
+    align-content: start;
+    grid-auto-rows: min-content;
   }
   .binn-shell-main {
     min-width: 0;
     width: 100%;
+    height: fit-content;
+    align-self: start;
     display: flex;
     flex-direction: column;
     gap: 1rem;
