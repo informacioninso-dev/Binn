@@ -27,11 +27,60 @@ from .object_engine import (
     get_object_record_field_definitions,
     resolve_object_record_title,
 )
+from tenants.operational_settings import resolve_collection_settings, resolve_quote_settings
 
 
 INPUT = {"class": "binn-input w-full rounded-lg border px-3 py-2"}
 TEXTAREA = {"class": "binn-input w-full rounded-lg border px-3 py-2", "rows": 4}
 PIPELINE_KEY_RE = re.compile(r"^[a-z0-9]+(?:[-_][a-z0-9]+)*$")
+
+
+class TenantWorkspaceSettingsForm(forms.Form):
+    """Tenant-admin controls deliberately limited to daily CRM operation."""
+
+    workspace_name = forms.CharField(label="Nombre de la empresa", max_length=120, widget=forms.TextInput(attrs=INPUT))
+    dashboard_title = forms.CharField(label="Titulo de inicio", max_length=120, required=False, widget=forms.TextInput(attrs=INPUT))
+    dashboard_subtitle = forms.CharField(label="Descripcion de inicio", required=False, widget=forms.TextInput(attrs=INPUT))
+    quote_default_currency = forms.CharField(label="Moneda de proformas", max_length=8, widget=forms.TextInput(attrs=INPUT))
+    quote_validity_days = forms.IntegerField(label="Vigencia de proformas (dias)", min_value=1, widget=forms.NumberInput(attrs=INPUT))
+    collection_risk_window_days = forms.IntegerField(label="Alerta previa de cobro (dias)", min_value=0, widget=forms.NumberInput(attrs=INPUT))
+
+    def __init__(self, *args, tenant, **kwargs):
+        self.tenant = tenant
+        super().__init__(*args, **kwargs)
+        labels = tenant.tenant_config.labels or {}
+        quote_settings = resolve_quote_settings(tenant.tenant_config.quote_settings)
+        collection_settings = resolve_collection_settings(tenant.tenant_config.collection_settings)
+        self.initial.update({
+            "workspace_name": tenant.name,
+            "dashboard_title": labels.get("dashboard_title", ""),
+            "dashboard_subtitle": labels.get("dashboard_subtitle", ""),
+            "quote_default_currency": quote_settings["default_currency"],
+            "quote_validity_days": quote_settings["validity_days"],
+            "collection_risk_window_days": collection_settings["risk_window_days"],
+        })
+
+    def clean_quote_default_currency(self):
+        return self.cleaned_data["quote_default_currency"].strip().upper()
+
+    def save(self):
+        tenant = self.tenant
+        tenant.name = self.cleaned_data["workspace_name"].strip()
+        tenant.save(update_fields=["name"])
+        config = tenant.tenant_config
+        labels = dict(config.labels or {})
+        labels["dashboard_title"] = self.cleaned_data["dashboard_title"].strip()
+        labels["dashboard_subtitle"] = self.cleaned_data["dashboard_subtitle"].strip()
+        quote_settings = resolve_quote_settings(config.quote_settings)
+        quote_settings["default_currency"] = self.cleaned_data["quote_default_currency"]
+        quote_settings["validity_days"] = self.cleaned_data["quote_validity_days"]
+        collection_settings = resolve_collection_settings(config.collection_settings)
+        collection_settings["risk_window_days"] = self.cleaned_data["collection_risk_window_days"]
+        config.labels = labels
+        config.quote_settings = quote_settings
+        config.collection_settings = collection_settings
+        config.save(update_fields=["labels", "quote_settings", "collection_settings", "updated_at"])
+        return tenant
 
 
 def _build_dynamic_field(field_definition: dict):
@@ -589,6 +638,7 @@ class ProposalForm(forms.ModelForm):
         fields = [
             "entity",
             "deal",
+            "source_assessment",
             "title",
             "proposal_number",
             "amount",
@@ -602,6 +652,7 @@ class ProposalForm(forms.ModelForm):
         widgets = {
             "entity": forms.Select(attrs=INPUT),
             "deal": forms.Select(attrs=INPUT),
+            "source_assessment": forms.Select(attrs=INPUT),
             "title": forms.TextInput(attrs=INPUT),
             "proposal_number": forms.TextInput(attrs=INPUT),
             "amount": forms.NumberInput(attrs=INPUT),
@@ -618,8 +669,10 @@ class ProposalForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["entity"].queryset = Entity.objects.filter(is_active=True).order_by("full_name")
         self.fields["deal"].queryset = Deal.objects.filter(is_active=True).order_by("title")
+        self.fields["source_assessment"].queryset = AssessmentSubmission.objects.select_related("entity", "deal", "template").order_by("-updated_at")
         self.fields["entity"].required = False
         self.fields["deal"].required = False
+        self.fields["source_assessment"].required = False
         if tenant is not None:
             proposal_ops = build_proposal_operational_context(tenant)
             if not self.is_bound and not self.instance.pk:
@@ -632,6 +685,13 @@ class ProposalForm(forms.ModelForm):
         cleaned = super().clean()
         entity = cleaned.get("entity")
         deal = cleaned.get("deal")
+        source_assessment = cleaned.get("source_assessment")
+        if source_assessment and not entity:
+            cleaned["entity"] = source_assessment.entity
+            entity = source_assessment.entity
+        if source_assessment and not deal and source_assessment.deal_id:
+            cleaned["deal"] = source_assessment.deal
+            deal = source_assessment.deal
         if deal and not entity:
             cleaned["entity"] = deal.entity
             entity = deal.entity
@@ -639,6 +699,10 @@ class ProposalForm(forms.ModelForm):
             self.add_error("entity", "Selecciona una entidad o un deal asociado.")
         if entity and deal and deal.entity_id != entity.id:
             self.add_error("deal", "El deal seleccionado no pertenece a la entidad elegida.")
+        if source_assessment and entity and source_assessment.entity_id != entity.id:
+            self.add_error("source_assessment", "El levantamiento debe pertenecer a la entidad elegida.")
+        if source_assessment and deal and source_assessment.deal_id and source_assessment.deal_id != deal.id:
+            self.add_error("source_assessment", "El levantamiento no corresponde al deal elegido.")
         return cleaned
 
 
@@ -737,14 +801,24 @@ class EntityImportForm(forms.Form):
 class ObjectRecordForm(forms.ModelForm):
     class Meta:
         model = ObjectRecord
-        fields = ["is_active"]
+        fields = ["entity", "deal", "proposal", "assessment_submission", "is_active"]
         widgets = {
+            "entity": forms.Select(attrs=INPUT),
+            "deal": forms.Select(attrs=INPUT),
+            "proposal": forms.Select(attrs=INPUT),
+            "assessment_submission": forms.Select(attrs=INPUT),
             "is_active": forms.CheckboxInput(attrs={"class": "h-4 w-4 rounded border-gray-300"}),
         }
 
     def __init__(self, *args, object_schema, **kwargs):
         self.object_schema = object_schema
         super().__init__(*args, **kwargs)
+        self.fields["entity"].queryset = Entity.objects.filter(is_active=True).order_by("full_name")
+        self.fields["deal"].queryset = Deal.objects.filter(is_active=True).order_by("title")
+        self.fields["proposal"].queryset = Proposal.objects.filter(is_active=True).order_by("-updated_at")
+        self.fields["assessment_submission"].queryset = AssessmentSubmission.objects.select_related("entity", "deal", "template").order_by("-updated_at")
+        for field_name in ("entity", "deal", "proposal", "assessment_submission"):
+            self.fields[field_name].required = False
         self.dynamic_field_names = []
         payload = self.instance.data if self.instance and self.instance.pk else {}
         self.object_field_definitions = get_object_record_field_definitions(object_schema=object_schema)
@@ -754,6 +828,22 @@ class ObjectRecordForm(forms.ModelForm):
             field.initial = payload.get(field_definition["key"])
             self.fields[field_name] = field
             self.dynamic_field_names.append(field_name)
+
+    def clean(self):
+        cleaned = super().clean()
+        entity = cleaned.get("entity")
+        sources = [cleaned.get(name) for name in ("deal", "proposal", "assessment_submission")]
+        source_entities = {source.entity_id for source in sources if source and source.entity_id}
+        if entity:
+            source_entities.add(entity.id)
+        if len(source_entities) > 1:
+            self.add_error("entity", "El cliente debe coincidir con los registros vinculados.")
+        elif not entity and sources:
+            for source in sources:
+                if source and source.entity_id:
+                    cleaned["entity"] = source.entity
+                    break
+        return cleaned
 
     def save(self, commit=True):
         instance = super().save(commit=False)

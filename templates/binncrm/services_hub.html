@@ -1,179 +1,67 @@
 {% extends "base.html" %}
 
-{% block title %}Servicios | Binn{% endblock %}
+{% block title %}Operacion | Binn{% endblock %}
 
 {% block head_extra %}
 <style>
-  .binn-services-workspace { display: flex; flex-direction: column; gap: 0.85rem; }
-  .binn-services-toolbar { display: grid; gap: 0.7rem; border-radius: 1.15rem; padding: 0.8rem; background: radial-gradient(circle at top right, rgba(0,123,255,0.08), transparent 16rem), linear-gradient(180deg, rgba(255,255,255,0.985) 0%, rgba(247,250,255,0.985) 100%); }
-  .binn-services-toolbar-grid { display: grid; gap: 0.8rem; }
-  .binn-services-control-card, .binn-services-action-card { display: grid; gap: 0.6rem; padding: 0.8rem 0.85rem; border-radius: 1rem; border: 1px solid rgba(15,23,42,0.06); background: rgba(255,255,255,0.9); box-shadow: 0 8px 18px rgba(15,23,42,0.04); }
-  .binn-services-headline-row { display: grid; gap: 0.55rem; }
-  .binn-services-toolbar-copy { display: flex; align-items: center; gap: 0.55rem; min-height: 42px; }
-  .binn-services-toolbar-copy .binn-kicker { padding: 0.34rem 0.64rem; font-size: 0.68rem; }
-  .binn-services-inline-note { margin: 0; font-size: 0.74rem; line-height: 1.4; color: var(--binn-ink-soft); }
-  .binn-services-actions { display: flex; flex-wrap: wrap; gap: 0.45rem; }
-  .binn-services-actions a { justify-content: center; }
-  .binn-services-focus-row { display: flex; flex-wrap: wrap; gap: 0.45rem; }
-  @media (min-width: 1200px) {
-    .binn-services-toolbar-grid { grid-template-columns: minmax(0, 1fr) 360px; }
-    .binn-services-headline-row { grid-template-columns: 210px minmax(0, 1fr); align-items: center; }
-  }
+  .binn-operations-focus { display: grid; gap: 0.9rem; padding: 1rem; border-radius: 1rem; background: linear-gradient(135deg, #101a38, #1f315b); color: #fff; }
+  .binn-operations-focus-kicker { margin: 0; color: rgba(255,255,255,0.64); font-size: 0.7rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+  .binn-operations-focus-value { margin-top: 0.3rem; font-family: var(--binn-font-display); font-size: 3rem; font-weight: 800; letter-spacing: -0.08em; line-height: 0.85; }
+  .binn-operations-focus h2 { margin: 0.35rem 0 0; font-size: 1.05rem; font-weight: 750; }
+  .binn-operations-focus p:not(.binn-operations-focus-kicker) { margin: 0.35rem 0 0; max-width: 38rem; color: rgba(255,255,255,0.72); font-size: 0.86rem; line-height: 1.5; }
+  .binn-operations-focus .binn-btn-primary { align-self: end; background: #fff; color: #101a38; }
+  .binn-operations-grid { display: grid; gap: 1rem; }
+  .binn-operations-card { display: grid; gap: 0.85rem; padding: 1rem; border-radius: 1rem; }
+  .binn-operations-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; }
+  .binn-operations-card h2 { margin: 0; font-size: 1rem; font-weight: 800; }
+  .binn-operations-card-copy { margin: 0.3rem 0 0; color: var(--binn-ink-soft); font-size: 0.84rem; line-height: 1.45; }
+  .binn-operations-item { display: grid; gap: 0.35rem; padding-top: 0.7rem; border-top: 1px solid var(--binn-line); }
+  .binn-operations-item:first-child { padding-top: 0; border-top: 0; }
+  .binn-operations-item-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.7rem; }
+  .binn-operations-item-title { margin: 0.2rem 0 0; font-size: 0.9rem; font-weight: 750; line-height: 1.35; }
+  .binn-operations-item-meta, .binn-operations-item-caption { margin: 0; color: var(--binn-ink-soft); font-size: 0.78rem; line-height: 1.4; }
+  .binn-operations-badge { display: inline-flex; width: fit-content; padding: 0.16rem 0.48rem; border-radius: 999px; font-size: 0.68rem; font-weight: 800; }
+  @media (min-width: 900px) { .binn-operations-focus { grid-template-columns: minmax(0, 1fr) auto; align-items: end; } .binn-operations-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 </style>
 {% endblock %}
 
 {% block content %}
-  <div class="binn-services-workspace">
-    <section class="binn-panel binn-services-toolbar">
-      <div class="binn-services-toolbar-grid">
-        <div class="binn-services-control-card">
-          <div class="binn-services-headline-row">
-            <div class="binn-services-toolbar-copy">
-              <span class="binn-kicker">Operacion servicios</span>
-            </div>
-            <p class="binn-services-inline-note">Actualizado {{ generated_at|date:"d/m/Y H:i" }} | Propuestas, reuniones, handoffs.</p>
-          </div>
-          <div>
-            <h1 class="text-2xl font-semibold tracking-tight">{{ workspace_pack.title }}</h1>
-            <p class="mt-2 text-sm text-gray-600">{{ workspace_pack.subtitle }}</p>
-          </div>
-          <div class="binn-services-focus-row">
-            {% for item in workspace_pack.report_focus %}
-              <span class="binn-pill">{{ item }}</span>
-            {% endfor %}
-          </div>
-        </div>
-        <div class="binn-services-action-card">
-          <p class="binn-services-inline-note">Acciones clave.</p>
-          {% if quick_actions %}
-            <div class="binn-services-actions">
-              {% for action in quick_actions %}
-                <a href="{{ action.href }}" class="{% if forloop.first %}binn-btn-primary{% else %}binn-btn-secondary{% endif %} binn-btn-compact">{{ action.label }}</a>
-              {% endfor %}
-            </div>
-          {% endif %}
+<div class="binn-view-standard">
+  <section class="binn-panel binn-module-header">
+    <div class="binn-module-head">
+      <div class="binn-module-copy">
+        <span class="binn-kicker">Operacion</span>
+        <h1 class="binn-section-title mt-3">{{ workspace_pack.title }}</h1>
+        <p class="binn-section-copy mt-2">Aquí empieza la entrega una vez que comercial gana una cuenta. No es otro pipeline: es el lugar para que proyecto y equipo cumplan lo prometido.</p>
+      </div>
+      <div class="binn-module-tools">
+        <div class="binn-view-context"><span class="binn-view-context-item">{{ active_project_count }} proyectos activos</span><span class="binn-view-context-item">{{ deliverable_attention_count }} entregables por atender</span></div>
+        <div class="binn-module-shortcuts">
+          {% for action in quick_actions %}{% if action.label == "Nuevo proyecto" or action.label == "Nuevo entregable" %}<a href="{{ action.href }}" class="{% if action.label == 'Nuevo entregable' %}binn-btn-primary{% else %}binn-btn-secondary{% endif %} binn-btn-compact">{{ action.label }}</a>{% endif %}{% endfor %}
         </div>
       </div>
-    </section>
+    </div>
+  </section>
 
-    {% if summary_cards %}
-      <section class="space-y-3">
-        <div class="binn-module-metric-grid" style="grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));">
-          {% for card in summary_cards %}
-            <article class="binn-panel binn-record-card">
-              <span class="rounded-full px-3 py-1 text-xs font-medium {{ card.tone }}">{{ card.label }}</span>
-              <p class="mt-4 text-4xl font-bold tracking-tight">{{ card.value }}</p>
-              <p class="mt-3 text-sm text-gray-600">{{ card.caption }}</p>
-              {% if card.href %}<a href="{{ card.href }}" class="mt-4 inline-flex text-sm font-semibold text-slate-900 hover:underline">{{ card.cta|default:"Operar" }}</a>{% endif %}
-            </article>
-          {% endfor %}
-        </div>
-      </section>
-    {% endif %}
+  <section class="binn-operations-focus">
+    <div><p class="binn-operations-focus-kicker">Atencion de entrega</p><div class="binn-operations-focus-value">{{ operation_focus.value }}</div><h2>{{ operation_focus.label }}</h2><p>{{ operation_focus.copy }}</p></div>
+    {% if operation_focus.href %}<a href="{{ operation_focus.href }}" class="binn-btn-primary binn-btn-compact">{{ operation_focus.cta }}</a>{% endif %}
+  </section>
 
-    {% if analytics_cards or analytics_sections %}
-      <section class="space-y-4">
-        <div class="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+  <section>
+    <div class="binn-view-section-head mb-3"><div><span class="binn-kicker">Trabajo de entrega</span><p class="binn-view-section-copy">Primero resuelve lo que bloquea al equipo. El seguimiento comercial y el cobro viven en sus propios módulos.</p></div></div>
+    <div class="binn-operations-grid">
+      {% for section in operation_sections %}
+        <article class="binn-panel binn-operations-card">
+          <div class="binn-operations-card-head"><div><h2>{{ section.title }}</h2><p class="binn-operations-card-copy">{{ section.subtitle }}</p></div>{% if section.href %}<a href="{{ section.href }}" class="binn-record-action">{{ section.cta }}</a>{% endif %}</div>
           <div>
-            <span class="binn-kicker">Radar B2B</span>
-            <h2 class="mt-3 text-xl font-semibold tracking-tight">Lectura de cartera, delivery y activacion</h2>
-            <p class="mt-2 text-sm text-gray-600">Esta capa te deja ver ingresos, riesgo, capacidad del equipo y tiempo real entre venta y ejecucion.</p>
-          </div>
-        </div>
-        {% if analytics_cards %}
-          <div class="binn-module-metric-grid" style="grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));">
-            {% for card in analytics_cards %}
-              <article class="binn-panel binn-record-card">
-                <span class="rounded-full px-3 py-1 text-xs font-medium {{ card.tone }}">{{ card.label }}</span>
-                <p class="mt-4 text-3xl font-bold tracking-tight">{{ card.value }}</p>
-                <p class="mt-3 text-sm text-gray-600">{{ card.caption }}</p>
-              </article>
-            {% endfor %}
-          </div>
-        {% endif %}
-        {% if analytics_sections %}
-          <div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
-            {% for section in analytics_sections %}
-              <article class="binn-panel binn-record-card">
-                <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                  <div>
-                    <h2 class="text-lg font-semibold">{{ section.title }}</h2>
-                    <p class="mt-2 text-sm text-gray-600">{{ section.subtitle }}</p>
-                  </div>
-                  {% if section.href %}<a href="{{ section.href }}" class="text-sm font-medium text-slate-900 hover:underline">{{ section.cta|default:"Abrir" }}</a>{% endif %}
-                </div>
-                <div class="mt-5 space-y-3">
-                  {% for item in section.items %}
-                    <div class="rounded-2xl border border-black/5 px-4 py-3">
-                      <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                        <div>
-                          <p class="font-medium">{{ item.title }}</p>
-                          {% if item.meta %}<p class="mt-1 text-xs text-gray-500">{{ item.meta }}</p>{% endif %}
-                          {% if item.caption %}<p class="mt-2 text-sm text-gray-600">{{ item.caption }}</p>{% endif %}
-                          {% if item.href %}<a href="{{ item.href }}" class="mt-3 inline-flex text-xs font-semibold text-slate-900 hover:underline">{{ item.cta|default:"Seguir caso" }}</a>{% endif %}
-                        </div>
-                        {% if item.status %}<span class="rounded-full px-3 py-1 text-xs font-medium {{ item.tone }}">{{ item.status }}</span>{% endif %}
-                      </div>
-                    </div>
-                  {% empty %}
-                    <div class="rounded-2xl border border-dashed px-4 py-6 text-sm text-gray-500">{{ section.empty_message }}</div>
-                  {% endfor %}
-                </div>
-              </article>
-            {% endfor %}
-          </div>
-        {% endif %}
-      </section>
-    {% endif %}
-
-    <section class="grid grid-cols-1 gap-4 xl:grid-cols-[1.05fr_0.95fr]">
-      <article class="binn-panel binn-record-card">
-        <h2 class="text-lg font-semibold">Ritmo sugerido</h2>
-        <div class="mt-4 space-y-3">
-          {% for item in workspace_pack.rituals %}
-            <div class="rounded-2xl border border-black/5 px-4 py-3 text-sm text-gray-700">{{ item }}</div>
-          {% endfor %}
-        </div>
-      </article>
-      <article class="binn-panel binn-record-card">
-        <h2 class="text-lg font-semibold">Enfoque del vertical</h2>
-        <div class="mt-4 space-y-3">
-          {% for item in workspace_pack.pillars %}
-            <div class="rounded-2xl border border-black/5 px-4 py-3 text-sm text-gray-700">{{ item }}</div>
-          {% endfor %}
-        </div>
-      </article>
-    </section>
-
-    <section class="grid grid-cols-1 gap-6 xl:grid-cols-2">
-      {% for section in services_sections %}
-        <article class="binn-panel binn-record-card">
-          <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-            <div>
-              <h2 class="text-lg font-semibold">{{ section.title }}</h2>
-              <p class="mt-2 text-sm text-gray-600">{{ section.subtitle }}</p>
-            </div>
-            {% if section.href %}<a href="{{ section.href }}" class="text-sm font-medium text-slate-900 hover:underline">{{ section.cta|default:"Abrir" }}</a>{% endif %}
-          </div>
-          <div class="mt-5 space-y-3">
             {% for item in section.items %}
-              <div class="rounded-2xl border border-black/5 px-4 py-3">
-                <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                  <div>
-                    <p class="font-medium">{{ item.title }}</p>
-                    {% if item.meta %}<p class="mt-1 text-xs text-gray-500">{{ item.meta }}</p>{% endif %}
-                    {% if item.caption %}<p class="mt-2 text-sm text-gray-600">{{ item.caption }}</p>{% endif %}
-                    {% if item.href %}<a href="{{ item.href }}" class="mt-3 inline-flex text-xs font-semibold text-slate-900 hover:underline">{{ item.cta|default:"Seguir caso" }}</a>{% endif %}
-                  </div>
-                  {% if item.status %}<span class="rounded-full px-3 py-1 text-xs font-medium {{ item.tone }}">{{ item.status }}</span>{% endif %}
-                </div>
-              </div>
-            {% empty %}
-              <div class="rounded-2xl border border-dashed px-4 py-6 text-sm text-gray-500">{{ section.empty_message }}</div>
-            {% endfor %}
+              <article class="binn-operations-item"><div class="binn-operations-item-head"><div><span class="binn-operations-badge {{ item.tone }}">{{ item.status }}</span><p class="binn-operations-item-title">{{ item.title }}</p></div></div>{% if item.meta %}<p class="binn-operations-item-meta">{{ item.meta }}</p>{% endif %}{% if item.caption %}<p class="binn-operations-item-caption">{{ item.caption }}</p>{% endif %}</article>
+            {% empty %}<div class="binn-empty text-sm">{{ section.empty_message }}</div>{% endfor %}
           </div>
         </article>
       {% endfor %}
-    </section>
-  </div>
+    </div>
+  </section>
+</div>
 {% endblock %}

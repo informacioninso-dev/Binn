@@ -61,11 +61,11 @@
         {% endif %}
 
         {% if nav.management_menu %}
-          <section class="binn-sidebar-section">
+          <section class="binn-sidebar-section binn-sidebar-section-tools">
             <div class="binn-sidebar-section-head">
               <p class="binn-sidebar-label">{{ nav.management_menu.label }}</p>
             </div>
-            <nav class="binn-sidebar-nav binn-sidebar-accordion-body">
+            <nav class="binn-sidebar-nav binn-sidebar-accordion-body binn-sidebar-tools-nav">
               {% for item in nav.management_menu.items %}
                 <a
                   href="{% url item.route %}"
@@ -84,36 +84,8 @@
         {% endif %}
       </div>
 
-      <section class="binn-sidebar-footer">
+      <section class="binn-sidebar-footer" hidden>
         <p class="binn-sidebar-footer-label">Poka-yoke</p>
-        <button type="button" class="binn-btn-secondary binn-btn-compact" data-command-palette-toggle title="Buscar" aria-label="Buscar">
-          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-            <circle cx="8.5" cy="8.5" r="4.5" />
-            <path stroke-linecap="round" d="m12 12 4 4" />
-          </svg>
-          <span>Buscar</span>
-        </button>
-        {% if collab_enabled %}
-          <a
-            href="{% url 'collab:notification_center' %}"
-            class="binn-btn-secondary binn-btn-compact binn-notif-bell"
-            title="Centro de alertas"
-            style="position:relative;"
-          >
-            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M10 2.5a5.5 5.5 0 0 1 5.5 5.5v2.5l1 2H3.5l1-2V8A5.5 5.5 0 0 1 10 2.5Z" />
-              <path stroke-linecap="round" d="M8.5 15.5a1.5 1.5 0 0 0 3 0" />
-            </svg>
-            <span>Alertas</span>
-            {% if collab_unread_total %}
-              <span
-                class="binn-notif-pill"
-                aria-label="{{ collab_unread_total }} alertas sin leer"
-                style="position:absolute;top:4px;right:4px;min-width:1.2rem;height:1.2rem;display:inline-flex;align-items:center;justify-content:center;border-radius:999px;background:#1d4ed8;color:#fff;font-size:0.62rem;font-weight:800;padding:0 0.32rem;"
-              >{{ collab_unread_total }}</span>
-            {% endif %}
-          </a>
-        {% endif %}
         {% for item in nav.utility_items %}
           <a href="{% url item.route %}" class="binn-btn-secondary binn-btn-compact" title="{{ item.label }}{% if item.hint %} - {{ item.hint }}{% endif %}">
             {% include "partials/_nav_icon.html" with icon=item.icon %}
@@ -176,33 +148,6 @@
             </a>
           {% endfor %}
         {% endif %}
-        <div class="binn-sidebar-mini-separator" aria-hidden="true"></div>
-        <button type="button" class="binn-sidebar-mini-button" data-command-palette-toggle title="Buscar" aria-label="Buscar">
-          <span class="binn-sidebar-icon">
-            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-              <circle cx="8.5" cy="8.5" r="4.5" />
-              <path stroke-linecap="round" d="m12 12 4 4" />
-            </svg>
-          </span>
-        </button>
-        {% if collab_enabled %}
-          <a
-            href="{% url 'collab:notification_center' %}"
-            class="binn-sidebar-mini-link"
-            title="Alertas{% if collab_unread_total %} ({{ collab_unread_total }}){% endif %}"
-            style="position:relative;"
-          >
-            <span class="binn-sidebar-icon">
-              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M10 2.5a5.5 5.5 0 0 1 5.5 5.5v2.5l1 2H3.5l1-2V8A5.5 5.5 0 0 1 10 2.5Z" />
-                <path stroke-linecap="round" d="M8.5 15.5a1.5 1.5 0 0 0 3 0" />
-              </svg>
-            </span>
-            {% if collab_unread_total %}
-              <span style="position:absolute;top:2px;right:2px;min-width:1.1rem;height:1.1rem;display:inline-flex;align-items:center;justify-content:center;border-radius:999px;background:#1d4ed8;color:#fff;font-size:0.58rem;font-weight:800;padding:0 0.28rem;">{{ collab_unread_total }}</span>
-            {% endif %}
-          </a>
-        {% endif %}
         {% for item in nav.utility_items %}
           <a href="{% url item.route %}" class="binn-sidebar-mini-link" title="{{ item.label }}{% if item.hint %} - {{ item.hint }}{% endif %}" aria-label="{{ item.label }}{% if item.hint %}: {{ item.hint }}{% endif %}">
             <span class="binn-sidebar-icon">{% include "partials/_nav_icon.html" with icon=item.icon %}</span>
@@ -223,6 +168,50 @@
       </div>
     </div>
   </aside>
+  <header class="binn-tenant-topbar" aria-label="Cabecera del espacio de trabajo">
+    <div class="binn-tenant-topbar-context">
+      <span class="binn-tenant-topbar-label">Espacio de trabajo</span>
+      <span class="binn-tenant-topbar-name">{{ request.tenant.tenant_config.labels.dashboard_title|default:request.tenant.name }}</span>
+    </div>
+    <div class="binn-tenant-topbar-actions" aria-label="Acciones globales">
+      {% for item in nav.utility_items %}
+        <a href="{% url item.route %}" class="binn-tenant-global-action" title="{{ item.label }}{% if item.hint %} - {{ item.hint }}{% endif %}" aria-label="{{ item.label }}">
+          {% include "partials/_nav_icon.html" with icon=item.icon %}
+        </a>
+      {% endfor %}
+      <form method="post" action="{% url 'logout' %}" class="binn-tenant-topbar-logout">
+        {% csrf_token %}
+        <button type="submit" class="binn-tenant-global-action is-danger" title="Cerrar sesion" aria-label="Cerrar sesion">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10 4.5h2A1.5 1.5 0 0 1 15.5 6v8a1.5 1.5 0 0 1-1.5 1.5h-2" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8.5 7 5 10l3.5 3" />
+            <path stroke-linecap="round" d="M5.5 10H13" />
+          </svg>
+        </button>
+      </form>
+      <span class="binn-tenant-topbar-divider" aria-hidden="true"></span>
+      <button type="button" class="binn-tenant-global-action" data-command-palette-toggle title="Buscar" aria-label="Buscar">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <circle cx="8.5" cy="8.5" r="4.5" />
+          <path stroke-linecap="round" d="m12 12 4 4" />
+        </svg>
+      </button>
+      {% if collab_enabled %}
+        <a
+          href="{% url 'collab:notification_center' %}"
+          class="binn-tenant-global-action"
+          title="Alertas{% if collab_unread_total %} ({{ collab_unread_total }}){% endif %}"
+          aria-label="Alertas{% if collab_unread_total %}: {{ collab_unread_total }} sin leer{% endif %}"
+        >
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10 2.5a5.5 5.5 0 0 1 5.5 5.5v2.5l1 2H3.5l1-2V8A5.5 5.5 0 0 1 10 2.5Z" />
+            <path stroke-linecap="round" d="M8.5 15.5a1.5 1.5 0 0 0 3 0" />
+          </svg>
+          {% if collab_unread_total %}<span class="binn-tenant-global-badge">{{ collab_unread_total }}</span>{% endif %}
+        </a>
+      {% endif %}
+    </div>
+  </header>
 {% else %}
   <header class="binn-topbar">
     <div class="container mx-auto max-w-7xl px-4 py-3">

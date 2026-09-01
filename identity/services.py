@@ -98,11 +98,25 @@ def touch_authenticated_session(request) -> None:
         return
 
     tenant = getattr(request, "tenant", None)
+    tenant_schema = getattr(tenant, "schema_name", "")[:63]
+    now = timezone.now()
+    touch_interval_seconds = 60
+    try:
+        last_touch = float(request.session.get("_global_session_touched_at", 0) or 0)
+    except (TypeError, ValueError):
+        last_touch = 0
+    previous_schema = request.session.get("_global_session_tenant_schema", "")
+    if previous_schema == tenant_schema and (now.timestamp() - last_touch) < touch_interval_seconds:
+        return
+
     GlobalSession.objects.filter(session_key=session_key, user=user).update(
-        last_seen_at=timezone.now(),
-        active_tenant_schema=getattr(tenant, "schema_name", "")[:63],
+        last_seen_at=now,
+        active_tenant_schema=tenant_schema,
         request_id=getattr(request, "request_id", "")[:64],
     )
+    # Keep audit freshness without making every module click a database write.
+    request.session["_global_session_touched_at"] = now.timestamp()
+    request.session["_global_session_tenant_schema"] = tenant_schema
 
 
 def _extract_client_ip(request) -> str | None:

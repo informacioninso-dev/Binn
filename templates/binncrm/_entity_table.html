@@ -1,95 +1,44 @@
-<section id="entity-results" class="space-y-3">
-  {% if entities %}
-    <div class="flex flex-col gap-2 border-b border-slate-200 pb-3 sm:flex-row sm:items-center sm:justify-between">
-      <p class="text-sm text-slate-500">
-        {{ entities|length }} resultado{{ entities|length|pluralize }}
-        {% if current_view.label %}| {{ current_view.label }}{% endif %}
-      </p>
-      <p class="text-sm text-slate-500">Opera una ficha para seguir todo el contexto.</p>
-    </div>
+<section id="entity-results" class="binn-panel overflow-hidden" aria-label="Resultados de {{ labels.entity_plural|default:'clientes' }}">
+  <div class="binn-entity-results-head">
+    <p><strong>{{ entity_count }}</strong> {{ labels.entity_plural|default:"clientes"|lower }}{% if current_view.label %} | {{ current_view.label }}{% endif %}</p>
+    <p>Pagina {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</p>
+  </div>
+  <div class="binn-entity-table-scroll">
+    <table class="binn-entity-table">
+      <thead>
+        <tr>
+          <th>{{ labels.entity_singular|default:"Cliente" }}</th>
+          <th>Contacto</th>
+          {% for field in entity_field_columns %}<th>{{ field.label }}</th>{% endfor %}
+          <th>Estado</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in entities %}
+          <tr>
+            <td>
+              <a href="{% url 'binncrm:entity_detail' row.instance.pk %}" class="binn-entity-name">{{ row.instance.full_name }}</a>
+              <span class="binn-entity-subline">{{ row.instance.legal_id|default:"Sin identificacion" }}</span>
+            </td>
+            <td class="binn-entity-contact"><div>{{ row.instance.phone|default:"Sin telefono" }}</div>{% if row.instance.email %}<span class="binn-entity-subline">{{ row.instance.email }}</span>{% endif %}</td>
+            {% for extra in row.extra_values %}<td>{{ extra.value|default:"-" }}</td>{% endfor %}
+            <td>
+              {% if row.broker_lifecycle %}<span class="binn-pill {{ row.broker_lifecycle.tone }}">{{ row.broker_lifecycle.label }}</span>{% elif row.service_lifecycle %}<span class="binn-pill {{ row.service_lifecycle.tone }}">{{ row.service_lifecycle.label }}</span>{% elif row.condo_status %}<span class="binn-pill {{ row.condo_status.tone }}">{{ row.condo_status.label }}</span>{% elif row.retail_segment %}<span class="binn-pill {{ row.retail_segment.tone }}">{{ row.retail_segment.label }}</span>{% else %}<span class="text-slate-400">-</span>{% endif %}
+            </td>
+            <td><div class="binn-entity-actions">{% if row.instance.whatsapp_url %}<a href="{{ row.instance.whatsapp_url }}" target="_blank" rel="noreferrer" class="binn-record-action">WhatsApp</a>{% endif %}<a href="{% url 'binncrm:entity_detail' row.instance.pk %}" class="binn-record-action binn-record-action-primary">Abrir</a></div></td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="{{ entity_table_colspan }}" style="padding:2.5rem 1rem;text-align:center;color:#64748b;">No hay clientes para este corte. Ajusta la busqueda o crea el primero.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if page_obj.paginator.num_pages > 1 %}
+    <nav class="binn-entity-pagination" aria-label="Paginacion de clientes">
+      {% if page_obj.has_previous %}<a class="binn-record-action" href="?{% if entity_query_string %}{{ entity_query_string }}&amp;{% endif %}page={{ page_obj.previous_page_number }}">Anterior</a>{% else %}<span class="binn-record-action opacity-40">Anterior</span>{% endif %}
+      <span class="text-xs font-bold text-slate-500">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+      {% if page_obj.has_next %}<a class="binn-record-action binn-record-action-primary" href="?{% if entity_query_string %}{{ entity_query_string }}&amp;{% endif %}page={{ page_obj.next_page_number }}">Siguiente</a>{% else %}<span class="binn-record-action opacity-40">Siguiente</span>{% endif %}
+    </nav>
   {% endif %}
-
-  {% for row in entities %}
-    <article class="binn-panel binn-record-card">
-      <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-        <div class="min-w-0 flex-1">
-          <div class="flex flex-wrap items-start gap-4">
-            <span class="binn-mark-sm" aria-hidden="true">{{ row.instance.full_name|first|default:"C" }}</span>
-            <div class="min-w-0 flex-1">
-              <h2 class="text-base font-extrabold tracking-tight">{{ row.instance.full_name }}</h2>
-              <p class="binn-list-meta">
-                {{ row.instance.legal_id|default:"Sin identificacion" }}.
-                {% if row.instance.phone %} | {{ row.instance.phone }}{% endif %}
-                {% if row.instance.email %} | {{ row.instance.email }}{% endif %}
-              </p>
-              {% if row.broker_lifecycle %}
-                <div class="binn-meta-strip mt-2">
-                  <span class="binn-pill {{ row.broker_lifecycle.tone }}">{{ row.broker_lifecycle.label }}</span>
-                </div>
-              {% endif %}
-              {% if row.service_lifecycle %}
-                <div class="binn-meta-strip mt-2">
-                  <span class="binn-pill {{ row.service_lifecycle.tone }}">{{ row.service_lifecycle.label }}</span>
-                </div>
-              {% endif %}
-              {% if row.condo_status %}
-                <div class="binn-meta-strip mt-2">
-                  <span class="binn-pill {{ row.condo_status.tone }}">{{ row.condo_status.label }}</span>
-                </div>
-              {% endif %}
-              {% if row.retail_segment %}
-                <div class="binn-meta-strip mt-2">
-                  <span class="binn-pill {{ row.retail_segment.tone }}">{{ row.retail_segment.label }}</span>
-                </div>
-              {% endif %}
-            </div>
-          </div>
-
-          {% if row.extra_values %}
-            <div class="binn-meta-strip mt-3">
-              {% for extra in row.extra_values %}
-                {% if extra.value %}
-                  <span class="binn-pill">{{ extra.label }} &middot; {{ extra.value }}</span>.
-                {% endif %}
-              {% endfor %}
-            </div>
-          {% endif %}
-        </div>
-
-        <div class="binn-record-toolbar">
-          {% if row.instance.whatsapp_url %}
-            <a href="{{ row.instance.whatsapp_url }}" target="_blank" rel="noreferrer" class="binn-record-action">WhatsApp</a>
-          {% endif %}
-          <a href="{% url 'binncrm:entity_detail' row.instance.pk %}" class="binn-record-action binn-record-action-primary">Operar ficha</a>
-        </div>
-      </div>
-
-      {% if can_manage_related.deals or can_manage_related.proposals or can_manage_related.collections or can_manage_related.activities or can_manage_related.documents %}
-        <div class="binn-record-toolbar mt-4 border-t border-slate-200 pt-4">
-          {% if can_manage_related.deals %}
-            <a href="{% url 'binncrm:deal_create' %}?entity={{ row.instance.pk }}" class="binn-record-action">Abrir {{ labels.deal_singular|default:"movimiento" }}</a>
-          {% endif %}
-          {% if can_manage_related.proposals %}
-            <a href="{% url 'binncrm:proposal_create' %}?entity={{ row.instance.pk }}" class="binn-record-action">Sacar {{ labels.proposal_singular|default:"propuesta" }}</a>
-          {% endif %}
-          {% if can_manage_related.collections %}
-            <a href="{% url 'binncrm:collection_create' %}?entity={{ row.instance.pk }}" class="binn-record-action">Cargar {{ labels.collection_singular|default:"cobranza" }}</a>
-          {% endif %}
-          {% if can_manage_related.activities %}
-            <a href="{% url 'binncrm:activity_create' %}?entity={{ row.instance.pk }}" class="binn-record-action">Nueva actividad</a>.
-            <a href="{% url 'binncrm:activity_create' %}?entity={{ row.instance.pk }}&activity_type=meeting&title=Reunion+de+seguimiento" class="binn-record-action">Nueva reunion</a>.
-          {% endif %}
-          {% if can_manage_related.documents %}
-            <a href="{% url 'binncrm:document_create' %}?entity={{ row.instance.pk }}" class="binn-record-action">Cargar {{ labels.document_singular|default:"documento" }}</a>
-          {% endif %}
-        </div>
-      {% endif %}
-    </article>
-  {% empty %}
-    <section class="binn-panel p-6">
-      <div class="binn-empty">
-        Todavia no hay fichas en juego. Crea la primera y deja el siguiente paso listo.
-      </div>
-    </section>
-  {% endfor %}
 </section>

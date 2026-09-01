@@ -23,8 +23,8 @@
   }
   .binn-collab-sidebar-head {
     display: grid;
-    gap: 0.9rem;
-    padding: 1.1rem 1.1rem 1rem;
+    gap: 0.65rem;
+    padding: 0.8rem;
     border-bottom: 1px solid var(--binn-line);
   }
   .binn-collab-team {
@@ -64,6 +64,7 @@
     line-height: 1.45;
     color: var(--binn-ink-soft);
   }
+  .binn-collab-new-channel { min-height: 34px; padding: 0.38rem 0.6rem; font-size: 0.74rem; white-space: nowrap; }
   .binn-collab-sidebar-meta {
     display: flex;
     flex-wrap: wrap;
@@ -74,14 +75,14 @@
   }
   .binn-collab-filter-shell {
     display: grid;
-    gap: 0.75rem;
+    gap: 0.5rem;
   }
   .binn-collab-query-form {
     display: grid;
     gap: 0.55rem;
   }
   .binn-collab-query-form input[type="text"] {
-    min-height: 46px;
+    min-height: 38px;
   }
   .binn-collab-filter-row {
     display: flex;
@@ -108,12 +109,7 @@
     color: #1d4ed8;
   }
   .binn-collab-filter-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.45rem;
-    color: #71839b;
-    font-size: 0.76rem;
-    font-weight: 700;
+    display: none;
   }
   .binn-collab-sidebar-body {
     min-height: 0;
@@ -181,8 +177,9 @@
             <span class="binn-collab-team-mark">{{ request.tenant.name|slice:":2" }}</span>
             <div class="binn-collab-team-copy">
               <h1>{{ request.tenant.name }}</h1>
-              <p>Canales internos con contexto operativo, no mensajes perdidos.</p>
+              <p>Canales y conversaciones de trabajo.</p>
             </div>
+            {% if can_create_team_channel %}<a href="{% url 'collab:team_channel_create' %}" class="binn-btn-primary binn-collab-new-channel">+ Canal</a>{% endif %}
           </div>
           <div class="binn-collab-sidebar-meta">
             <span class="binn-pill">{{ conversation_summaries|length }} canales</span>

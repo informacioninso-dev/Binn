@@ -178,6 +178,48 @@ def ensure_team_conversation(*, tenant, actor=None) -> Conversation:
     return conversation
 
 
+@transaction.atomic
+def create_team_conversation(*, tenant, actor, title: str, description: str = "", participants=()) -> Conversation:
+    """Create a tenant-local team channel and explicitly grant its initial members."""
+    conversation = Conversation.objects.create(
+        kind=Conversation.KIND_TEAM,
+        title=(title or "").strip(),
+        description=(description or "").strip(),
+        created_by=actor,
+        updated_by=actor,
+    )
+    _ensure_conversation_membership(
+        conversation=conversation,
+        user=actor,
+        actor=actor,
+        role=ConversationMembership.ROLE_MANAGER,
+    )
+    for participant in {user for user in participants if user is not None and user.pk != actor.pk}:
+        _ensure_conversation_membership(
+            conversation=conversation,
+            user=participant,
+            actor=actor,
+            role=ConversationMembership.ROLE_MEMBER,
+        )
+    record_tenant_event(
+        tenant=tenant,
+        actor=actor,
+        code="collab.team.created",
+        title="Canal de equipo creado.",
+        message=f"Se creo el canal '{conversation.title}'.",
+        metadata={"conversation_id": str(conversation.pk)},
+    )
+    transaction.on_commit(
+        lambda: broadcast_tenant_collab_event(
+            tenant=tenant,
+            conversation_id=conversation.pk,
+            event_name="collab.conversation.created",
+            metadata={"conversation_id": conversation.pk},
+        )
+    )
+    return conversation
+
+
 def get_entity_conversation(*, entity) -> Conversation | None:
     return (
         Conversation.objects.select_related("entity", "deal")

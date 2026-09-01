@@ -175,12 +175,12 @@ def build_navigation_model(request) -> NavigationModel:
     if profile == PROFILE_SERVICIOS and tenant.has_capability("reports") and _can_access(request, PERMISSION_REPORTS_VIEW):
         primary_items.append(
             _nav_item(
-                "Servicios",
+                "Operacion",
                 "binncrm:services_hub",
                 current_namespace,
                 current_url_name,
                 icon="chart",
-                hint="Pipeline",
+                hint="Proyectos y entregables",
                 url_names=("services_hub",),
             )
         )
@@ -429,20 +429,9 @@ def _build_management_items(request, tenant, current_namespace: str, current_url
     module_order = _module_order_for_tenant(tenant)
     item_map: dict[str, NavigationItem] = {}
 
-    if getattr(tenant.tenant_config, "custom_objects", []) and _can_access(request, PERMISSION_OBJECTS_VIEW):
-        item_map["objects"] = _nav_item(
-            "Objetos",
-            "binncrm:custom_object_catalog",
-            current_namespace,
-            current_url_name,
-            icon="layers",
-            hint="Custom",
-            url_names=("custom_object_catalog", "custom_object_records", "custom_object_record_detail", "custom_object_record_create", "custom_object_record_edit"),
-        )
-
     if tenant.has_capability("activities") and _can_access(request, PERMISSION_ACTIVITIES_VIEW):
         item_map["activities"] = _nav_item(
-            labels.get("activity_plural", "Actividades"),
+            "Agenda",
             "binncrm:activities",
             current_namespace,
             current_url_name,
@@ -451,23 +440,9 @@ def _build_management_items(request, tenant, current_namespace: str, current_url
             url_names=("activities", "activity_create"),
         )
 
-    if tenant.has_capability("assessments") and _can_access(request, PERMISSION_ENTITIES_VIEW):
-        item_map["assessments"] = _nav_item(
-            "Levantamientos",
-            "binncrm:assessments",
-            current_namespace,
-            current_url_name,
-            icon="spark",
-            hint="Diagnosticos",
-            url_names=(
-                "assessments", "assessment_submission_create", "assessment_submission_detail",
-                "assessment_submission_respond", "assessment_templates", "assessment_template_detail",
-            ),
-        )
-
     if tenant.has_capability("collab") and _can_access(request, PERMISSION_COLLAB_VIEW):
         item_map["collab"] = _nav_item(
-            "Colaboracion",
+            "Chat",
             "collab:inbox",
             current_namespace,
             current_url_name,
@@ -479,7 +454,7 @@ def _build_management_items(request, tenant, current_namespace: str, current_url
 
     if tenant.has_capability("documents") and _can_access(request, PERMISSION_DOCUMENTS_VIEW):
         item_map["documents"] = _nav_item(
-            labels.get("document_plural", "Documentos"),
+            "Archivos",
             "binncrm:documents",
             current_namespace,
             current_url_name,
@@ -528,6 +503,19 @@ def _build_management_items(request, tenant, current_namespace: str, current_url
     for key, item in item_map.items():
         if key not in module_order:
             items.append(item)
+    if _can_manage_tenant_settings(request):
+        items.extend([
+            _nav_item(
+                "Configuracion", "binncrm:workspace_settings", current_namespace, current_url_name,
+                icon="sliders", hint="Empresa", url_names=(
+                    "workspace_settings", "workspace_users", "pipeline_settings", "assessments",
+                    "assessment_submission_create", "assessment_submission_detail", "assessment_submission_respond",
+                    "assessment_templates", "assessment_template_detail", "custom_object_catalog",
+                    "custom_object_records", "custom_object_record_detail", "custom_object_record_create",
+                    "custom_object_record_edit",
+                ),
+            ),
+        ])
     return items
 
 

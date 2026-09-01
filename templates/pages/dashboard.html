@@ -4,862 +4,111 @@
 
 {% block head_extra %}
 <style>
-  .binn-control-shell {
-    display: grid;
-    gap: 1rem;
-  }
-  .binn-control-hero,
-  .binn-control-panel,
-  .binn-control-lane,
-  .binn-control-priority-card {
-    border-radius: 1rem;
-    padding: 1rem;
-  }
-  .binn-control-panel {
-    display: grid;
-    gap: 0.9rem;
-  }
-  .binn-control-hero {
-    display: grid;
-    gap: 1.25rem;
-    background:
-      radial-gradient(circle at top right, rgba(15, 118, 110, 0.16), transparent 20rem),
-      linear-gradient(135deg, rgba(255, 255, 255, 0.99) 0%, rgba(242, 247, 251, 0.98) 52%, rgba(236, 246, 244, 0.96) 100%);
-  }
-  .binn-control-hero-head {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 1rem;
-  }
-  .binn-control-hero-board {
-    display: grid;
-    gap: 1rem;
-  }
-  .binn-control-hero-copy {
-    max-width: 48rem;
-    display: grid;
-    gap: 0.75rem;
-  }
-  .binn-control-exec-strip {
-    display: grid;
-    gap: 0.75rem;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  }
-  .binn-control-exec-pill {
-    display: grid;
-    gap: 0.22rem;
-    padding: 0.82rem 0.88rem;
-    border-radius: 0.95rem;
-    border: 1px solid rgba(15, 23, 42, 0.08);
-    background: rgba(255, 255, 255, 0.84);
-    color: var(--binn-ink);
-    text-decoration: none;
-  }
-  .binn-control-exec-pill span {
-    font-size: 0.7rem;
-    line-height: 1.3;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    font-weight: 800;
-    color: #667085;
-  }
-  .binn-control-exec-pill strong {
-    font-family: var(--binn-font-display);
-    font-size: 1.45rem;
-    line-height: 0.95;
-    letter-spacing: -0.05em;
-  }
-  .binn-control-exec-pill small {
-    font-size: 0.78rem;
-    line-height: 1.35;
-    color: var(--binn-ink-soft);
-  }
-  .binn-control-north-star {
-    display: grid;
-    gap: 0.85rem;
-    padding: 1rem;
-    border-radius: 1rem;
-    border: 1px solid rgba(10, 25, 47, 0.08);
-    background: linear-gradient(180deg, rgba(10, 25, 47, 0.98) 0%, rgba(18, 40, 69, 0.98) 100%);
-    color: #f8fafc;
-    box-shadow: 0 18px 36px rgba(10, 25, 47, 0.18);
-  }
-  .binn-control-north-star .binn-control-panel-kicker {
-    color: rgba(255, 255, 255, 0.68);
-  }
-  .binn-control-north-star-value {
-    font-family: var(--binn-font-display);
-    font-size: 3rem;
-    line-height: 0.88;
-    letter-spacing: -0.08em;
-    font-weight: 800;
-  }
-  .binn-control-north-star-label {
-    margin: 0;
-    font-size: 1rem;
-    line-height: 1.35;
-    font-weight: 700;
-  }
-  .binn-control-north-star-copy {
-    margin: 0;
-    font-size: 0.84rem;
-    line-height: 1.45;
-    color: rgba(255, 255, 255, 0.72);
-  }
-  .binn-control-north-star-foot {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-  }
-  .binn-control-north-star-foot span {
-    display: inline-flex;
-    align-items: center;
-    min-height: 1.75rem;
-    padding: 0.12rem 0.58rem;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.08);
-    font-size: 0.72rem;
-    font-weight: 700;
-  }
-  .binn-control-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-  }
-  .binn-control-meta-item {
-    display: inline-flex;
-    align-items: center;
-    min-height: 34px;
-    padding: 0.42rem 0.68rem;
-    border-radius: 0.75rem;
-    border: 1px solid var(--binn-line);
-    background: rgba(255, 255, 255, 0.92);
-    color: #475467;
-    font-size: 0.78rem;
-    font-weight: 700;
-  }
-  .binn-control-actions,
-  .binn-control-lane-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.65rem;
-  }
-  .binn-control-glance,
-  .binn-control-lane-grid,
-  .binn-control-priority-grid,
-  .binn-control-secondary-grid {
-    display: grid;
-    gap: 1rem;
-  }
-  .binn-control-glance-section {
-    display: grid;
-    gap: 0.9rem;
-  }
-  .binn-control-glance {
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  }
-  .binn-control-glance-card {
-    position: relative;
-    display: grid;
-    gap: 0.6rem;
-    padding: 0.95rem;
-    border-radius: 0.95rem;
-    border: 1px solid rgba(15, 23, 42, 0.08);
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, var(--glance-soft, rgba(255, 255, 255, 0.92)) 100%);
-    overflow: hidden;
-  }
-  .binn-control-glance-card::before {
-    content: "";
-    position: absolute;
-    inset: 0 0 auto 0;
-    height: 4px;
-    background: var(--glance-accent, #2563eb);
-  }
-  .binn-control-glance-head {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 0.6rem;
-  }
-  .binn-control-glance-label {
-    font-size: 0.74rem;
-    line-height: 1.35;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    font-weight: 800;
-    color: #475467;
-  }
-  .binn-control-glance-state {
-    display: inline-flex;
-    align-items: center;
-    min-height: 1.5rem;
-    padding: 0.08rem 0.5rem;
-    border-radius: 999px;
-    border: 1px solid rgba(15, 23, 42, 0.08);
-    background: rgba(255, 255, 255, 0.82);
-    font-size: 0.68rem;
-    font-weight: 800;
-    color: var(--binn-ink);
-  }
-  .binn-control-glance-card strong {
-    font-family: var(--binn-font-display);
-    font-size: 2rem;
-    line-height: 0.95;
-    letter-spacing: -0.06em;
-  }
-  .binn-control-glance-link {
-    color: var(--binn-ink);
-    text-decoration: none;
-    font-size: 0.82rem;
-    font-weight: 700;
-  }
-  .binn-control-glance-link:hover {
-    text-decoration: underline;
-  }
-  .binn-control-guided {
-    display: grid;
-    gap: 0.9rem;
-  }
-  .binn-control-visual-grid {
-    display: grid;
-    gap: 1rem;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  }
-  .binn-control-visual-card {
-    display: grid;
-    gap: 0.9rem;
-    border-radius: 1rem;
-    padding: 1rem;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(246, 249, 252, 0.96) 100%);
-  }
-  .binn-control-visual-kpi {
-    margin-top: 0.55rem;
-    font-family: var(--binn-font-display);
-    font-size: 2rem;
-    line-height: 0.95;
-    letter-spacing: -0.06em;
-    font-weight: 800;
-  }
-  .binn-control-signal-list,
-  .binn-control-chart-list {
-    display: grid;
-    gap: 0.75rem;
-  }
-  .binn-control-signal-row,
-  .binn-control-chart-row {
-    display: grid;
-    gap: 0.5rem;
-    padding: 0.82rem 0.86rem;
-    border-radius: 0.9rem;
-    border: 1px solid rgba(15, 23, 42, 0.07);
-    background: rgba(248, 250, 252, 0.92);
-    color: var(--binn-ink);
-    text-decoration: none;
-  }
-  .binn-control-signal-row:hover {
-    border-color: rgba(15, 23, 42, 0.14);
-  }
-  .binn-control-chart-head {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 0.65rem;
-  }
-  .binn-control-chart-copy {
-    display: grid;
-    gap: 0.12rem;
-  }
-  .binn-control-chart-copy strong {
-    font-size: 0.9rem;
-    line-height: 1.3;
-  }
-  .binn-control-chart-copy span {
-    font-size: 0.78rem;
-    line-height: 1.4;
-    color: var(--binn-ink-soft);
-  }
-  .binn-control-chart-track {
-    width: 100%;
-    height: 0.52rem;
-    border-radius: 999px;
-    background: rgba(15, 23, 42, 0.08);
-    overflow: hidden;
-  }
-  .binn-control-chart-fill {
-    display: block;
-    height: 100%;
-    border-radius: 999px;
-    background: var(--chart-accent, #2563eb);
-  }
-  .binn-control-section-head {
-    display: grid;
-    gap: 0.2rem;
-  }
-  .binn-control-section-note {
-    margin: 0;
-    color: var(--binn-ink-soft);
-    line-height: 1.45;
-    font-size: 0.9rem;
-  }
-  .binn-control-andon-tag,
-  .binn-control-pokayoke-tag {
-    display: inline-flex;
-    align-items: center;
-    width: fit-content;
-    min-height: 1.7rem;
-    padding: 0.12rem 0.58rem;
-    border-radius: 999px;
-    font-size: 0.68rem;
-    font-weight: 800;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-  .binn-control-andon-tag {
-    background: rgba(191, 33, 33, 0.08);
-    color: #9f1239;
-  }
-  .binn-control-pokayoke-tag {
-    background: rgba(15, 118, 110, 0.08);
-    color: #0f766e;
-  }
-  .binn-control-guided-grid {
-    display: grid;
-    gap: 0.85rem;
-  }
-  .binn-control-guided-card {
-    display: grid;
-    gap: 0.45rem;
-    padding: 0.95rem;
-    border-radius: 0.95rem;
-    border: 1px solid rgba(15, 23, 42, 0.08);
-    background: rgba(255, 255, 255, 0.9);
-  }
-  .binn-control-guided-card strong {
-    font-size: 0.72rem;
-    line-height: 1;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: #98a2b3;
-  }
-  .binn-control-guided-card p {
-    margin: 0;
-    font-size: 0.9rem;
-    line-height: 1.55;
-    color: var(--binn-ink);
-  }
-  .binn-control-lane {
-    display: grid;
-    gap: 0.9rem;
-    border: 1px solid rgba(15, 23, 42, 0.08);
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, var(--lane-soft, rgba(255, 255, 255, 0.98)) 100%);
-  }
-  .binn-control-panel-kicker {
-    margin: 0;
-    font-size: 0.72rem;
-    font-weight: 800;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: #98a2b3;
-  }
-  .binn-control-panel-copy {
-    margin: 0.45rem 0 0;
-    color: var(--binn-ink-soft);
-    line-height: 1.55;
-    font-size: 0.9rem;
-  }
-  .binn-control-lane-link {
-    display: grid;
-    gap: 0.22rem;
-    min-width: min(100%, 15rem);
-    padding: 0.82rem 0.9rem;
-    border-radius: 0.9rem;
-    text-decoration: none;
-    border: 1px solid rgba(15, 23, 42, 0.08);
-    background: rgba(255, 255, 255, 0.9);
-    color: var(--binn-ink);
-  }
-  .binn-control-lane-link strong {
-    font-size: 0.9rem;
-    line-height: 1.35;
-  }
-  .binn-control-lane-link:hover {
-    border-color: rgba(15, 23, 42, 0.14);
-    transform: translateY(-1px);
-  }
-  .binn-control-priority-card {
-    position: relative;
-    display: grid;
-    gap: 0.9rem;
-    overflow: hidden;
-  }
-  .binn-control-priority-card::before {
-    content: "";
-    position: absolute;
-    inset: 0 0 auto 0;
-    height: 4px;
-    background: var(--panel-accent, #2563eb);
-  }
-  .binn-control-priority-head,
-  .binn-control-panel-head {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 0.9rem;
-  }
-  .binn-control-priority-value {
-    margin-top: 0.6rem;
-    font-family: var(--binn-font-display);
-    font-size: 2.2rem;
-    line-height: 0.95;
-    letter-spacing: -0.06em;
-    font-weight: 800;
-  }
-  .binn-control-priority-caption {
-    margin: 0.3rem 0 0;
-    font-size: 0.78rem;
-    line-height: 1.4;
-    color: var(--binn-ink-soft);
-    font-weight: 700;
-  }
-  .binn-control-priority-list,
-  .binn-control-pulse-list,
-  .binn-control-conversation-list {
-    display: grid;
-    gap: 0.7rem;
-  }
-  .binn-control-priority-item,
-  .binn-control-conversation-item {
-    display: grid;
-    gap: 0.35rem;
-    padding-top: 0.75rem;
-    border-top: 1px solid var(--binn-line);
-  }
-  .binn-control-priority-item:first-child,
-  .binn-control-conversation-item:first-child {
-    padding-top: 0;
-    border-top: 0;
-  }
-  .binn-control-priority-item-head,
-  .binn-control-conversation-item-head {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 0.65rem;
-  }
-  .binn-control-priority-stack {
-    display: grid;
-    gap: 0.32rem;
-  }
-  .binn-control-priority-badge {
-    display: inline-flex;
-    align-items: center;
-    min-height: 1.6rem;
-    width: fit-content;
-    padding: 0.08rem 0.5rem;
-    border-radius: 999px;
-    background: var(--panel-soft, rgba(37, 99, 235, 0.1));
-    color: var(--binn-ink);
-    font-size: 0.72rem;
-    font-weight: 800;
-  }
-  .binn-control-priority-item-title,
-  .binn-control-conversation-title {
-    margin: 0;
-    font-size: 0.92rem;
-    line-height: 1.35;
-    font-weight: 800;
-    letter-spacing: -0.02em;
-  }
-  .binn-control-priority-meta,
-  .binn-control-priority-status,
-  .binn-control-conversation-meta {
-    margin: 0;
-    font-size: 0.79rem;
-    line-height: 1.45;
-    color: var(--binn-ink-soft);
-  }
-  .binn-control-link {
-    color: var(--binn-ink);
-    text-decoration: none;
-    font-weight: 700;
-  }
-  .binn-control-link:hover {
-    text-decoration: underline;
-  }
-  .binn-control-pulse-row {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 0.7rem;
-    padding: 0.78rem 0.82rem;
-    border-radius: 0.9rem;
-    background: rgba(248, 250, 252, 0.9);
-    border: 1px solid rgba(15, 23, 42, 0.05);
-  }
-  .binn-control-pulse-row strong {
-    display: block;
-    font-size: 0.9rem;
-    line-height: 1.3;
-  }
-  .binn-control-pulse-row span {
-    display: block;
-    margin-top: 0.2rem;
-    font-size: 0.78rem;
-    line-height: 1.4;
-    color: var(--binn-ink-soft);
-  }
-  @media (min-width: 900px) {
-    .binn-control-hero-board {
-      grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.8fr);
-      align-items: stretch;
-    }
-    .binn-control-lane-grid {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-    .binn-control-priority-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-  }
-  @media (min-width: 1180px) {
-    .binn-control-secondary-grid {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-  }
+  .binn-control-focus { display: grid; gap: 1rem; padding: 1rem; border: 1px solid rgba(15, 23, 42, 0.08); border-radius: 1rem; background: radial-gradient(circle at top right, rgba(79, 70, 229, 0.12), transparent 20rem), linear-gradient(135deg, #0f1834, #17254b); color: #fff; }
+  .binn-control-focus-copy { display: grid; gap: 0.42rem; }
+  .binn-control-focus-kicker { margin: 0; color: rgba(255,255,255,0.64); font-size: 0.72rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+  .binn-control-focus-value { font-family: var(--binn-font-display); font-size: clamp(2.4rem, 5vw, 3.75rem); font-weight: 800; letter-spacing: -0.08em; line-height: 0.85; }
+  .binn-control-focus-title { margin: 0; font-size: 1.05rem; font-weight: 750; }
+  .binn-control-focus-note { margin: 0; max-width: 38rem; color: rgba(255,255,255,0.72); font-size: 0.88rem; line-height: 1.5; }
+  .binn-control-focus-signals { display: grid; gap: 0.55rem; }
+  .binn-control-focus-signal { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; padding: 0.72rem 0.78rem; border: 1px solid rgba(255,255,255,0.12); border-radius: 0.8rem; background: rgba(255,255,255,0.07); color: #fff; text-decoration: none; }
+  .binn-control-focus-signal span { color: rgba(255,255,255,0.65); font-size: 0.76rem; font-weight: 700; }
+  .binn-control-focus-signal strong { font-family: var(--binn-font-display); font-size: 1.25rem; line-height: 1; }
+  .binn-control-focus .binn-btn-primary { align-self: end; background: #fff; color: #101a38; }
+  .binn-control-workspace { display: grid; gap: 1rem; align-items: start; }
+  .binn-control-priority-panel { display: grid; gap: 0.9rem; padding: 1rem; border-radius: 1rem; position: relative; overflow: hidden; }
+  .binn-control-priority-panel::before { content: ""; position: absolute; inset: 0 0 auto; height: 3px; background: var(--panel-accent, #4f46e5); }
+  .binn-control-priority-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; }
+  .binn-control-kicker { margin: 0; color: #7b879b; font-size: 0.7rem; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; }
+  .binn-control-priority-value { margin-top: 0.38rem; font-family: var(--binn-font-display); font-size: 2rem; font-weight: 800; letter-spacing: -0.06em; line-height: 0.9; }
+  .binn-control-priority-caption, .binn-control-priority-hint { margin: 0.35rem 0 0; color: var(--binn-ink-soft); font-size: 0.82rem; line-height: 1.42; }
+  .binn-control-priority-list { display: grid; gap: 0.65rem; }
+  .binn-control-priority-item { display: grid; gap: 0.38rem; padding-top: 0.7rem; border-top: 1px solid var(--binn-line); }
+  .binn-control-priority-item:first-child { padding-top: 0; border-top: 0; }
+  .binn-control-priority-item-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.65rem; }
+  .binn-control-priority-item-title { margin: 0.18rem 0 0; font-size: 0.91rem; font-weight: 750; line-height: 1.35; }
+  .binn-control-priority-badge { display: inline-flex; width: fit-content; padding: 0.16rem 0.46rem; border-radius: 999px; background: var(--panel-soft, rgba(79, 70, 229, 0.1)); color: #344054; font-size: 0.68rem; font-weight: 800; }
+  .binn-control-priority-meta, .binn-control-priority-status { margin: 0; color: var(--binn-ink-soft); font-size: 0.78rem; line-height: 1.4; }
+  .binn-control-radar { display: grid; gap: 0.75rem; padding: 1rem; border-radius: 1rem; }
+  .binn-control-radar-card { display: grid; gap: 0.65rem; padding: 0.82rem; border: 1px solid var(--binn-line); border-radius: 0.85rem; background: #fff; }
+  .binn-control-radar-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.6rem; }
+  .binn-control-radar-head h3 { margin: 0; font-size: 0.9rem; }
+  .binn-control-radar-count { font-family: var(--binn-font-display); font-size: 1.35rem; font-weight: 800; letter-spacing: -0.05em; }
+  .binn-control-chart-list { display: grid; gap: 0.55rem; }
+  .binn-control-chart-row { display: grid; gap: 0.38rem; }
+  .binn-control-chart-copy { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; color: #475467; font-size: 0.77rem; }
+  .binn-control-chart-track { height: 0.4rem; overflow: hidden; border-radius: 999px; background: #e9edf3; }
+  .binn-control-chart-fill { display: block; height: 100%; border-radius: inherit; background: var(--chart-accent, #4f46e5); }
+  .binn-control-inbox-item { display: block; padding-top: 0.6rem; border-top: 1px solid var(--binn-line); color: inherit; text-decoration: none; }
+  .binn-control-inbox-item:first-of-type { padding-top: 0; border-top: 0; }
+  .binn-control-inbox-item strong { display: block; font-size: 0.82rem; }
+  .binn-control-inbox-item span { display: block; margin-top: 0.18rem; color: var(--binn-ink-soft); font-size: 0.75rem; line-height: 1.35; }
+  @media (min-width: 900px) { .binn-control-focus { grid-template-columns: minmax(0, 1fr) minmax(210px, 0.42fr) auto; align-items: end; } .binn-control-workspace { grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.8fr); } }
 </style>
 {% endblock %}
 
 {% block content %}
-  <div class="binn-control-shell">
-    {% if dashboard_access_denied %}
-      <section class="binn-panel binn-control-hero">
-        <span class="binn-kicker">{{ dashboard.kicker }}</span>
-        <div>
-          <h1 class="binn-section-title">{{ dashboard.welcome_title }}</h1>
-          <p class="binn-section-copy mt-2">{{ dashboard.welcome_copy }}</p>
+<div class="binn-view-standard">
+  {% if dashboard_access_denied %}
+    <section class="binn-panel binn-module-header">
+      <span class="binn-kicker">{{ dashboard.kicker }}</span>
+      <h1 class="binn-section-title mt-3">{{ dashboard.welcome_title }}</h1>
+      <p class="binn-section-copy mt-2">{{ dashboard.welcome_copy }}</p>
+    </section>
+  {% else %}
+    <section class="binn-panel binn-module-header">
+      <div class="binn-module-head">
+        <div class="binn-module-copy">
+          <span class="binn-kicker">{{ dashboard.kicker|default:"Control operativo" }}</span>
+          <h1 class="binn-section-title mt-3">{{ dashboard.welcome_title|default:"Consola diaria" }}</h1>
+          <p class="binn-section-copy mt-2">{{ dashboard.welcome_copy|default:"Prioriza, ejecuta y sigue el flujo sin cambiar de contexto." }}</p>
         </div>
-      </section>
-    {% else %}
-      <section class="binn-panel binn-control-hero">
-        <div class="binn-control-hero-board">
-          <div class="binn-control-shell">
-            <div class="binn-control-hero-head">
-              <div class="binn-control-hero-copy">
-                <span class="binn-kicker">{{ dashboard.kicker|default:"Panel" }}</span>
-                <h1 class="binn-section-title">{{ dashboard.welcome_title|default:"Consola diaria" }}</h1>
-                <p class="binn-section-copy">{{ dashboard.welcome_copy|default:"Primero mira alertas. Luego ejecuta." }}</p>
-              </div>
-              <div class="binn-control-meta">
-                <span class="binn-control-meta-item">{{ tenant_name }}</span>
-                <span class="binn-control-meta-item">{{ request.tenant.tenant_config.get_profile_display }}</span>
-                <span class="binn-control-meta-item">Operacion {{ today|date:"d/m/Y" }}</span>
-                {% if request.user.is_superuser %}
-                  <span class="binn-control-meta-item">{{ tenant_schema }}</span>
-                {% endif %}
-              </div>
-            </div>
-
-            {% if signal_rows %}
-              <div class="binn-control-exec-strip">
-                {% for row in signal_rows|slice:":3" %}
-                  <a href="{{ row.href }}" class="binn-control-exec-pill">
-                    <span>{{ row.label }}</span>
-                    <strong>{{ row.value }}</strong>
-                    <small>{{ row.meta }}</small>
-                  </a>
-                {% endfor %}
-              </div>
-            {% endif %}
-
-            {% if dashboard.quick_actions %}
-              <div class="binn-control-actions">
-                {% for action in dashboard.quick_actions %}
-                  <a href="{{ action.href }}" class="{% if forloop.first %}binn-btn-primary{% else %}binn-btn-secondary{% endif %} binn-btn-compact">
-                    {{ action.compact_label|default:action.label }}
-                  </a>
-                {% endfor %}
-              </div>
-            {% endif %}
+        <div class="binn-module-tools">
+          <div class="binn-view-context">
+            <span class="binn-view-context-item">{{ tenant_name }}</span>
+            <span class="binn-view-context-item">{{ request.tenant.tenant_config.get_profile_display }}</span>
+            <span class="binn-view-context-item">{{ today|date:"d/m/Y" }}</span>
           </div>
-
-          <aside class="binn-control-north-star">
-            <div>
-              <p class="binn-control-panel-kicker">Resumen ejecutivo</p>
-              <div class="binn-control-north-star-value">{{ signal_focus.value|default:0 }}</div>
-              <p class="binn-control-north-star-label">{{ signal_focus.label|default:"Operacion estable" }}</p>
-              <p class="binn-control-north-star-copy">{% if signal_focus.value %}Este es el foco que merece lectura primero antes de bajar a ejecucion.{% else %}No hay ruido critico visible en este momento.{% endif %}</p>
-            </div>
-            <div class="binn-control-north-star-foot">
-              <span>{{ tenant_name }}</span>
-              <span>{{ today|date:"d/m/Y" }}</span>
-            </div>
-            {% if signal_focus.href %}
-              <a href="{{ signal_focus.href }}" class="binn-btn-primary binn-btn-compact">Ver foco</a>
-            {% endif %}
-          </aside>
+          {% if dashboard.quick_actions %}<div class="binn-module-shortcuts">{% for action in dashboard.quick_actions|slice:":3" %}<a href="{{ action.href }}" class="{% if forloop.first %}binn-btn-primary{% else %}binn-btn-secondary{% endif %} binn-btn-compact">{{ action.compact_label|default:action.label }}</a>{% endfor %}</div>{% endif %}
         </div>
-      </section>
+      </div>
+    </section>
 
-      {% if dashboard.summary_cards %}
-        <section class="binn-control-glance-section">
-          <div class="binn-control-section-head">
-            <p class="binn-control-panel-kicker">Vista general</p>
-            <p class="binn-control-section-note">Base, pipeline y operacion en una sola linea.</p>
-          </div>
-          <div class="binn-control-glance">
-            {% for card in dashboard.summary_cards %}
-              <article class="binn-control-glance-card" style="--glance-accent: {{ card.tone.accent }}; --glance-soft: {{ card.tone.soft }};" title="{{ card.description }}">
-                <div class="binn-control-glance-head">
-                  <span class="binn-control-glance-label">{{ card.title }}</span>
-                  <span class="binn-control-glance-state">{{ card.state_label }}</span>
-                </div>
-                <strong>{{ card.value }}</strong>
-                {% if card.href and card.cta %}
-                  <a href="{{ card.href }}" class="binn-control-glance-link">{{ card.cta }}</a>
-                {% endif %}
-              </article>
-            {% endfor %}
-          </div>
-        </section>
-      {% endif %}
-      </section>
+    <section class="binn-control-focus">
+      <div class="binn-control-focus-copy">
+        <p class="binn-control-focus-kicker">Atencion ahora</p>
+        <div class="binn-control-focus-value">{{ signal_focus.value|default:0 }}</div>
+        <p class="binn-control-focus-title">{{ signal_focus.label|default:"Operacion estable" }}</p>
+        <p class="binn-control-focus-note">{% if signal_focus.value %}Este es el único número que necesita lectura antes de entrar a ejecutar.{% else %}No hay bloqueos críticos visibles en este momento.{% endif %}</p>
+      </div>
+      {% if signal_rows|length > 1 %}<div class="binn-control-focus-signals">{% for row in signal_rows|slice:"1:3" %}<a href="{{ row.href }}" class="binn-control-focus-signal" title="{{ row.meta }}"><span>{{ row.label }}</span><strong>{{ row.value }}</strong></a>{% endfor %}</div>{% endif %}
+      {% if signal_focus.href %}<a href="{{ signal_focus.href }}" class="binn-btn-primary binn-btn-compact">Abrir foco</a>{% endif %}
+    </section>
 
-
-      {% if signal_rows or show_pipeline_pulse or show_collection_pulse or show_conversation_panel %}
-        <section class="binn-control-shell">
-          <div class="binn-control-section-head">
-            <p class="binn-control-panel-kicker">Indicadores</p>
-            <p class="binn-control-section-note">Lectura de direccion para decidir rapido y luego bajar a ejecucion.</p>
-          </div>
-          <div class="binn-control-visual-grid">
-            {% if signal_rows %}
-              <article class="binn-panel binn-control-visual-card">
-                <div class="binn-control-panel-head">
-                  <div>
-                    <p class="binn-control-panel-kicker">Andon rapido</p>
-                    <div class="binn-control-visual-kpi">{{ signal_focus.value }}</div>
-                    <p class="binn-control-panel-copy">Semaforo operativo del momento.</p>
-                  </div>
-                  {% if signal_focus.href %}
-                    <a href="{{ signal_focus.href }}" class="binn-record-action binn-record-action-primary">Abrir</a>
-                  {% endif %}
-                </div>
-                <div class="binn-control-signal-list">
-                  {% for row in signal_rows %}
-                    <a href="{{ row.href }}" class="binn-control-signal-row" title="{{ row.meta }}">
-                      <div class="binn-control-chart-head">
-                        <div class="binn-control-chart-copy">
-                          <strong>{{ row.label }}</strong>
-                          <span>{{ row.meta }}</span>
-                        </div>
-                        <span class="binn-pill">{{ row.value }}</span>
-                      </div>
-                      <div class="binn-control-chart-track">
-                        <span class="binn-control-chart-fill" style="width: {{ row.width_pct }}%; --chart-accent: {{ row.tone.accent }};"></span>
-                      </div>
-                    </a>
-                  {% endfor %}
-                </div>
-              </article>
-            {% endif %}
-
-            {% if show_pipeline_pulse %}
-              <article class="binn-panel binn-control-visual-card">
-                <div class="binn-control-panel-head">
-                  <div>
-                    <p class="binn-control-panel-kicker">Pipeline</p>
-                    <div class="binn-control-visual-kpi">{{ summary.open_deals }}</div>
-                    <p class="binn-control-panel-copy">{% if active_pipeline %}{{ active_pipeline.name }}{% else %}Sin pipeline activo{% endif %}</p>
-                  </div>
-                  <a href="{% url 'binncrm:index' %}" class="binn-record-action binn-record-action-primary">Mover</a>
-                </div>
-                {% if pipeline_chart_rows %}
-                  <div class="binn-control-chart-list">
-                    {% for row in pipeline_chart_rows %}
-                      <div class="binn-control-chart-row">
-                        <div class="binn-control-chart-head">
-                          <div class="binn-control-chart-copy">
-                            <strong>{{ row.label }}</strong>
-                            <span>{{ row.meta }}</span>
-                          </div>
-                          <span class="binn-pill">{{ row.value }}</span>
-                        </div>
-                        <div class="binn-control-chart-track">
-                          <span class="binn-control-chart-fill" style="width: {{ row.width_pct }}%; --chart-accent: {{ row.tone.accent }};"></span>
-                        </div>
-                      </div>
-                    {% endfor %}
-                  </div>
-                {% else %}
-                  <div class="binn-empty text-sm">Todavia no hay oportunidades abiertas.</div>
-                {% endif %}
-              </article>
-            {% endif %}
-
-            {% if show_collection_pulse %}
-              <article class="binn-panel binn-control-visual-card">
-                <div class="binn-control-panel-head">
-                  <div>
-                    <p class="binn-control-panel-kicker">Cobranza</p>
-                    <div class="binn-control-visual-kpi">{{ summary.open_collections }}</div>
-                    <p class="binn-control-panel-copy">Distribucion por estado abierto.</p>
-                  </div>
-                  <a href="{% url 'binncrm:collections' %}" class="binn-record-action binn-record-action-primary">Cobrar</a>
-                </div>
-                {% if collection_chart_rows %}
-                  <div class="binn-control-chart-list">
-                    {% for row in collection_chart_rows %}
-                      <div class="binn-control-chart-row">
-                        <div class="binn-control-chart-head">
-                          <div class="binn-control-chart-copy">
-                            <strong>{{ row.label }}</strong>
-                            <span>{{ row.meta }}</span>
-                          </div>
-                          <span class="binn-pill">{{ row.value }}</span>
-                        </div>
-                        <div class="binn-control-chart-track">
-                          <span class="binn-control-chart-fill" style="width: {{ row.width_pct }}%; --chart-accent: {{ row.tone.accent }};"></span>
-                        </div>
-                      </div>
-                    {% endfor %}
-                  </div>
-                {% else %}
-                  <div class="binn-empty text-sm">No hay cobranzas abiertas ahora mismo.</div>
-                {% endif %}
-              </article>
-            {% endif %}
-
-            {% if show_conversation_panel %}
-              <article class="binn-panel binn-control-visual-card">
-                <div class="binn-control-panel-head">
-                  <div>
-                    <p class="binn-control-panel-kicker">Inbox</p>
-                    <div class="binn-control-visual-kpi">{{ summary.unread_messages }}</div>
-                    <p class="binn-control-panel-copy">Conversaciones que siguen sin respuesta.</p>
-                  </div>
-                  <a href="{% url 'collab:inbox' %}" class="binn-record-action binn-record-action-primary">Abrir</a>
-                </div>
-                <div class="binn-control-conversation-list">
-                  {% for summary_item in recent_conversations %}
-                    <article class="binn-control-conversation-item">
-                      <div class="binn-control-conversation-item-head">
-                        <a href="{% url 'collab:conversation_detail' summary_item.conversation.pk %}" class="binn-control-link binn-control-conversation-title">{{ summary_item.conversation.title }}</a>
-                        <span class="binn-pill">{{ summary_item.unread_count }}</span>
-                      </div>
-                      <p class="binn-control-conversation-meta">
-                        {% if summary_item.last_message %}
-                          {{ summary_item.last_message.author.username }} | {{ summary_item.last_message.body|truncatechars:72 }}
-                        {% else %}
-                          Sin mensajes todavia.
-                        {% endif %}
-                      </p>
-                    </article>
-                  {% empty %}
-                    <div class="binn-empty text-sm">Inbox al dia.</div>
-                  {% endfor %}
-                </div>
-              </article>
-            {% endif %}
-          </div>
-        </section>
-      {% endif %}
-
-      {% if priority_panels %}
-        <section class="binn-control-shell">
-          <div class="binn-control-section-head">
-            <p class="binn-control-panel-kicker">Andon</p>
-            <p class="binn-control-section-note">Casos que mueven el resultado de hoy.</p>
-          </div>
-          <div class="binn-control-priority-grid">
+    <div class="binn-control-workspace">
+      <section class="space-y-3">
+        <div class="binn-view-section-head"><div><span class="binn-kicker">Trabajo prioritario</span><p class="binn-view-section-copy">Casos concretos que requieren una decisión o un siguiente paso.</p></div></div>
+        {% if priority_panels %}
+          <div class="grid gap-3 xl:grid-cols-2">
             {% for panel in priority_panels %}
-              <article class="binn-panel binn-control-priority-card" style="--panel-accent: {{ panel.tone.accent }}; --panel-soft: {{ panel.tone.soft }};">
-                <div class="binn-control-priority-head">
-                  <div>
-                    <p class="binn-control-panel-kicker">{{ panel.kicker }}</p>
-                    <div class="binn-control-priority-value">{{ panel.value }}</div>
-                    <p class="binn-control-priority-caption">{{ panel.value_caption }}</p>
-                    <p class="binn-control-panel-copy">{{ panel.hint }}</p>
-                  </div>
-                  <div class="binn-control-andon-tag">Accion inmediata</div>
-                  {% if panel.href %}
-                    <a href="{{ panel.href }}" class="binn-record-action binn-record-action-primary">{{ panel.cta|default:"Abrir" }}</a>
-                  {% endif %}
-                </div>
-
-                <div class="binn-control-priority-list">
-                  {% for item in panel.items %}
-                    <article class="binn-control-priority-item">
-                      <div class="binn-control-priority-item-head">
-                        <div class="binn-control-priority-stack">
-                          <span class="binn-control-priority-badge">{{ item.badge }}</span>
-                          <p class="binn-control-priority-item-title">{{ item.title }}</p>
-                        </div>
-                        <a href="{{ item.href }}" class="binn-record-action">Abrir</a>
-                      </div>
-                      <p class="binn-control-priority-meta">{{ item.meta }}</p>
-                      <p class="binn-control-priority-status">{{ item.status }}</p>
-                    </article>
-                  {% empty %}
-                    <div class="binn-empty text-sm">{{ panel.empty_message }}</div>
-                  {% endfor %}
-                </div>
+              <article class="binn-panel binn-control-priority-panel" style="--panel-accent: {{ panel.tone.accent }}; --panel-soft: {{ panel.tone.soft }};">
+                <div class="binn-control-priority-head"><div><p class="binn-control-kicker">{{ panel.kicker }}</p><div class="binn-control-priority-value">{{ panel.value }}</div><p class="binn-control-priority-caption">{{ panel.value_caption }}</p><p class="binn-control-priority-hint">{{ panel.hint }}</p></div>{% if panel.href %}<a href="{{ panel.href }}" class="binn-record-action binn-record-action-primary">{{ panel.cta|default:"Abrir" }}</a>{% endif %}</div>
+                <div class="binn-control-priority-list">{% for item in panel.items %}<article class="binn-control-priority-item"><div class="binn-control-priority-item-head"><div><span class="binn-control-priority-badge">{{ item.badge }}</span><p class="binn-control-priority-item-title">{{ item.title }}</p></div><a href="{{ item.href }}" class="binn-record-action">Abrir</a></div><p class="binn-control-priority-meta">{{ item.meta }}</p><p class="binn-control-priority-status">{{ item.status }}</p></article>{% empty %}<div class="binn-empty text-sm">{{ panel.empty_message }}</div>{% endfor %}</div>
               </article>
             {% endfor %}
           </div>
-        </section>
-      {% else %}
-        <section class="binn-panel binn-control-panel">
-          <p class="binn-control-panel-kicker">Andon limpio</p>
-          <p class="binn-control-panel-copy">No hay urgencias operativas visibles ahora mismo.</p>
-        </section>
-      {% endif %}
+        {% else %}
+          <article class="binn-panel binn-control-priority-panel"><p class="binn-control-kicker">Andon limpio</p><p class="binn-view-section-copy">No hay urgencias operativas visibles ahora mismo.</p></article>
+        {% endif %}
+      </section>
 
-      {% if action_lanes %}
-        <section class="binn-control-shell">
-          <div class="binn-control-section-head">
-            <p class="binn-control-panel-kicker">Flujo de trabajo</p>
-            <p class="binn-control-section-note">Atajos para ejecutar despues de la lectura.</p>
-          </div>
-          <div class="binn-control-lane-grid">
-            {% for lane in action_lanes %}
-              <article class="binn-panel binn-control-lane" style="--lane-soft: {{ lane.tone.soft }};">
-                <div>
-                  <p class="binn-control-panel-kicker">{{ lane.title }}</p>
-                </div>
-                <div class="binn-control-lane-actions">
-                  {% for item in lane.items %}
-                    <a href="{{ item.href }}" class="binn-control-lane-link" title="{{ item.help }}">
-                      <strong>{{ item.label }}</strong>
-                    </a>
-                  {% endfor %}
-                </div>
-              </article>
-            {% endfor %}
-          </div>
-        </section>
-      {% endif %}
-
-      {% if dashboard.guided_steps %}
-        <section class="binn-panel binn-control-guided">
-          <div class="binn-control-section-head">
-            <p class="binn-control-panel-kicker">{{ dashboard.guided_steps_title }}</p>
-            <p class="binn-control-section-note">Checklist corto para no abrir huecos operativos.</p>
-            <div class="binn-control-pokayoke-tag">Evita errores</div>
-          </div>
-          <div class="binn-control-guided-grid">
-            {% for step in dashboard.guided_steps %}
-              <article class="binn-control-guided-card">
-                <strong>Paso {{ forloop.counter|stringformat:"02d" }}</strong>
-                <p>{{ step }}</p>
-              </article>
-            {% endfor %}
-          </div>
-        </section>
-      {% endif %}
-
-
-    {% endif %}
-  </div>
+      <aside class="binn-panel binn-control-radar">
+        <div><span class="binn-kicker">Flujo activo</span><p class="binn-view-section-copy">Lectura breve del dinero y las conversaciones; el detalle vive en cada módulo.</p></div>
+        {% if show_pipeline_pulse %}<article class="binn-control-radar-card"><div class="binn-control-radar-head"><h3>Pipeline{% if active_pipeline %} · {{ active_pipeline.name }}{% endif %}</h3><span class="binn-control-radar-count">{{ summary.open_deals }}</span></div>{% for row in pipeline_chart_rows|slice:":4" %}<div class="binn-control-chart-row"><div class="binn-control-chart-copy"><span>{{ row.label }}</span><strong>{{ row.value }}</strong></div><div class="binn-control-chart-track"><span class="binn-control-chart-fill" style="width: {{ row.width_pct }}%; --chart-accent: {{ row.tone.accent }};"></span></div></div>{% empty %}<p class="binn-view-section-copy">No hay oportunidades abiertas.</p>{% endfor %}<a href="{% url 'binncrm:index' %}" class="binn-record-action">Abrir pipeline</a></article>{% endif %}
+        {% if show_collection_pulse %}<article class="binn-control-radar-card"><div class="binn-control-radar-head"><h3>Cobranza</h3><span class="binn-control-radar-count">{{ summary.open_collections }}</span></div>{% for row in collection_chart_rows|slice:":3" %}<div class="binn-control-chart-row"><div class="binn-control-chart-copy"><span>{{ row.label }}</span><strong>{{ row.value }}</strong></div><div class="binn-control-chart-track"><span class="binn-control-chart-fill" style="width: {{ row.width_pct }}%; --chart-accent: {{ row.tone.accent }};"></span></div></div>{% empty %}<p class="binn-view-section-copy">No hay cobranzas abiertas.</p>{% endfor %}<a href="{% url 'binncrm:collections' %}" class="binn-record-action">Abrir cobranzas</a></article>{% endif %}
+        {% if show_conversation_panel %}<article class="binn-control-radar-card"><div class="binn-control-radar-head"><h3>Inbox</h3><span class="binn-control-radar-count">{{ summary.unread_messages }}</span></div>{% for summary_item in recent_conversations|slice:":3" %}<a href="{% url 'collab:conversation_detail' summary_item.conversation.pk %}" class="binn-control-inbox-item"><strong>{{ summary_item.conversation.title }}</strong><span>{% if summary_item.last_message %}{{ summary_item.last_message.body|truncatechars:58 }}{% else %}Sin mensajes todavía.{% endif %}</span></a>{% empty %}<p class="binn-view-section-copy">Inbox al día.</p>{% endfor %}<a href="{% url 'collab:inbox' %}" class="binn-record-action">Abrir colaboración</a></article>{% endif %}
+      </aside>
+    </div>
+  {% endif %}
+</div>
 {% endblock %}

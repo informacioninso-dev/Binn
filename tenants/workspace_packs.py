@@ -61,15 +61,15 @@ WORKSPACE_PACKS = {
         "report_focus": ["Leads sin seguimiento", "Embudo enfriandose", "Propuestas vigentes"],
     },
     PROFILE_SERVICIOS: {
-        "title": "Operacion servicios B2B",
-        "subtitle": "Clientes, propuestas y follow-up en una sola cadencia de cierre.",
-        "pillars": ["Cuentas activas", "Propuestas ordenadas", "Cobro disciplinado"],
+        "title": "Operacion de servicios",
+        "subtitle": "Proyectos, entregables y traspasos claros despues de cerrar una cuenta.",
+        "pillars": ["Handoff completo", "Entregables visibles", "Cierres ordenados"],
         "rituals": [
             "Validar siguiente paso por cuenta cada viernes.",
             "Separar discovery, propuesta y negociacion sin mezclar etapas.",
             "Atacar primero las cuentas sin responsable claro.",
         ],
-        "report_focus": ["Deals quietos", "Cobros por empujar", "Clientes sin siguiente paso"],
+        "report_focus": ["Entregables bloqueados", "Handoffs pendientes", "Proyectos por cerrar"],
     },
     PROFILE_RETAIL_MODA: {
         "title": "Operacion retail",

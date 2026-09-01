@@ -114,6 +114,13 @@ class ObjectView(AuditModel):
 
 class ObjectRecord(AuditModel):
     object_schema = models.ForeignKey(ObjectSchema, on_delete=models.CASCADE, related_name="records")
+    # These links give flexible records (such as projects) a real CRM context.
+    entity = models.ForeignKey("Entity", null=True, blank=True, on_delete=models.SET_NULL, related_name="object_records")
+    deal = models.ForeignKey("Deal", null=True, blank=True, on_delete=models.SET_NULL, related_name="object_records")
+    proposal = models.ForeignKey("Proposal", null=True, blank=True, on_delete=models.SET_NULL, related_name="object_records")
+    assessment_submission = models.ForeignKey(
+        "AssessmentSubmission", null=True, blank=True, on_delete=models.SET_NULL, related_name="object_records"
+    )
     title = models.CharField(max_length=180, blank=True)
     data = models.JSONField(default=dict, blank=True)
     is_active = models.BooleanField(default=True)
@@ -123,6 +130,17 @@ class ObjectRecord(AuditModel):
 
     def __str__(self):
         return self.title or f"{self.object_schema.label} #{self.pk}"
+
+    def clean(self):
+        entity_ids = {
+            source.entity_id
+            for source in (self.deal, self.proposal, self.assessment_submission)
+            if source and source.entity_id
+        }
+        if self.entity_id:
+            entity_ids.add(self.entity_id)
+        if len(entity_ids) > 1:
+            raise ValidationError("El cliente vinculado debe coincidir con la oportunidad, proforma y levantamiento.")
 
 
 class TimelineEvent(models.Model):
@@ -483,6 +501,13 @@ class Proposal(AuditModel):
 
     entity = models.ForeignKey(Entity, on_delete=models.CASCADE, related_name="proposals")
     deal = models.ForeignKey(Deal, on_delete=models.CASCADE, related_name="proposals", null=True, blank=True)
+    source_assessment = models.ForeignKey(
+        AssessmentSubmission,
+        on_delete=models.SET_NULL,
+        related_name="proposals",
+        null=True,
+        blank=True,
+    )
     title = models.CharField(max_length=180)
     proposal_number = models.CharField(max_length=50, blank=True)
     amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
@@ -507,6 +532,11 @@ class Proposal(AuditModel):
     def clean(self):
         if self.deal_id and self.entity_id and self.deal.entity_id != self.entity_id:
             raise ValidationError({"deal": "La propuesta debe pertenecer a la misma entidad del deal seleccionado."})
+        if self.source_assessment_id:
+            if self.entity_id and self.source_assessment.entity_id != self.entity_id:
+                raise ValidationError({"source_assessment": "El levantamiento debe pertenecer al mismo cliente."})
+            if self.deal_id and self.source_assessment.deal_id and self.source_assessment.deal_id != self.deal_id:
+                raise ValidationError({"source_assessment": "El levantamiento no corresponde a la oportunidad seleccionada."})
 
 
 class CollectionRecord(AuditModel):

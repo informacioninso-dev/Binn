@@ -8,6 +8,7 @@ from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.generic import ListView, UpdateView, View
 from django_tenants.utils import schema_context
 
@@ -153,6 +154,13 @@ def _can_manage_tenant_access(*, tenant, user) -> bool:
     if membership is None or not membership.is_active:
         return False
     return bool(membership.is_admin or membership.role in {TenantMembership.ROLE_OWNER, TenantMembership.ROLE_MANAGER})
+
+
+def _membership_return_url(request, tenant):
+    candidate = (request.POST.get("next") or "").strip()
+    if candidate and url_has_allowed_host_and_scheme(candidate, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+        return candidate
+    return reverse("tenants:detail" if request.user.is_superuser else "tenants:access_admin", kwargs={"pk": tenant.pk})
 
 
 class SuperAdminRequiredMixin(UserPassesTestMixin):
@@ -695,14 +703,12 @@ class MembershipToggleView(LoginRequiredMixin, View):
                 request,
                 f"El tenant '{membership.tenant.name}' ya alcanzo su limite de {membership.tenant.max_users} usuarios activos.",
             )
-            target_view = "tenants:detail" if request.user.is_superuser else "tenants:access_admin"
-            return redirect(target_view, pk=membership.tenant.pk)
+            return redirect(_membership_return_url(request, membership.tenant))
         membership.is_active = not membership.is_active
         membership.save(update_fields=["is_active"])
         estado = "activado" if membership.is_active else "desactivado"
         messages.success(request, f"Usuario '{membership.user.username}' {estado}.")
-        target_view = "tenants:detail" if request.user.is_superuser else "tenants:access_admin"
-        return redirect(target_view, pk=membership.tenant.pk)
+        return redirect(_membership_return_url(request, membership.tenant))
 
 
 class MembershipDeleteView(LoginRequiredMixin, View):
@@ -714,12 +720,11 @@ class MembershipDeleteView(LoginRequiredMixin, View):
         if not _can_manage_tenant_access(tenant=membership.tenant, user=request.user):
             messages.error(request, "No tienes permisos para administrar accesos de esta empresa.")
             return redirect("tenants:access_list")
-        tenant_pk = membership.tenant.pk
+        tenant = membership.tenant
         username = membership.user.username
         membership.delete()
         messages.success(request, f"Usuario '{username}' removido del tenant.")
-        target_view = "tenants:detail" if request.user.is_superuser else "tenants:access_admin"
-        return redirect(target_view, pk=tenant_pk)
+        return redirect(_membership_return_url(request, tenant))
 
 
 class TenantSwitchView(LoginRequiredMixin, View):

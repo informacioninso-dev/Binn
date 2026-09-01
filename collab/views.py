@@ -18,11 +18,12 @@ from access.permissions import (
 )
 from binncrm.models import Deal, Entity
 
-from .forms import MessageForm
+from .forms import MessageForm, TeamChannelForm
 from .models import Conversation
 from .services import (
     build_conversation_summary,
     can_access_conversation,
+    create_team_conversation,
     ensure_deal_conversation,
     ensure_entity_conversation,
     follow_conversation,
@@ -249,6 +250,7 @@ def _build_inbox_context(request, *, active_summary=None):
         "pinned_total": sum(1 for summary in summaries if getattr(summary.membership, "is_pinned", False)),
         "archived_total": sum(1 for summary in summaries if getattr(summary.membership, "is_archived", False)),
         "has_pinned_summaries": any(getattr(summary.membership, "is_pinned", False) for summary in summaries),
+        "can_create_team_channel": _can_post_messages(request),
     }
 
 
@@ -319,6 +321,22 @@ def _render_conversation_panel(request, *, conversation, layout: str = "full", f
 @tenant_permission_required(PERMISSION_COLLAB_VIEW, capability="collab")
 def inbox(request):
     return render(request, "collab/inbox.html", _build_inbox_context(request))
+
+
+@login_required
+@tenant_permission_required(PERMISSION_COLLAB_EDIT, capability="collab")
+def team_channel_create(request):
+    form = TeamChannelForm(request.POST or None, tenant=request.tenant)
+    if request.method == "POST" and form.is_valid():
+        conversation = create_team_conversation(
+            tenant=request.tenant,
+            actor=request.user,
+            title=form.cleaned_data["title"],
+            description=form.cleaned_data["description"],
+            participants=form.cleaned_data["participants"],
+        )
+        return redirect("collab:conversation_detail", pk=conversation.pk)
+    return render(request, "collab/team_channel_form.html", {"form": form})
 
 
 @login_required

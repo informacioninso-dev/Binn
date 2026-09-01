@@ -1,10 +1,12 @@
 import json
 from urllib.parse import urlencode
 from datetime import date, datetime, timedelta
+from calendar import monthrange
 
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Count, Max, Q
 from django.http import JsonResponse
@@ -42,7 +44,9 @@ from access.permissions import (
 from access.runtime import get_request_membership
 from tenants.workspace_packs import build_workspace_pack
 from tenants.models import Client
-from tenants.services import sync_tenant_pipelines
+from tenants.forms import AddMemberForm
+from tenants.observability import record_tenant_event
+from tenants.services import TenantProvisionError, assign_tenant_membership, sync_tenant_pipelines
 
 from .audit import record_crm_audit_event
 from .importers import import_entities_from_csv
@@ -68,6 +72,7 @@ from .forms import (
     PipelineTemplateEditorForm,
     ProposalForm,
     SavedWorkspaceFilterForm,
+    TenantWorkspaceSettingsForm,
 )
 from .models import (
     Activity, AssessmentSection, AssessmentSubmission, AssessmentTemplate, CollectionRecord, Deal, Document,
@@ -2602,6 +2607,69 @@ def deal_filter_delete(request, pk):
     return redirect("binncrm:index")
 
 
+def _workspace_admin_context(request, *, form=None):
+    return {
+        "tenant": request.tenant,
+        "form": form,
+        "memberships": request.tenant.memberships.select_related("user").order_by("user__username"),
+        "member_form": AddMemberForm(),
+    }
+
+
+@login_required
+@tenant_role_required(*CRM_ADMIN_ALLOWED_ROLES)
+def workspace_users(request):
+    if request.method == "POST":
+        form = AddMemberForm(request.POST)
+        if form.is_valid():
+            try:
+                result = assign_tenant_membership(
+                    tenant=request.tenant,
+                    username=form.cleaned_data["username"],
+                    role=form.cleaned_data["role"],
+                )
+            except TenantProvisionError as exc:
+                form.add_error(None, str(exc))
+            else:
+                record_tenant_event(
+                    tenant=request.tenant,
+                    actor=request.user,
+                    title="Acceso local actualizado",
+                    message=f"Se actualizo el acceso de '{result.user.username}' en la empresa.",
+                    code="tenant_membership_upserted",
+                    metadata={"username": result.user.username, "role": result.membership.role},
+                )
+                messages.success(request, f"Acceso de '{result.user.username}' actualizado.")
+                return redirect("binncrm:workspace_users")
+        context = _workspace_admin_context(request)
+        context["member_form"] = form
+        return render(request, "binncrm/workspace_users.html", context)
+    return render(request, "binncrm/workspace_users.html", _workspace_admin_context(request))
+
+
+@login_required
+@tenant_role_required(*CRM_ADMIN_ALLOWED_ROLES)
+def workspace_settings(request):
+    if request.method == "POST":
+        form = TenantWorkspaceSettingsForm(request.POST, tenant=request.tenant)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Configuracion comercial actualizada.")
+            return redirect("binncrm:workspace_settings")
+    else:
+        form = TenantWorkspaceSettingsForm(tenant=request.tenant)
+    return render(
+        request,
+        "binncrm/workspace_settings.html",
+        {
+            "tenant": request.tenant,
+            "form": form,
+            "can_configure_forms": request.tenant.has_capability("assessments"),
+            "can_configure_objects": bool(request.tenant.tenant_config.custom_objects),
+        },
+    )
+
+
 @login_required
 @tenant_permission_required(PERMISSION_DEALS_VIEW, capability="deals")
 @tenant_role_required(*CRM_ADMIN_ALLOWED_ROLES)
@@ -2813,7 +2881,9 @@ def entities(request):
     if q:
         queryset = queryset.filter(_build_entity_search_query(q, entity_fields))
 
-    entity_list = list(queryset[:100])
+    paginator = Paginator(queryset, 50)
+    page_obj = paginator.get_page(request.GET.get("page") or 1)
+    entity_list = list(page_obj.object_list)
     column_definitions = entity_fields[:2]
     entity_rows = [
         {
@@ -2832,7 +2902,7 @@ def entities(request):
         "profile": profile,
         "entities": entity_rows,
         "entity_field_columns": column_definitions,
-        "entity_table_colspan": 5 + len(column_definitions),
+        "entity_table_colspan": 4 + len(column_definitions),
         "searchable_fields": [field["label"] for field in entity_fields],
         "saved_views": saved_views,
         "current_view": current_view,
@@ -2851,6 +2921,9 @@ def entities(request):
             },
         ),
         "q": q,
+        "page_obj": page_obj,
+        "entity_count": paginator.count,
+        "entity_query_string": urlencode({key: value for key, value in {"q": q, "view": current_view.get("key", "")}.items() if value}),
         "can_create_entity": _can(request, PERMISSION_ENTITIES_EDIT),
         "can_import_entities": _can(request, PERMISSION_ENTITIES_EDIT),
         "can_manage_related": {
@@ -3648,7 +3721,7 @@ def proposals(request):
     proposal_ops = build_proposal_operational_context(request.tenant)
     q = (request.GET.get("q") or "").strip()
     selected_status = (request.GET.get("status") or "").strip()
-    proposals_qs = Proposal.objects.select_related("entity", "deal").filter(is_active=True)
+    proposals_qs = Proposal.objects.select_related("entity", "deal", "source_assessment").filter(is_active=True)
     if q:
         proposals_qs = proposals_qs.filter(
             Q(title__icontains=q)
@@ -3659,12 +3732,23 @@ def proposals(request):
     if selected_status in {choice[0] for choice in Proposal.STATUS_CHOICES}:
         proposals_qs = proposals_qs.filter(status=selected_status)
 
+    project_schema = get_object_schema_definition(object_key="proyecto")
+    can_create_project = bool(project_schema and project_schema.source == ObjectSchema.SOURCE_CUSTOM and _can(request, PERMISSION_OBJECTS_EDIT))
+    proposal_cards = []
+    for proposal in proposals_qs.order_by("-updated_at")[:100]:
+        item = _build_proposal_card(proposal)
+        if can_create_project and proposal.status == Proposal.STATUS_ACCEPTED:
+            item["project_create_href"] = (
+                f"{reverse('binncrm:custom_object_record_create', kwargs={'object_key': project_schema.key})}?"
+                f"{urlencode({'entity': proposal.entity_id, 'deal': proposal.deal_id or '', 'proposal': proposal.pk, 'assessment_submission': proposal.source_assessment_id or '', 'cliente': proposal.entity.full_name, 'nombre': proposal.title, 'estado': 'kickoff'})}"
+            )
+        proposal_cards.append(item)
     return render(
         request,
         "binncrm/proposals.html",
         {
             "labels": labels,
-            "proposal_cards": [_build_proposal_card(proposal) for proposal in proposals_qs.order_by("-updated_at")[:100]],
+            "proposal_cards": proposal_cards,
             "proposal_statuses": Proposal.STATUS_CHOICES,
             "selected_status": selected_status,
             "q": q,
@@ -3682,10 +3766,20 @@ def proposal_create(request):
     initial = {"is_active": True, "status": Proposal.STATUS_DRAFT}
     entity_id = (request.GET.get("entity") or "").strip()
     deal_id = (request.GET.get("deal") or "").strip()
+    assessment_id = (request.GET.get("assessment") or "").strip()
     if entity_id.isdigit():
         initial["entity"] = entity_id
     if deal_id.isdigit():
         initial["deal"] = deal_id
+    if assessment_id.isdigit():
+        assessment = get_object_or_404(AssessmentSubmission.objects.select_related("entity", "deal", "template"), pk=assessment_id)
+        initial.update({
+            "source_assessment": assessment.pk,
+            "entity": assessment.entity_id,
+            "deal": assessment.deal_id or "",
+            "title": f"Proforma | {assessment.entity.full_name}",
+            "summary": f"Proforma preparada a partir del levantamiento: {assessment.template.name}.",
+        })
     if request.method == "POST":
         form = ProposalForm(request.POST, tenant=request.tenant)
         if form.is_valid():
@@ -5203,13 +5297,70 @@ def services_hub(request):
         },
     ]
 
+    operation_sections = [
+        {
+            "title": "Entregables que necesitan accion",
+            "subtitle": "Lo que esta bloqueado, por validar o por vencer antes de que se convierta en un problema.",
+            "href": reverse("binncrm:custom_object_records", kwargs={"object_key": deliverable_schema.key}) if deliverable_schema is not None and can_view_objects else "",
+            "cta": "Ver entregables",
+            "empty_message": "No hay entregables que requieran accion ahora.",
+            "items": deliverable_attention_items[:6],
+        },
+        {
+            "title": "Proyectos en ejecucion",
+            "subtitle": "Cuentas ya vendidas que necesitan ritmo, responsable y fecha de cierre clara.",
+            "href": reverse("binncrm:custom_object_records", kwargs={"object_key": project_schema.key}) if project_schema is not None and can_view_objects else "",
+            "cta": "Ver proyectos",
+            "empty_message": "No hay proyectos activos cargados todavia.",
+            "items": project_workload_items[:6],
+        },
+        {
+            "title": "Traspasos por completar",
+            "subtitle": "Ventas ganadas que todavia no dejan listo contrato, kickoff o backlog para el equipo.",
+            "href": reverse("binncrm:entities") if can_view_entities else "",
+            "cta": "Ver clientes",
+            "empty_message": "No hay traspasos pendientes; comercial y entrega estan alineados.",
+            "items": [
+                _build_report_item(
+                    title=entity.full_name,
+                    meta=(entity.data_extra or {}).get("empresa", "") or entity.phone or entity.email,
+                    caption=", ".join(item["label"] for item in handoff["items"] if not item["is_ready"]),
+                    status=handoff["status_label"],
+                    tone=handoff["status_tone"],
+                )
+                for entity, handoff in handoff_pending[:6]
+            ],
+        },
+    ]
+    operation_focus = next(
+        (
+            {
+                "value": len(section["items"]),
+                "label": section["title"],
+                "copy": section["subtitle"],
+                "href": section["href"],
+                "cta": section["cta"],
+            }
+            for section in operation_sections
+            if section["items"]
+        ),
+        {
+            "value": 0,
+            "label": "Operacion al dia",
+            "copy": "No hay bloqueos visibles en proyectos, entregables o traspasos.",
+            "href": reverse("binncrm:custom_object_records", kwargs={"object_key": project_schema.key}) if project_schema is not None and can_view_objects else "",
+            "cta": "Ver proyectos",
+        },
+    )
+
     context = {
         "labels": labels,
         "workspace_pack": workspace_pack,
-        "summary_cards": summary_cards,
-        "analytics_cards": analytics_bundle["cards"],
-        "analytics_sections": analytics_bundle["sections"],
-        "services_sections": services_sections,
+        "operation_focus": operation_focus,
+        "operation_sections": operation_sections,
+        "active_project_count": len(active_project_records),
+        "deliverable_attention_count": len(deliverable_attention_items),
+        "handoff_pending_count": len(handoff_pending),
         "quick_actions": quick_actions,
         "generated_at": timezone.localtime(now),
     }
@@ -6077,6 +6228,10 @@ def custom_object_record_create(request, object_key):
     )
     field_definitions = get_object_record_field_definitions(object_schema=object_schema)
     initial = {}
+    for field_name in ("entity", "deal", "proposal", "assessment_submission"):
+        raw_value = (request.GET.get(field_name) or "").strip()
+        if raw_value.isdigit():
+            initial[field_name] = raw_value
     for field_definition in field_definitions:
         raw_value = (request.GET.get(field_definition["key"]) or "").strip()
         if raw_value:
@@ -6240,6 +6395,9 @@ def activities(request):
     q = (request.GET.get("q") or "").strip()
     selected_kind = _normalize_activity_kind(request.GET.get("kind"))
     selected_status = _normalize_activity_status(request.GET.get("status"))
+    selected_view = (request.GET.get("view") or "list").strip().lower()
+    if selected_view not in {"list", "kanban", "calendar"}:
+        selected_view = "list"
     now = timezone.now()
 
     base_qs = Activity.objects.select_related("entity", "deal", "assigned_to")
@@ -6277,12 +6435,73 @@ def activities(request):
     if selected_kind == Activity.TYPE_CLAIM:
         timeline_note = "Usa este carril para no dejar siniestros abiertos sin responsable ni fecha."
 
+    activity_list = list(activities_qs.order_by("due_at", "-created_at")[:160])
+    kanban_lanes = [
+        {
+            "key": "overdue",
+            "label": "Vencidas",
+            "items": [activity for activity in activity_list if not activity.completed_at and activity.due_at and activity.due_at < now],
+        },
+        {
+            "key": "planned",
+            "label": "Por hacer",
+            "items": [activity for activity in activity_list if not activity.completed_at and activity.due_at and activity.due_at >= now],
+        },
+        {
+            "key": "unscheduled",
+            "label": "Sin fecha",
+            "items": [activity for activity in activity_list if not activity.completed_at and not activity.due_at],
+        },
+        {
+            "key": "completed",
+            "label": "Completadas",
+            "items": [activity for activity in activity_list if activity.completed_at],
+        },
+    ]
+    month_value = (request.GET.get("month") or timezone.localdate().strftime("%Y-%m")).strip()
+    try:
+        calendar_year, calendar_month = (int(part) for part in month_value.split("-", 1))
+        if not 1 <= calendar_month <= 12:
+            raise ValueError
+    except ValueError:
+        calendar_year, calendar_month = timezone.localdate().year, timezone.localdate().month
+    calendar_start = date(calendar_year, calendar_month, 1)
+    calendar_end = date(calendar_year, calendar_month, monthrange(calendar_year, calendar_month)[1])
+    calendar_items = list(
+        activities_qs.filter(due_at__date__gte=calendar_start, due_at__date__lte=calendar_end)
+        .order_by("due_at", "-created_at")[:240]
+    )
+    calendar_days = {day: [] for day in range(1, calendar_end.day + 1)}
+    for activity in calendar_items:
+        if activity.due_at:
+            calendar_days[activity.due_at.day].append(activity)
+    first_weekday = calendar_start.weekday()
+    calendar_cells = [None] * first_weekday + list(range(1, calendar_end.day + 1))
+    while len(calendar_cells) % 7:
+        calendar_cells.append(None)
+    calendar_weeks = [
+        [
+            {"day": day, "items": calendar_days.get(day, []) if day else []}
+            for day in calendar_cells[index:index + 7]
+        ]
+        for index in range(0, len(calendar_cells), 7)
+    ]
+    previous_month = (calendar_start - timedelta(days=1)).strftime("%Y-%m")
+    next_month = (calendar_end + timedelta(days=1)).strftime("%Y-%m")
+
     return render(
         request,
         "binncrm/activities.html",
         {
             "labels": labels,
-            "activities": activities_qs.order_by("-created_at")[:100],
+            "activities": activity_list,
+            "selected_view": selected_view,
+            "kanban_lanes": kanban_lanes,
+            "calendar_weeks": calendar_weeks,
+            "calendar_days": calendar_days,
+            "calendar_label": calendar_start.strftime("%B %Y"),
+            "calendar_previous_month": previous_month,
+            "calendar_next_month": next_month,
             "pending_task_cards": [_build_task_card(activity) for activity in pending_tasks],
             "completed_task_cards": [_build_task_card(activity) for activity in completed_tasks],
             "task_summary": {
@@ -6689,10 +6908,29 @@ def assessments(request):
     ensure_default_template()
     submissions = AssessmentSubmission.objects.select_related("template", "entity", "deal").all()
     status = (request.GET.get("status") or "").strip()
+    query = (request.GET.get("q") or "").strip()
+    template_id = (request.GET.get("template") or "").strip()
     if status in dict(AssessmentSubmission.STATUS_CHOICES):
         submissions = submissions.filter(status=status)
+    if query:
+        submissions = submissions.filter(
+            Q(template__name__icontains=query)
+            | Q(entity__full_name__icontains=query)
+            | Q(entity__legal_id__icontains=query)
+            | Q(deal__title__icontains=query)
+        )
+    templates = AssessmentTemplate.objects.filter(is_active=True).order_by("name")
+    if template_id.isdigit() and templates.filter(pk=template_id).exists():
+        submissions = submissions.filter(template_id=template_id)
+    else:
+        template_id = ""
     return render(request, "binncrm/assessments.html", {
-        "submissions": submissions[:80], "status": status, "status_choices": AssessmentSubmission.STATUS_CHOICES,
+        "submissions": submissions[:80],
+        "status": status,
+        "query": query,
+        "template_id": template_id,
+        "templates": templates,
+        "status_choices": AssessmentSubmission.STATUS_CHOICES,
         "can_manage": _can(request, PERMISSION_ENTITIES_EDIT),
     })
 
@@ -6731,7 +6969,9 @@ def assessment_submission_detail(request, pk):
     return render(request, "binncrm/assessment_submission_detail.html", {
         "submission": submission,
         "public_url": request.build_absolute_uri(reverse("binncrm:assessment_public_response", kwargs={"token": submission.public_token})),
-        "answers": submission.answers.all(), "can_manage": _can(request, PERMISSION_ENTITIES_EDIT),
+        "answers": submission.answers.all(),
+        "can_manage": _can(request, PERMISSION_ENTITIES_EDIT),
+        "can_create_proposal": request.tenant.has_capability("proposals") and _can(request, PERMISSION_PROPOSALS_EDIT),
     })
 
 

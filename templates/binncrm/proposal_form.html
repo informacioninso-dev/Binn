@@ -18,7 +18,7 @@
               <h2 class="text-lg font-semibold">Contexto comercial</h2>
               <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
                 {% for field in form %}
-                  {% if field.name == "entity" or field.name == "deal" or field.name == "title" or field.name == "proposal_number" %}
+                  {% if field.name == "entity" or field.name == "deal" or field.name == "source_assessment" or field.name == "title" or field.name == "proposal_number" %}
                     <div class="{% if field.name == 'title' %}md:col-span-2{% endif %}">
                       <label class="mb-1 block text-xs text-gray-500">{{ field.label }}</label>
                       {{ field }}

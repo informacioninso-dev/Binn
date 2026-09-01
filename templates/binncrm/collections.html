@@ -278,6 +278,14 @@
   .binn-collection-chip-info { background: #eff6ff; color: #1d4ed8; }
   .binn-collection-chip-success { background: #ecfdf3; color: #047857; }
   .binn-collection-chip-neutral { background: #f3f4f6; color: #475467; }
+  .binn-collections-board-workspace > .binn-collections-toolbar { display: none; }
+  .binn-collections-quickbar { padding: 0.5rem; }
+  .binn-collections-quickbar form { display: flex; flex: 1 1 40rem; flex-wrap: wrap; align-items: center; gap: 0.45rem; min-width: 0; }
+  .binn-collections-search-quick { flex: 1 1 17rem; min-width: 12rem; }
+  .binn-collections-quick-cuts { display: flex; flex-wrap: wrap; gap: 0.32rem; }
+  .binn-collections-quick-cuts .binn-module-shortcut { min-height: 32px; padding: 0.3rem 0.55rem; border-radius: 999px; font-size: 0.72rem; }
+  .binn-collections-quick-actions { display: flex; align-items: center; gap: 0.4rem; }
+  .binn-collections-quick-actions .binn-btn-compact { min-height: 36px; padding: 0.42rem 0.62rem; font-size: 0.78rem; }
   @media (min-width: 1200px) {
     .binn-collections-toolbar-grid { grid-template-columns: minmax(0, 1fr) 248px; }
     .binn-collections-headline-row { grid-template-columns: 210px minmax(0, 1fr); align-items: center; }
@@ -291,6 +299,16 @@
 
 {% block content %}
   <div class="binn-collections-board-workspace">
+    <section class="binn-workspace-bar binn-collections-quickbar" aria-label="Controles de cobros">
+      <form method="get" class="binn-workspace-bar-controls">
+        <input id="collection-search" type="search" name="q" value="{{ q }}" class="binn-input binn-collections-search-quick" placeholder="Buscar cobro, cliente o referencia" aria-label="Buscar cobro" />
+        <div class="binn-workspace-bar-cuts binn-collections-quick-cuts">
+          <a href="{% url 'binncrm:collections' %}{% if q %}?q={{ q|urlencode }}{% endif %}" class="binn-module-shortcut {% if not selected_status %}binn-record-action-primary{% endif %}">Todo</a>
+          {% for key, label in collection_statuses %}<a href="{% url 'binncrm:collections' %}?status={{ key }}{% if q %}&q={{ q|urlencode }}{% endif %}" class="binn-module-shortcut {% if selected_status == key %}binn-record-action-primary{% endif %}">{{ label }}</a>{% endfor %}
+        </div>
+      </form>
+      <div class="binn-workspace-bar-actions binn-collections-quick-actions">{% if can_create_collection %}<a href="{% url 'binncrm:collection_create' %}" class="binn-btn-primary binn-btn-compact">+ Cargar</a>{% endif %}</div>
+    </section>
     <section class="binn-panel binn-collections-toolbar">
       <div class="binn-collections-toolbar-grid">
         <div class="binn-collections-control-card">

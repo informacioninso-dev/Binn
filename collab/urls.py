@@ -7,6 +7,7 @@ app_name = "collab"
 
 urlpatterns = [
     path("", views.inbox, name="inbox"),
+    path("channels/new/", views.team_channel_create, name="team_channel_create"),
     path("list/", views.inbox_list, name="inbox_list"),
     path("notifications/", views.notification_center, name="notification_center"),
     path("notifications/mark-read/", views.notification_mark_read, name="notification_mark_read"),

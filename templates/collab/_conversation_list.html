@@ -195,6 +195,11 @@
               <a
                 href="{% url 'collab:conversation_detail' summary.conversation.pk %}?{% if search_query %}q={{ search_query|urlencode }}&{% endif %}{% if active_filter %}filter={{ active_filter|urlencode }}&{% endif %}conversation={{ summary.conversation.pk }}"
                 class="binn-channel-link-shell"
+                hx-get="{% url 'collab:conversation_panel' summary.conversation.pk %}?layout=full"
+                hx-target="#collab-panel"
+                hx-swap="outerHTML"
+                hx-push-url="true"
+                onclick="document.querySelectorAll('.binn-channel-link').forEach((item) => item.classList.remove('is-active')); this.closest('.binn-channel-link').classList.add('is-active');"
               >
               <div class="binn-channel-row">
                 <div class="binn-channel-main">
@@ -263,6 +268,11 @@
             <a
               href="{% url 'collab:conversation_detail' summary.conversation.pk %}?{% if search_query %}q={{ search_query|urlencode }}&{% endif %}{% if active_filter %}filter={{ active_filter|urlencode }}&{% endif %}conversation={{ summary.conversation.pk }}"
               class="binn-channel-link-shell"
+              hx-get="{% url 'collab:conversation_panel' summary.conversation.pk %}?layout=full"
+              hx-target="#collab-panel"
+              hx-swap="outerHTML"
+              hx-push-url="true"
+              onclick="document.querySelectorAll('.binn-channel-link').forEach((item) => item.classList.remove('is-active')); this.closest('.binn-channel-link').classList.add('is-active');"
             >
             <div class="binn-channel-row">
               <div class="binn-channel-main">

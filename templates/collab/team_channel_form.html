@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block title %}Nuevo canal | Binn{% endblock %}
+
+{% block content %}
+<div class="binn-view-standard mx-auto max-w-2xl">
+  <section class="binn-panel binn-module-header">
+    <span class="binn-kicker">Colaboracion</span>
+    <h1 class="binn-section-title mt-3">Nuevo canal de equipo</h1>
+    <p class="binn-section-copy mt-2">Crea un espacio para coordinar una funcion concreta. Los canales de ficha y oportunidad se crean desde su propio contexto.</p>
+  </section>
+  <form method="post" class="binn-panel grid gap-5 p-5">
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="binn-empty text-sm">{{ form.non_field_errors }}</div>{% endif %}
+    <div class="grid gap-2"><label for="{{ form.title.id_for_label }}" class="binn-module-tools-label">{{ form.title.label }}</label>{{ form.title }}{{ form.title.errors }}</div>
+    <div class="grid gap-2"><label for="{{ form.description.id_for_label }}" class="binn-module-tools-label">{{ form.description.label }}</label>{{ form.description }}{{ form.description.errors }}</div>
+    <fieldset class="grid gap-3"><legend class="binn-module-tools-label">{{ form.participants.label }}</legend><p class="binn-view-section-copy">Tu quedas como manager. Agrega solo a las personas que necesitan este contexto.</p><div class="grid gap-2 sm:grid-cols-2">{{ form.participants }}</div>{{ form.participants.errors }}</fieldset>
+    <div class="flex flex-wrap justify-end gap-3"><a href="{% url 'collab:inbox' %}" class="binn-btn-secondary">Cancelar</a><button type="submit" class="binn-btn-primary">Crear canal</button></div>
+  </form>
+</div>
+{% endblock %}

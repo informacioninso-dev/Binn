@@ -1,21 +1,50 @@
 {% extends "base.html" %}
 {% block title %}Levantamientos | Binn{% endblock %}
+{% block head_extra %}
+<style>
+  .binn-assessment-workspace { display: grid; gap: 1rem; }
+  .binn-assessment-search { min-width: min(24rem, 100%); flex: 1 1 22rem; }
+  .binn-assessment-filter { width: min(13rem, 100%); }
+  .binn-assessment-list { display: grid; gap: 0.65rem; }
+  .binn-assessment-list-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.2rem 0.15rem; }
+  .binn-assessment-list-head p { margin: 0; color: var(--binn-ink-soft); font-size: 0.82rem; }
+  .binn-assessment-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 1rem; align-items: center; padding: 1rem 1.1rem; border: 1px solid var(--binn-line); border-radius: 1rem; background: rgba(255,255,255,0.94); box-shadow: var(--binn-shadow-soft); text-decoration: none; transition: border-color .16s ease, transform .16s ease; }
+  .binn-assessment-row:hover { border-color: rgba(92, 87, 255, 0.28); transform: translateY(-1px); }
+  .binn-assessment-row-main { min-width: 0; display: grid; gap: 0.35rem; }
+  .binn-assessment-row-title { margin: 0; color: var(--binn-ink); font-size: 0.98rem; font-weight: 800; letter-spacing: -0.02em; }
+  .binn-assessment-row-context { margin: 0; color: var(--binn-ink-soft); font-size: 0.84rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .binn-assessment-row-meta { display: flex; flex-wrap: wrap; gap: 0.42rem; color: #64748b; font-size: 0.74rem; }
+  .binn-assessment-row-side { display: flex; flex-wrap: wrap; align-items: center; justify-content: end; gap: 0.5rem; }
+  .binn-assessment-status { border-color: rgba(92,87,255,.16); background: rgba(92,87,255,.08); color: #5046d9; }
+  @media (max-width: 720px) { .binn-assessment-row { grid-template-columns: 1fr; gap: .75rem; } .binn-assessment-row-side { justify-content: start; } .binn-assessment-list-head { align-items: flex-start; flex-direction: column; gap: .35rem; } }
+</style>
+{% endblock %}
 {% block content %}
-<div class="mx-auto max-w-7xl px-5 py-8">
-  <section class="binn-panel rounded-3xl p-6 md:p-8">
-    <div class="flex flex-wrap items-start justify-between gap-5">
-      <div><span class="binn-kicker">Diagnosticos</span><h1 class="binn-title mt-4">Levantamientos de situacion</h1><p class="binn-subtitle mt-3">Cuestionarios vinculados a una ficha u oportunidad. Capturalos en campo o comparte un enlace seguro al cliente.</p></div>
-      {% if can_manage %}<div class="flex flex-wrap gap-3"><a class="binn-btn-secondary" href="{% url 'binncrm:assessment_templates' %}">Configurar plantillas</a><a class="binn-btn-primary" href="{% url 'binncrm:assessment_submission_create' %}">+ Nuevo levantamiento</a></div>{% endif %}
-    </div>
-    <div class="mt-6 flex flex-wrap gap-2"><a class="binn-pill {% if not status %}bg-blue-50 text-blue-700{% endif %}" href="{% url 'binncrm:assessments' %}">Todos</a>{% for key, label in status_choices %}<a class="binn-pill {% if status == key %}bg-blue-50 text-blue-700{% endif %}" href="?status={{ key }}">{{ label }}</a>{% endfor %}</div>
+<div class="binn-view-standard binn-assessment-workspace">
+  <section class="binn-workspace-bar" aria-label="Controles de levantamientos">
+    <form method="get" class="binn-workspace-bar-controls">
+      <input type="search" name="q" value="{{ query }}" class="binn-input binn-assessment-search" placeholder="Buscar cliente, oportunidad o diagnostico" aria-label="Buscar levantamiento" />
+      <select name="template" class="binn-input binn-assessment-filter" aria-label="Filtrar por plantilla" onchange="this.form.submit()">
+        <option value="">Todas las plantillas</option>
+        {% for template in templates %}<option value="{{ template.pk }}" {% if template_id == template.pk|stringformat:"s" %}selected{% endif %}>{{ template.name }}</option>{% endfor %}
+      </select>
+      <div class="binn-workspace-bar-cuts" aria-label="Estado">
+        <a href="{% url 'binncrm:assessments' %}{% if query or template_id %}?{% if query %}q={{ query|urlencode }}{% endif %}{% if query and template_id %}&amp;{% endif %}{% if template_id %}template={{ template_id }}{% endif %}{% endif %}" class="binn-module-shortcut {% if not status %}binn-record-action-primary{% endif %}">Todos</a>
+        {% for key, label in status_choices %}<a href="?status={{ key }}{% if query %}&amp;q={{ query|urlencode }}{% endif %}{% if template_id %}&amp;template={{ template_id }}{% endif %}" class="binn-module-shortcut {% if status == key %}binn-record-action-primary{% endif %}">{{ label }}</a>{% endfor %}
+      </div>
+    </form>
+    {% if can_manage %}<div class="binn-workspace-bar-actions"><a class="binn-btn-secondary binn-btn-compact" href="{% url 'binncrm:assessment_templates' %}">Plantillas</a><a class="binn-btn-primary binn-btn-compact" href="{% url 'binncrm:assessment_submission_create' %}">+ Nuevo</a></div>{% endif %}
   </section>
-  <section class="mt-5 grid gap-3">
+  <section class="binn-assessment-list" aria-label="Bandeja de levantamientos">
+    <div class="binn-assessment-list-head"><p>{{ submissions|length }} levantamiento{{ submissions|length|pluralize }} visible{{ submissions|length|pluralize }}</p><p>Abre uno para responderlo, compartirlo o revisar su resultado.</p></div>
     {% for submission in submissions %}
-      <a href="{% url 'binncrm:assessment_submission_detail' submission.pk %}" class="binn-panel rounded-2xl p-5 no-underline transition hover:-translate-y-0.5">
-        <div class="flex flex-wrap items-start justify-between gap-3"><div><p class="font-bold text-slate-950">{{ submission.template.name }}</p><p class="mt-1 text-sm text-slate-500">{{ submission.entity.full_name }}{% if submission.deal %} · {{ submission.deal.title }}{% endif %}</p></div><span class="binn-pill">{{ submission.get_status_display }}</span></div>
-        <p class="mt-3 text-sm text-slate-500">{{ submission.get_capture_mode_display }} · actualizado {{ submission.updated_at|date:"d/m/Y H:i" }}</p>
+      <a href="{% url 'binncrm:assessment_submission_detail' submission.pk %}" class="binn-assessment-row">
+        <div class="binn-assessment-row-main"><h2 class="binn-assessment-row-title">{{ submission.template.name }}</h2><p class="binn-assessment-row-context">{{ submission.entity.full_name }}{% if submission.deal %} | {{ submission.deal.title }}{% endif %}</p><div class="binn-assessment-row-meta"><span>{{ submission.get_capture_mode_display }}</span><span>Actualizado {{ submission.updated_at|date:"d/m/Y H:i" }}</span>{% if submission.expires_at %}<span>Vence {{ submission.expires_at|date:"d/m/Y" }}</span>{% endif %}</div></div>
+        <div class="binn-assessment-row-side"><span class="binn-pill binn-assessment-status">{{ submission.get_status_display }}</span><span class="binn-record-action">Abrir</span></div>
       </a>
-    {% empty %}<div class="binn-panel rounded-2xl p-8 text-slate-500">No hay levantamientos todavia. Crea uno desde esta bandeja o desde la ficha de un cliente.</div>{% endfor %}
+    {% empty %}
+      <section class="binn-panel p-6"><div class="binn-empty">No hay levantamientos para este corte. Crea uno para levantar informacion en campo o compartir un enlace con el cliente.</div></section>
+    {% endfor %}
   </section>
 </div>
 {% endblock %}

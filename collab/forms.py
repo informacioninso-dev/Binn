@@ -78,3 +78,23 @@ class MessageForm(forms.Form):
             self.add_error("due_at", "La tarea necesita fecha y hora de vencimiento.")
 
         return cleaned
+
+
+class TeamChannelForm(forms.Form):
+    title = forms.CharField(label="Nombre del canal", max_length=160, widget=forms.TextInput(attrs=INPUT))
+    description = forms.CharField(
+        label="Proposito",
+        required=False,
+        widget=forms.Textarea(attrs={**TEXTAREA, "rows": 2, "placeholder": "Que debe coordinar este canal?"}),
+    )
+    participants = forms.ModelMultipleChoiceField(
+        label="Participantes",
+        required=False,
+        queryset=get_user_model()._default_manager.none(),
+        widget=forms.CheckboxSelectMultiple,
+    )
+
+    def __init__(self, *args, tenant=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if tenant is not None:
+            self.fields["participants"].queryset = get_tenant_user_queryset(tenant)

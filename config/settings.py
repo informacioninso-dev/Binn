@@ -55,6 +55,9 @@ validate_runtime_configuration(
 CHANNELS_AVAILABLE = importlib.util.find_spec("channels") is not None
 CHANNELS_REDIS_AVAILABLE = importlib.util.find_spec("channels_redis") is not None
 DAPHNE_AVAILABLE = importlib.util.find_spec("daphne") is not None
+# Keep Daphne available by default outside DEBUG for the realtime development
+# path; local environments can still opt out with USE_DAPHNE_RUNSERVER=false.
+USE_DAPHNE_RUNSERVER = _env_bool("USE_DAPHNE_RUNSERVER", default=not DEBUG)
 CELERY_AVAILABLE = importlib.util.find_spec("celery") is not None
 
 REDIS_URL = os.getenv("REDIS_URL", "").strip()
@@ -69,7 +72,7 @@ LOGIN_RATE_LIMIT_LOCKOUT_SECONDS = int(os.getenv("LOGIN_RATE_LIMIT_LOCKOUT_SECON
 SHARED_APPS = [
     *(
         ["daphne", "channels", "django_tenants"]
-        if CHANNELS_AVAILABLE and DAPHNE_AVAILABLE
+        if CHANNELS_AVAILABLE and DAPHNE_AVAILABLE and USE_DAPHNE_RUNSERVER
         else ["channels", "django_tenants"]
         if CHANNELS_AVAILABLE
         else ["django_tenants"]
@@ -123,6 +126,9 @@ PUBLIC_SCHEMA_URLCONF = "config.public_urls"
 TENANT_MODEL = "tenants.Client"
 TENANT_DOMAIN_MODEL = "tenants.Domain"
 DATABASE_ROUTERS = ("django_tenants.routers.TenantSyncRouter",)
+# Reapply PostgreSQL search_path only when the active tenant changes. This is
+# safe because django-tenants still switches it for every new tenant request.
+TENANT_LIMIT_SET_CALLS = True
 
 TEMPLATES = [
     {
@@ -145,7 +151,10 @@ WSGI_APPLICATION = "config.wsgi.application"
 _db_engine = os.getenv("DB_ENGINE", "postgresql")
 if _db_engine != "postgresql":
     raise ImproperlyConfigured("DB_ENGINE debe ser postgresql para multitenancy por schemas.")
-DB_CONN_MAX_AGE = int(os.getenv("DB_CONN_MAX_AGE", "0" if DEBUG else "60"))
+# Reconnecting to PostgreSQL on every page makes tenant navigation feel slow.
+# django-tenants resets the active schema per request, so persistent connections
+# remain safe while avoiding that connection handshake.
+DB_CONN_MAX_AGE = int(os.getenv("DB_CONN_MAX_AGE", "60"))
 DB_CONN_HEALTH_CHECKS = _env_bool("DB_CONN_HEALTH_CHECKS", default=not DEBUG)
 DATABASES = {
     "default": {

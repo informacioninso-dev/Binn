@@ -390,6 +390,24 @@
     background: #f8fafc;
     color: #475467;
   }
+  .binn-kanban-workspace > .binn-kanban-toolbar { display: none; }
+  .binn-kanban-quickbar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.45rem; padding: 0.5rem; border: 1px solid var(--binn-line); border-radius: 0.9rem; background: rgba(255,255,255,0.82); }
+  .binn-kanban-quickbar form { display: flex; flex: 1 1 36rem; flex-wrap: wrap; align-items: center; gap: 0.45rem; min-width: 0; }
+  .binn-kanban-quickbar select, .binn-kanban-quickbar input { min-height: 36px !important; border-radius: 0.72rem; font-size: 0.82rem; }
+  .binn-kanban-pipeline-quick { flex: 0 1 13rem; min-width: 10rem; }
+  .binn-kanban-search-quick { flex: 1 1 15rem; min-width: 11rem; }
+  .binn-kanban-quick-views, .binn-kanban-quick-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.32rem; }
+  .binn-kanban-quick-views .binn-module-shortcut { min-height: 32px; padding: 0.3rem 0.55rem; border-radius: 999px; font-size: 0.72rem; }
+  .binn-kanban-quick-actions .binn-btn-compact { min-height: 36px; padding: 0.42rem 0.62rem; font-size: 0.78rem; }
+  .binn-kanban-saved-details { position: relative; }
+  .binn-kanban-saved-details summary { list-style: none; cursor: pointer; color: #667085; font-size: 0.74rem; font-weight: 750; white-space: nowrap; }
+  .binn-kanban-saved-details summary::-webkit-details-marker { display: none; }
+  .binn-kanban-saved-details summary::before { content: "+"; display: inline-flex; justify-content: center; width: 1rem; margin-right: 0.18rem; color: #475467; }
+  .binn-kanban-saved-details[open] summary::before { content: "-"; }
+  .binn-kanban-saved-popover { position: absolute; z-index: 20; top: calc(100% + 0.45rem); right: 0; display: grid; gap: 0.55rem; width: min(24rem, calc(100vw - 2rem)); padding: 0.7rem; border: 1px solid var(--binn-line); border-radius: 0.85rem; background: #fff; box-shadow: 0 18px 34px rgba(15,23,42,0.14); }
+  .binn-kanban-saved-popover .binn-kanban-saved-list { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+  .binn-kanban-saved-popover .binn-kanban-filter-save-grid { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.4rem; }
+  .binn-kanban-saved-popover .binn-input { min-height: 34px; }
   @media (min-width: 980px) {
     .binn-kanban-toolbar-grid {
       grid-template-columns: minmax(0, 1fr) 248px;
@@ -408,11 +426,28 @@
       align-items: center;
     }
   }
+  @media (max-width: 680px) {
+    .binn-kanban-quickbar form { flex-basis: 100%; }
+    .binn-kanban-pipeline-quick, .binn-kanban-search-quick { flex-basis: 100%; }
+    .binn-kanban-quick-actions { width: 100%; justify-content: space-between; }
+  }
 </style>
 {% endblock %}
 
 {% block content %}
   <div class="binn-kanban-workspace">
+    <section class="binn-workspace-bar binn-kanban-quickbar" aria-label="Controles del pipeline">
+      <form method="get" hx-get="{% url 'binncrm:index' %}" hx-target="#kanban-board" hx-swap="outerHTML" class="binn-workspace-bar-controls">
+        <input type="hidden" name="view" value="{{ current_view.key }}" />
+        <select name="pipeline" class="binn-input binn-kanban-pipeline-quick" onchange="this.form.requestSubmit()" aria-label="Pipeline activo">
+          {% for pipeline in pipelines %}<option value="{{ pipeline.pk }}" {% if current_pipeline and pipeline.pk == current_pipeline.pk %}selected{% endif %}>{{ pipeline.name }}</option>{% endfor %}
+        </select>
+        <input type="search" name="q" value="{{ q }}" placeholder="Buscar oportunidad" class="binn-input binn-kanban-search-quick" aria-label="Buscar oportunidad" />
+        {% if saved_views %}<div class="binn-workspace-bar-cuts binn-kanban-quick-views">{% for view in saved_views %}<a href="{% url 'binncrm:index' %}?view={{ view.key }}{% if current_pipeline %}&pipeline={{ current_pipeline.pk }}{% endif %}{% if q %}&q={{ q|urlencode }}{% endif %}" class="binn-module-shortcut {% if current_view.key == view.key %}binn-record-action-primary{% endif %}">{{ view.label }}</a>{% endfor %}</div>{% endif %}
+      </form>
+      <details class="binn-kanban-saved-details"><summary>Filtros</summary><div class="binn-kanban-saved-popover"><div class="binn-kanban-saved-list">{% for saved_filter in saved_filters %}<span class="binn-kanban-filter-pill {% if saved_filter.is_active %}is-active{% endif %}"><a href="{{ saved_filter.href }}" class="binn-kanban-filter-link">{{ saved_filter.label }}</a><form method="post" action="{% url 'binncrm:deal_filter_delete' saved_filter.pk %}">{% csrf_token %}<button type="submit" class="binn-kanban-filter-delete" aria-label="Eliminar filtro">&times;</button></form></span>{% empty %}<span class="binn-kanban-inline-note">Sin filtros guardados.</span>{% endfor %}</div><form method="post" action="{% url 'binncrm:deal_filter_save' %}">{% csrf_token %}<input type="hidden" name="q" value="{{ q }}" /><input type="hidden" name="view" value="{{ current_view.key }}" /><input type="hidden" name="pipeline" value="{% if current_pipeline %}{{ current_pipeline.pk }}{% endif %}" /><div class="binn-kanban-filter-save-grid">{{ saved_filter_form.label }}<button type="submit" class="binn-btn-secondary binn-btn-compact">Guardar</button></div></form></div></details>
+      <div class="binn-workspace-bar-actions binn-kanban-quick-actions">{% if can_manage_pipelines %}<a href="{% url 'binncrm:pipeline_settings' %}" class="binn-btn-secondary binn-btn-compact">Pipeline</a>{% endif %}{% if can_create_deal %}<a href="{% url 'binncrm:deal_create' %}" class="binn-btn-primary binn-btn-compact">+ Nueva</a>{% endif %}</div>
+    </section>
     <section class="binn-panel binn-kanban-toolbar">
       <div class="binn-kanban-toolbar-grid">
         <div class="binn-kanban-control-card">
