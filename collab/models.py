@@ -12,10 +12,12 @@ class Conversation(AuditModel):
     KIND_TEAM = "team"
     KIND_ENTITY = "entity"
     KIND_DEAL = "deal"
+    KIND_PROJECT = "project"
     KIND_CHOICES = [
         (KIND_TEAM, "Equipo"),
         (KIND_ENTITY, "Ficha"),
         (KIND_DEAL, "Deal"),
+        (KIND_PROJECT, "Proyecto"),
     ]
 
     title = models.CharField(max_length=160)
@@ -30,6 +32,13 @@ class Conversation(AuditModel):
     )
     deal = models.ForeignKey(
         "binncrm.Deal",
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name="conversations",
+    )
+    project = models.ForeignKey(
+        "binncrm.ObjectRecord",
         null=True,
         blank=True,
         on_delete=models.CASCADE,
@@ -51,6 +60,11 @@ class Conversation(AuditModel):
                 condition=Q(deal__isnull=False),
                 name="collab_unique_deal_conversation",
             ),
+            models.UniqueConstraint(
+                fields=["kind", "project"],
+                condition=Q(project__isnull=False),
+                name="collab_unique_project_conversation",
+            ),
         ]
         indexes = [
             models.Index(fields=["is_active", "last_message_at"], name="collab_conversation_recent_idx"),
@@ -64,8 +78,10 @@ class Conversation(AuditModel):
             raise ValidationError({"entity": "La conversacion de ficha requiere una entidad."})
         if self.kind == self.KIND_DEAL and not self.deal_id:
             raise ValidationError({"deal": "La conversacion de deal requiere un deal."})
-        if self.kind == self.KIND_TEAM and (self.entity_id or self.deal_id):
-            raise ValidationError("La conversacion de equipo no debe quedar pegada a una ficha o deal.")
+        if self.kind == self.KIND_PROJECT and not self.project_id:
+            raise ValidationError({"project": "La conversacion de proyecto requiere un proyecto."})
+        if self.kind == self.KIND_TEAM and (self.entity_id or self.deal_id or self.project_id):
+            raise ValidationError("La conversacion de equipo no debe quedar pegada a una ficha, deal o proyecto.")
 
 
 class ConversationMembership(AuditModel):

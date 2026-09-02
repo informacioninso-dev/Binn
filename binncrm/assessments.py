@@ -67,7 +67,9 @@ def build_proposal_summary_from_assessment(submission):
                 continue
             if isinstance(value, list):
                 value = ", ".join(str(item) for item in value)
-            findings.append(f"- {question.get('label', question['key'])}: {value}")
+            answer = next((item for item in submission.answers.all() if item.question_key == question["key"]), None)
+            comment = (answer.value or {}).get("comment") if answer else ""
+            findings.append(f"- {question.get('label', question['key'])}: {value}{f' (Comentario: {comment})' if comment else ''}")
 
     header = f"Propuesta basada en el levantamiento: {submission.snapshot.get('template_name', submission.template.name)}."
     if not findings:
@@ -82,7 +84,8 @@ def save_submission_answers(submission, cleaned_data, *, submitted_by_name="", c
         for question in section.get("questions", []):
             key = question["key"]
             value = cleaned_data.get(f"answer__{key}")
-            if value is None or value == "":
+            comment = (cleaned_data.get(f"comment__{key}") or "").strip()
+            if (value is None or value == "") and not comment:
                 continue
             if isinstance(value, Decimal):
                 serialized_value = str(value)
@@ -91,7 +94,7 @@ def save_submission_answers(submission, cleaned_data, *, submitted_by_name="", c
             AssessmentAnswer.objects.update_or_create(
                 submission=submission,
                 question_key=key,
-                defaults={"question_label": question.get("label", key), "value": {"value": serialized_value}},
+                defaults={"question_label": question.get("label", key), "value": {"value": serialized_value, "comment": comment}},
             )
             if question.get("question_type") == "rating":
                 try:

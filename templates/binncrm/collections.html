@@ -356,6 +356,26 @@
 {% block scripts %}
   <script>
     function initBinnCollectionsKanban() {
+      document.querySelectorAll("[data-collection-edit-url]").forEach((card) => {
+        if (card.dataset.editReady === "true") {
+          return;
+        }
+        card.dataset.editReady = "true";
+        const openEditor = function (event) {
+          if (card.dataset.collectionDragging === "true" || event.target.closest("a, button, input, select, textarea, form")) {
+            return;
+          }
+          window.location.assign(card.dataset.collectionEditUrl);
+        };
+        card.addEventListener("click", openEditor);
+        card.addEventListener("keydown", function (event) {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            openEditor(event);
+          }
+        });
+      });
+
       const canEdit = {{ can_move_collections|yesno:"true,false" }};
       if (!canEdit) {
         return;
@@ -371,6 +391,9 @@
           animation: 150,
           ghostClass: "kanban-ghost",
           dragClass: "kanban-drag",
+          onStart: function (event) {
+            event.item.dataset.collectionDragging = "true";
+          },
           onEnd: function (event) {
             const collectionId = event.item.dataset.collectionId;
             const status = event.to.dataset.collectionStatus;
@@ -382,6 +405,9 @@
               },
               body: new URLSearchParams({ status, position: event.newIndex }),
             });
+            window.setTimeout(function () {
+              event.item.dataset.collectionDragging = "false";
+            }, 0);
           },
         });
       });

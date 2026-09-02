@@ -10,7 +10,7 @@ from django.utils import timezone
 from django.utils.text import Truncator
 
 from access.models import TenantMembership
-from binncrm.models import Activity
+from binncrm.models import Activity, ObjectRecord
 from tenants.observability import record_tenant_event
 
 from .models import Conversation, ConversationMembership, Message, Notification
@@ -82,8 +82,11 @@ def _create_linked_task(*, conversation: Conversation, user, message_kind: str, 
     elif conversation.kind == Conversation.KIND_DEAL and conversation.deal is not None:
         entity = conversation.deal.entity
         deal = conversation.deal
+    elif conversation.kind == Conversation.KIND_PROJECT and conversation.project is not None:
+        entity = conversation.project.entity
+        deal = conversation.project.deal
     else:
-        raise ValueError("Solo puedes crear tareas desde un canal de ficha o deal.")
+        raise ValueError("Solo puedes crear tareas desde un canal de ficha, oportunidad o proyecto.")
 
     kind_label = _get_message_kind_label(message_kind)
     task_title = Truncator(f"{kind_label}: {body}").chars(160)
@@ -268,6 +271,47 @@ def get_deal_conversation(*, deal) -> Conversation | None:
     )
 
 
+def get_project_conversation(*, project: ObjectRecord) -> Conversation | None:
+    return (
+        Conversation.objects.select_related("project", "project__entity", "project__deal")
+        .filter(kind=Conversation.KIND_PROJECT, project=project, is_active=True)
+        .first()
+    )
+
+
+def ensure_project_conversation(*, tenant, project: ObjectRecord, actor=None) -> Conversation:
+    conversation, created = Conversation.objects.get_or_create(
+        kind=Conversation.KIND_PROJECT,
+        project=project,
+        defaults={
+            "title": f"Proyecto - {project.title}",
+            "description": "Canal operativo para coordinar la ejecucion del proyecto.",
+            "created_by": actor,
+            "updated_by": actor,
+        },
+    )
+    if created:
+        sync_conversation_memberships(conversation=conversation, tenant=tenant, actor=actor)
+        record_tenant_event(
+            tenant=tenant,
+            actor=actor,
+            code="collab.project.bootstrap",
+            title="Canal de proyecto creado.",
+            message=f"Se habilito el canal operativo de '{project.title}'.",
+            metadata={"conversation_id": str(conversation.pk), "project_id": str(project.pk)},
+        )
+    if actor is not None:
+        _ensure_conversation_membership(
+            conversation=conversation,
+            user=actor,
+            actor=actor,
+            role=ConversationMembership.ROLE_MANAGER,
+            clear_muted=True,
+            clear_archived=True,
+        )
+    return conversation
+
+
 def ensure_deal_conversation(*, tenant, deal, actor=None) -> Conversation:
     conversation, created = Conversation.objects.get_or_create(
         kind=Conversation.KIND_DEAL,
@@ -411,7 +455,7 @@ def list_inbox_summaries(*, tenant, user, search: str = "", filter_key: str = ""
     ensure_team_conversation(tenant=tenant, actor=user)
     normalized_filter = str(filter_key or "").strip().lower()
     normalized_search = str(search or "").strip()
-    conversation_queryset = Conversation.objects.select_related("entity", "deal").filter(
+    conversation_queryset = Conversation.objects.select_related("entity", "deal", "project", "project__entity", "project__deal").filter(
         is_active=True,
         memberships__user=user,
         memberships__is_active=True,
@@ -438,6 +482,8 @@ def list_inbox_summaries(*, tenant, user, search: str = "", filter_key: str = ""
             | Q(entity__full_name__icontains=normalized_search)
             | Q(deal__title__icontains=normalized_search)
             | Q(deal__entity__full_name__icontains=normalized_search)
+            | Q(project__title__icontains=normalized_search)
+            | Q(project__entity__full_name__icontains=normalized_search)
             | Q(messages__body__icontains=normalized_search)
             | Q(messages__author__username__icontains=normalized_search)
         )

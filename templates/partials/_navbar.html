@@ -1,17 +1,17 @@
 {% load navigation %}
 {% app_navigation as nav %}
 
-{% if request.user.is_authenticated and request.tenant and request.tenant.schema_name != 'public' %}
+{% if request.user.is_authenticated and request.tenant %}
   <aside class="binn-sidebar binn-panel" aria-label="Navegacion principal">
     <div class="binn-sidebar-expanded">
       <div class="binn-sidebar-rail">
         <section class="binn-sidebar-brand-card">
           <div class="binn-sidebar-header">
-            <a href="{% url 'dashboard' %}" class="binn-brand-link" title="{{ request.tenant.name }}">
+            <a href="{% url 'dashboard' %}" class="binn-brand-link" title="{% if request.tenant.schema_name == 'public' %}Binn Superadmin{% else %}{{ request.tenant.name }}{% endif %}">
               <span class="binn-mark" aria-hidden="true">Bn</span>
               <span class="binn-brand-stack">
-                <span class="binn-brand-title">{{ request.tenant.name }}</span>
-                <span class="binn-brand-copy">{{ nav.role_label|default:request.tenant.tenant_config.get_profile_display }}</span>
+                <span class="binn-brand-title">{% if request.tenant.schema_name == 'public' %}Binn{% else %}{{ request.tenant.name }}{% endif %}</span>
+                <span class="binn-brand-copy">{% if request.tenant.schema_name == 'public' %}Superadmin{% else %}{{ nav.role_label|default:request.tenant.tenant_config.get_profile_display }}{% endif %}</span>
               </span>
             </a>
             <button
@@ -28,12 +28,12 @@
           </div>
           <div class="binn-sidebar-workspace">
             <div class="binn-sidebar-workspace-head">
-              <p class="binn-sidebar-eyebrow">Espacio activo</p>
-              {% if nav.role_label %}
+              <p class="binn-sidebar-eyebrow">{% if request.tenant.schema_name == 'public' %}Control de plataforma{% else %}Espacio activo{% endif %}</p>
+              {% if nav.role_label and request.tenant.schema_name != 'public' %}
                 <p class="binn-sidebar-workspace-meta">{{ nav.role_label }}</p>
               {% endif %}
             </div>
-            <p class="binn-sidebar-tenant">{{ request.tenant.tenant_config.labels.dashboard_title|default:"Operacion" }}</p>
+            <p class="binn-sidebar-tenant">{% if request.tenant.schema_name == 'public' %}Tenants y gobernanza{% else %}{{ request.tenant.tenant_config.labels.dashboard_title|default:"Operacion" }}{% endif %}</p>
           </div>
         </section>
 
@@ -84,31 +84,19 @@
         {% endif %}
       </div>
 
-      <section class="binn-sidebar-footer" hidden>
-        <p class="binn-sidebar-footer-label">Poka-yoke</p>
-        {% for item in nav.utility_items %}
-          <a href="{% url item.route %}" class="binn-btn-secondary binn-btn-compact" title="{{ item.label }}{% if item.hint %} - {{ item.hint }}{% endif %}">
-            {% include "partials/_nav_icon.html" with icon=item.icon %}
-            <span>{{ item.label }}</span>
+      {% if collab_enabled %}
+        <section class="binn-sidebar-footer">
+          <a href="{% url 'collab:inbox' %}" class="binn-btn-secondary binn-btn-compact" title="Abrir chat">
+            <span class="binn-sidebar-icon">{% include "partials/_nav_icon.html" with icon="chat" %}</span>
+            <span class="binn-sidebar-footer-copy">Chat{% if collab_unread_total %} ({{ collab_unread_total }}){% endif %}</span>
           </a>
-        {% endfor %}
-        <form method="post" action="{% url 'logout' %}">
-          {% csrf_token %}
-          <button type="submit" class="binn-btn-secondary binn-sidebar-signout w-full" title="Cerrar sesion">
-            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5h2A1.5 1.5 0 0 1 15.5 6v8a1.5 1.5 0 0 1-1.5 1.5h-2" />
-              <path stroke-linecap="round" stroke-linejoin="round" d="M8.5 7 5 10l3.5 3" />
-              <path stroke-linecap="round" d="M5.5 10H13" />
-            </svg>
-            <span>Cerrar sesion</span>
-          </button>
-        </form>
-      </section>
+        </section>
+      {% endif %}
     </div>
 
     <div class="binn-sidebar-collapsed" aria-hidden="true">
       <div class="binn-sidebar-mini">
-        <a href="{% url 'dashboard' %}" class="binn-sidebar-mini-link" title="{{ request.tenant.name }}" aria-label="Ir al inicio de {{ request.tenant.name }}">
+        <a href="{% url 'dashboard' %}" class="binn-sidebar-mini-link" title="{% if request.tenant.schema_name == 'public' %}Binn Superadmin{% else %}{{ request.tenant.name }}{% endif %}" aria-label="Ir al inicio">
           <span class="binn-mark" aria-hidden="true">Bn</span>
         </a>
         <button
@@ -170,10 +158,32 @@
   </aside>
   <header class="binn-tenant-topbar" aria-label="Cabecera del espacio de trabajo">
     <div class="binn-tenant-topbar-context">
-      <span class="binn-tenant-topbar-label">Espacio de trabajo</span>
-      <span class="binn-tenant-topbar-name">{{ request.tenant.tenant_config.labels.dashboard_title|default:request.tenant.name }}</span>
+      <span class="binn-tenant-topbar-label">{% if request.tenant.schema_name == 'public' %}Administracion de plataforma{% else %}Espacio de trabajo{% endif %}</span>
+      <span class="binn-tenant-topbar-name">{% if request.tenant.schema_name == 'public' %}Tenants y gobernanza{% else %}{{ request.tenant.tenant_config.labels.dashboard_title|default:request.tenant.name }}{% endif %}</span>
     </div>
     <div class="binn-tenant-topbar-actions" aria-label="Acciones globales">
+      <button type="button" class="binn-tenant-global-action" data-command-palette-toggle title="Buscar" aria-label="Buscar">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <circle cx="8.5" cy="8.5" r="4.5" />
+          <path stroke-linecap="round" d="m12 12 4 4" />
+        </svg>
+      </button>
+      {% if collab_enabled %}
+        <button
+          type="button"
+          class="binn-tenant-global-action"
+          title="Alertas{% if collab_unread_total %} ({{ collab_unread_total }}){% endif %}"
+          aria-label="Alertas{% if collab_unread_total %}: {{ collab_unread_total }} sin leer{% endif %}"
+          hx-get="{% url 'collab:notification_center' %}"
+          hx-target="#binn-notification-dialog-content"
+          hx-swap="innerHTML"
+          onclick="document.getElementById('binn-notification-dialog').showModal()"
+        >
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M10 2.5a5.5 5.5 0 0 1 5.5 5.5v2.5l1 2H3.5l1-2V8A5.5 5.5 0 0 1 10 2.5Z" /><path stroke-linecap="round" d="M8.5 15.5a1.5 1.5 0 0 0 3 0" /></svg>
+          {% if collab_unread_total %}<span class="binn-tenant-global-badge">{{ collab_unread_total }}</span>{% endif %}
+        </button>
+      {% endif %}
+      <span class="binn-tenant-topbar-divider" aria-hidden="true"></span>
       {% for item in nav.utility_items %}
         <a href="{% url item.route %}" class="binn-tenant-global-action" title="{{ item.label }}{% if item.hint %} - {{ item.hint }}{% endif %}" aria-label="{{ item.label }}">
           {% include "partials/_nav_icon.html" with icon=item.icon %}
@@ -189,29 +199,19 @@
           </svg>
         </button>
       </form>
-      <span class="binn-tenant-topbar-divider" aria-hidden="true"></span>
-      <button type="button" class="binn-tenant-global-action" data-command-palette-toggle title="Buscar" aria-label="Buscar">
-        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-          <circle cx="8.5" cy="8.5" r="4.5" />
-          <path stroke-linecap="round" d="m12 12 4 4" />
-        </svg>
-      </button>
-      {% if collab_enabled %}
-        <a
-          href="{% url 'collab:notification_center' %}"
-          class="binn-tenant-global-action"
-          title="Alertas{% if collab_unread_total %} ({{ collab_unread_total }}){% endif %}"
-          aria-label="Alertas{% if collab_unread_total %}: {{ collab_unread_total }} sin leer{% endif %}"
-        >
-          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M10 2.5a5.5 5.5 0 0 1 5.5 5.5v2.5l1 2H3.5l1-2V8A5.5 5.5 0 0 1 10 2.5Z" />
-            <path stroke-linecap="round" d="M8.5 15.5a1.5 1.5 0 0 0 3 0" />
-          </svg>
-          {% if collab_unread_total %}<span class="binn-tenant-global-badge">{{ collab_unread_total }}</span>{% endif %}
-        </a>
-      {% endif %}
     </div>
   </header>
+  {% if collab_enabled %}
+    <dialog id="binn-notification-dialog" class="binn-notification-dialog" aria-label="Alertas">
+      <div class="binn-notification-dialog-head">
+        <span>Alertas</span>
+        <button type="button" class="binn-notification-dialog-close" onclick="document.getElementById('binn-notification-dialog').close()" aria-label="Cerrar alertas">Cerrar</button>
+      </div>
+      <div id="binn-notification-dialog-content" class="binn-notification-dialog-content">
+        <p class="binn-notification-dialog-loading">Cargando alertas...</p>
+      </div>
+    </dialog>
+  {% endif %}
 {% else %}
   <header class="binn-topbar">
     <div class="container mx-auto max-w-7xl px-4 py-3">

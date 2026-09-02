@@ -2,80 +2,67 @@
 
 {% block title %}{{ page_title }} | Binn{% endblock %}
 
+{% block head_extra %}
+<style>
+  .binn-collection-form { width: min(100%, 1120px); margin: 0 auto; display: grid; gap: 1rem; }
+  .binn-collection-form-head, .binn-collection-form-card { border-radius: 1rem; padding: 1rem; }
+  .binn-collection-form-topline, .binn-collection-form-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.7rem; }
+  .binn-collection-form-return { color: var(--binn-ink-soft); font-size: 0.82rem; font-weight: 700; text-decoration: none; }
+  .binn-collection-form-return:hover { color: var(--binn-ink); }
+  .binn-collection-form-title { margin: 0.55rem 0 0; font-family: var(--binn-font-display); font-size: clamp(1.5rem, 2vw, 2rem); letter-spacing: -0.05em; line-height: 1; }
+  .binn-collection-form-copy { margin: 0.4rem 0 0; color: var(--binn-ink-soft); font-size: 0.88rem; line-height: 1.5; }
+  .binn-collection-form-layout { display: grid; gap: 1rem; }
+  .binn-collection-form-grid { display: grid; gap: 0.8rem; margin-top: 0.9rem; }
+  .binn-collection-field { display: grid; gap: 0.35rem; }
+  .binn-collection-field label { color: #667085; font-size: 0.7rem; font-weight: 800; letter-spacing: 0.08em; line-height: 1; text-transform: uppercase; }
+  .binn-collection-field .binn-input, .binn-collection-field select, .binn-collection-field textarea, .binn-collection-field input { min-height: 48px; border-radius: 0.85rem; }
+  .binn-collection-field textarea { min-height: 140px; padding-top: 0.8rem; }
+  .binn-collection-error { margin: 0; color: #b42318; font-size: 0.76rem; }
+  .binn-collection-form-note { margin-top: 0.9rem; padding: 0.75rem 0.85rem; border: 1px dashed var(--binn-line); border-radius: 0.85rem; color: var(--binn-ink-soft); font-size: 0.8rem; line-height: 1.45; }
+  .binn-collection-active { display: flex; align-items: flex-start; gap: 0.65rem; padding: 0.75rem 0.85rem; border: 1px solid var(--binn-line); border-radius: 0.85rem; background: rgba(248, 250, 252, 0.72); color: var(--binn-ink); font-size: 0.84rem; font-weight: 700; }
+  @media (min-width: 900px) { .binn-collection-form-layout { grid-template-columns: minmax(0, 1.05fr) minmax(300px, 0.7fr); align-items: start; } .binn-collection-form-grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+</style>
+{% endblock %}
+
 {% block content %}
-  <div class="mx-auto max-w-5xl">
-    <section class="binn-panel rounded-3xl p-6 sm:p-8">
-      <div class="mb-6">
-        <h1 class="text-3xl font-bold tracking-tight">{{ page_title }}</h1>
-        <p class="mt-2 text-sm text-gray-600">Registra saldo, vencimiento y compromiso de pago sin sacar al equipo a otra hoja o sistema.</p>
+  <div class="binn-collection-form">
+    <section class="binn-panel binn-collection-form-head">
+      <div class="binn-collection-form-topline">
+        <a href="{% url 'binncrm:collections' %}" class="binn-collection-form-return">Volver a cobros</a>
+        <div class="binn-view-context"><span class="binn-view-context-item">{{ labels.collection_plural|default:"Cobros" }}</span>{% if collection %}<span class="binn-view-context-item">{{ collection.get_status_display }}</span>{% endif %}</div>
       </div>
-
-      <form method="post" class="space-y-6">
-        {% csrf_token %}
-        <div class="grid grid-cols-1 gap-6 xl:grid-cols-[0.95fr_1.05fr]">
-          <div class="space-y-6">
-            <div class="rounded-3xl border border-black/5 bg-gray-50 p-5">
-              <h2 class="text-lg font-semibold">Ficha vinculada</h2>
-              <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-                {% for field in form %}
-                  {% if field.name == "entity" or field.name == "deal" or field.name == "title" or field.name == "reference" %}
-                    <div class="{% if field.name == 'title' %}md:col-span-2{% endif %}">
-                      <label class="mb-1 block text-xs text-gray-500">{{ field.label }}</label>
-                      {{ field }}
-                      {% for error in field.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
-                    </div>
-                  {% endif %}
-                {% endfor %}
-              </div>
-            </div>
-
-            <div class="rounded-3xl border border-black/5 bg-gray-50 p-5 text-sm text-gray-600">
-              <h2 class="text-lg font-semibold text-gray-900">Uso rapido</h2>
-              <div class="mt-3 space-y-2">
-                <p>Este modulo esta pensado para seguimiento ligero: saldo, fecha, promesa y observaciones.</p>
-                <p>Base {{ collection_ops.default_currency }}, ventana de riesgo de {{ collection_ops.risk_window_days }} dias y seguimiento sugerido {{ collection_ops.follow_up_label }}.</p>
-                <p>Flujo visible sugerido: {{ collection_ops.state_labels|join:", " }}.</p>
-              </div>
-            </div>
-          </div>
-
-          <div class="space-y-6">
-            <div class="rounded-3xl border border-black/5 bg-gray-50 p-5">
-              <h2 class="text-lg font-semibold">Monto y vencimiento</h2>
-              <p class="mt-2 text-sm text-gray-600">La moneda base y el orden de estados salen de la configuracion operativa del tenant.</p>
-              <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-                {% for field in form %}
-                  {% if field.name == "amount_due" or field.name == "amount_paid" or field.name == "currency" or field.name == "status" or field.name == "due_on" or field.name == "promised_for" %}
-                    <div>
-                      <label class="mb-1 block text-xs text-gray-500">{{ field.label }}</label>
-                      {{ field }}
-                      {% for error in field.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
-                    </div>
-                  {% endif %}
-                {% endfor %}
-                <label class="md:col-span-2 flex items-center gap-2 text-sm text-gray-600">
-                  {{ form.is_active }}
-                  <span>{{ form.is_active.label }}</span>
-                </label>
-              </div>
-            </div>
-
-            <div class="rounded-3xl border border-black/5 bg-gray-50 p-5">
-              <h2 class="text-lg font-semibold">Seguimiento</h2>
-              <div class="mt-4">
-                <label class="mb-1 block text-xs text-gray-500">{{ form.notes.label }}</label>
-                {{ form.notes }}
-                {% for error in form.notes.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="flex flex-wrap gap-3 border-t border-black/5 pt-6">
-          <button type="submit" class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">{{ submit_label }}</button>
-          <a href="{% url 'binncrm:collections' %}" class="rounded-xl border px-4 py-2 text-sm hover:bg-gray-50">Cancelar</a>
-        </div>
-      </form>
+      <h1 class="binn-collection-form-title">{{ page_title }}</h1>
+      <p class="binn-collection-form-copy">Actualiza el saldo, el estado y el seguimiento sin salir del flujo de cobro.</p>
     </section>
+
+    <form method="post" class="binn-collection-form-layout">
+      {% csrf_token %}
+      <section class="binn-panel binn-collection-form-card">
+        <h2 class="binn-section-title">Ficha y referencia</h2>
+        <p class="binn-view-section-copy">Relaciona el cobro con el cliente y la oportunidad correcta.</p>
+        <div class="binn-collection-form-grid two">
+          {% for field in form %}{% if field.name == "entity" or field.name == "deal" or field.name == "title" or field.name == "reference" %}<div class="binn-collection-field {% if field.name == 'title' %}md:col-span-2{% endif %}"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% for error in field.errors %}<p class="binn-collection-error">{{ error }}</p>{% endfor %}</div>{% endif %}{% endfor %}
+        </div>
+        <div class="binn-collection-form-note">Referencia, cliente y oportunidad permiten que el equipo encuentre este cobro desde cualquier ficha.</div>
+      </section>
+
+      <div class="grid gap-4">
+        <section class="binn-panel binn-collection-form-card">
+          <h2 class="binn-section-title">Monto y estado</h2>
+          <div class="binn-collection-form-grid two">
+            {% for field in form %}{% if field.name == "amount_due" or field.name == "amount_paid" or field.name == "currency" or field.name == "status" or field.name == "due_on" or field.name == "promised_for" %}<div class="binn-collection-field"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% for error in field.errors %}<p class="binn-collection-error">{{ error }}</p>{% endfor %}</div>{% endif %}{% endfor %}
+          </div>
+          <label class="binn-collection-active mt-4">{{ form.is_active }}<span>{{ form.is_active.label }}</span></label>
+        </section>
+        <section class="binn-panel binn-collection-form-card">
+          <h2 class="binn-section-title">Seguimiento</h2>
+          <div class="binn-collection-form-grid"><div class="binn-collection-field"><label for="{{ form.notes.id_for_label }}">{{ form.notes.label }}</label>{{ form.notes }}{% for error in form.notes.errors %}<p class="binn-collection-error">{{ error }}</p>{% endfor %}</div></div>
+        </section>
+        <div class="binn-collection-form-footer">
+          <a href="{% url 'binncrm:collections' %}" class="binn-btn-secondary">Cancelar</a>
+          <button type="submit" class="binn-btn-primary">{{ submit_label }}</button>
+        </div>
+      </div>
+    </form>
   </div>
 {% endblock %}

@@ -50,6 +50,7 @@
   .binn-entity-actions {
     display: flex;
     flex-wrap: wrap;
+    justify-content: flex-end;
     gap: 0.55rem;
     align-content: start;
   }
@@ -217,7 +218,7 @@
   }
   @media (min-width: 900px) {
     .binn-entity-hero-head {
-      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-columns: minmax(18rem, 1fr) minmax(0, 42rem);
       align-items: start;
     }
     .binn-entity-detail-row {
@@ -251,7 +252,7 @@
         <div class="binn-entity-hero-copy">
           <span class="binn-kicker">{{ labels.entity_singular|default:"Ficha" }}</span>
           <h1 class="binn-entity-title">{{ entity.full_name }}</h1>
-          <p class="binn-entity-subline">{{ entity.legal_id|default:"Sin identificaciÃƒÂ³n" }} Ã‚Â· {{ entity.phone|default:"Sin telÃƒÂ©fono" }}</p>
+          <p class="binn-entity-subline">{{ entity.legal_id|default:"Sin identificaci�f³n" }} �,· {{ entity.phone|default:"Sin tel�f©fono" }}</p>
           <div class="binn-entity-meta">
             {% if broker_lifecycle %}
               <span class="binn-pill {{ broker_lifecycle.tone }}">{{ broker_lifecycle.label }}</span>
@@ -269,7 +270,7 @@
               <span class="binn-pill">{{ entity.email }}</span>
             {% endif %}
             {% for item in filled_extra_values|slice:":4" %}
-              <span class="binn-pill">{{ item.label }} Ã‚Â· {{ item.value }}</span>
+              <span class="binn-pill">{{ item.label }} �,· {{ item.value }}</span>
             {% endfor %}
           </div>
         </div>
@@ -330,7 +331,7 @@
           <div class="binn-entity-stat">
             <p class="binn-metric-label">{{ labels.collection_plural|default:"Cobranzas" }}</p>
             <strong>{{ recent_collection_cards|length }}</strong>
-            <span>Saldo y presiÃƒÂ³n financiera visible.</span>
+            <span>Saldo y presi�f³n financiera visible.</span>
           </div>
         {% endif %}
       </div>
@@ -382,7 +383,7 @@
             <div class="binn-entity-section-head">
               <div>
                 <h2 class="binn-section-title">Checklist broker</h2>
-                <p class="binn-entity-section-copy">Documentos crÃƒÂ­ticos para renovaciÃƒÂ³n, inspecciÃƒÂ³n y cobro.</p>
+                <p class="binn-entity-section-copy">Documentos cr�f­ticos para renovaci�f³n, inspecci�f³n y cobro.</p>
               </div>
             </div>
             <div class="binn-entity-chip-row">
@@ -477,7 +478,7 @@
                     <div class="binn-entity-item-head">
                       <div>
                         <p class="binn-entity-item-title">{{ record.title }}</p>
-                        <p class="binn-entity-item-meta">{{ record.data.codigo_unidad|default:"Sin unidad" }}{% if record.data.residente %} Ã‚Â· {{ record.data.residente }}{% endif %}</p>
+                        <p class="binn-entity-item-meta">{{ record.data.codigo_unidad|default:"Sin unidad" }}{% if record.data.residente %} �,· {{ record.data.residente }}{% endif %}</p>
                         {% if record.data.comentario %}
                           <p class="binn-entity-item-copy">{{ record.data.comentario }}</p>
                         {% endif %}
@@ -493,7 +494,7 @@
                     <div class="binn-entity-item-head">
                       <div>
                         <p class="binn-entity-item-title">{{ record.title }}</p>
-                        <p class="binn-entity-item-meta">{{ record.data.dirigido_a|default:"Sin destinatario" }}{% if record.data.canal %} Ã‚Â· {{ record.data.canal|title }}{% endif %}</p>
+                        <p class="binn-entity-item-meta">{{ record.data.dirigido_a|default:"Sin destinatario" }}{% if record.data.canal %} �,· {{ record.data.canal|title }}{% endif %}</p>
                         {% if record.data.comentario %}
                           <p class="binn-entity-item-copy">{{ record.data.comentario }}</p>
                         {% endif %}
@@ -667,7 +668,7 @@
             <div class="binn-entity-section-head">
               <div>
                 <h2 class="binn-section-title">{{ labels.deal_plural|default:"Oportunidades" }}</h2>
-                <p class="binn-entity-section-copy">Pipeline, monto y prÃƒÂ³ximos movimientos de dinero.</p>
+                <p class="binn-entity-section-copy">Pipeline, monto y pr�f³ximos movimientos de dinero.</p>
               </div>
               {% if can_create_deal %}
                 <a href="{% url 'binncrm:deal_create' %}?entity={{ entity.pk }}" class="binn-record-action binn-record-action-primary">Nueva</a>
@@ -679,7 +680,7 @@
                   <div class="binn-entity-item-head">
                     <div>
                       <p class="binn-entity-item-title">{{ deal.title }}</p>
-                      <p class="binn-entity-item-meta">{{ deal.pipeline.name }} Ã‚Â· {{ deal.stage }} Ã‚Â· {{ deal.currency }} {{ deal.amount }}</p>
+                      <p class="binn-entity-item-meta">{{ deal.pipeline.name }} �,· {{ deal.stage }} �,· {{ deal.currency }} {{ deal.amount }}</p>
                     </div>
                   </div>
                   {% if can_create_deal %}
@@ -709,7 +710,7 @@
                   {% endif %}
                 </article>
               {% empty %}
-                <div class="binn-empty text-sm">Sin oportunidades vinculadas todavÃƒÂ­a.</div>
+                <div class="binn-empty text-sm">Sin oportunidades vinculadas todav�f­a.</div>
               {% endfor %}
             </div>
           </article>
@@ -720,7 +721,7 @@
             <div class="binn-entity-section-head">
               <div>
                 <h2 class="binn-section-title">Tareas pendientes</h2>
-                <p class="binn-entity-section-copy">Lo que todavÃƒÂ­a exige reacciÃƒÂ³n o seguimiento manual.</p>
+                <p class="binn-entity-section-copy">Lo que todav�f­a exige reacci�f³n o seguimiento manual.</p>
               </div>
               {% if can_create_activity %}
                 <a href="{% url 'binncrm:activity_create' %}?entity={{ entity.pk }}&activity_type=task" class="binn-record-action binn-record-action-primary">Nueva tarea</a>
@@ -751,7 +752,7 @@
                   <div class="binn-entity-item-head">
                     <div>
                       <p class="binn-entity-item-title">{{ item.activity.title }}</p>
-                      <p class="binn-entity-item-meta">{{ item.assignee_label }}{% if item.activity.deal %} Ã‚Â· {{ item.activity.deal.title }}{% endif %}</p>
+                      <p class="binn-entity-item-meta">{{ item.assignee_label }}{% if item.activity.deal %} �,· {{ item.activity.deal.title }}{% endif %}</p>
                       {% if item.activity.description %}
                         <p class="binn-entity-item-copy">{{ item.activity.description }}</p>
                       {% endif %}
@@ -793,8 +794,8 @@
                       <p class="binn-entity-item-title">{{ activity.title }}</p>
                       <p class="binn-entity-item-meta">
                         {% if activity.assigned_to %}{{ activity.assigned_to.username }}{% else %}Sin responsable{% endif %}
-                        {% if activity.deal %} Ãƒâ€šÃ‚Â· {{ activity.deal.title }}{% endif %}
-                        {% if activity.due_at %} Ãƒâ€šÃ‚Â· {{ activity.due_at|date:"d/m/Y H:i" }}{% endif %}
+                        {% if activity.deal %} �f�?s�,· {{ activity.deal.title }}{% endif %}
+                        {% if activity.due_at %} �f�?s�,· {{ activity.due_at|date:"d/m/Y H:i" }}{% endif %}
                       </p>
                       {% if activity.description %}
                         <p class="binn-entity-item-copy">{{ activity.description }}</p>
@@ -812,7 +813,7 @@
             <div class="binn-entity-section-head">
               <div>
                 <h2 class="binn-section-title">{{ labels.proposal_plural|default:"Propuestas" }}</h2>
-                <p class="binn-entity-section-copy">Monto, vigencia y vÃƒÂ­nculo comercial sin salir de la ficha.</p>
+                <p class="binn-entity-section-copy">Monto, vigencia y v�f­nculo comercial sin salir de la ficha.</p>
               </div>
               {% if can_create_proposal %}
                 <a href="{% url 'binncrm:proposal_create' %}?entity={{ entity.pk }}" class="binn-record-action binn-record-action-primary">Nueva</a>
@@ -826,8 +827,8 @@
                       <p class="binn-entity-item-title">{{ item.proposal.title }}</p>
                       <p class="binn-entity-item-meta">
                         {{ item.amount_label }}
-                        {% if item.proposal.proposal_number %} Ã‚Â· {{ item.proposal.proposal_number }}{% endif %}
-                        {% if item.proposal.deal %} Ã‚Â· {{ item.proposal.deal.title }}{% endif %}
+                        {% if item.proposal.proposal_number %} �,· {{ item.proposal.proposal_number }}{% endif %}
+                        {% if item.proposal.deal %} �,· {{ item.proposal.deal.title }}{% endif %}
                       </p>
                     </div>
                     <div class="binn-entity-item-side">
@@ -853,7 +854,7 @@
             class="binn-entity-placeholder"
           >
             <section class="binn-panel binn-entity-card">
-              <div class="binn-empty text-sm">Cargando conversaciÃƒÂ³n contextual...</div>
+              <div class="binn-empty text-sm">Cargando conversaci�f³n contextual...</div>
             </section>
           </div>
         {% endif %}
@@ -862,7 +863,7 @@
           <div class="binn-entity-section-head">
             <div>
               <h2 class="binn-section-title">Timeline 360</h2>
-              <p class="binn-entity-section-copy">Eventos reales y recientes de esta ficha sin reconstrucciÃƒÂ³n manual.</p>
+              <p class="binn-entity-section-copy">Eventos reales y recientes de esta ficha sin reconstrucci�f³n manual.</p>
             </div>
             {% if can_view_activities %}
               <a href="{% url 'binncrm:activities' %}" class="binn-record-action">Ver todo</a>
@@ -890,7 +891,7 @@
                 </div>
               </article>
             {% empty %}
-              <div class="binn-empty text-sm">TodavÃƒÂ­a no hay historial relevante para esta ficha.</div>
+              <div class="binn-empty text-sm">Todav�f­a no hay historial relevante para esta ficha.</div>
             {% endfor %}
           </div>
         </article>
@@ -900,7 +901,7 @@
             <div class="binn-entity-section-head">
               <div>
                 <h2 class="binn-section-title">{{ labels.collection_plural|default:"Cobranzas" }}</h2>
-                <p class="binn-entity-section-copy">Saldo, referencia y presiÃƒÂ³n financiera sin abrir otro mÃƒÂ³dulo.</p>
+                <p class="binn-entity-section-copy">Saldo, referencia y presi�f³n financiera sin abrir otro m�f³dulo.</p>
               </div>
               {% if can_create_collection %}
                 <a href="{% url 'binncrm:collection_create' %}?entity={{ entity.pk }}" class="binn-record-action binn-record-action-primary">Nueva</a>
@@ -914,8 +915,8 @@
                       <p class="binn-entity-item-title">{{ item.collection.title }}</p>
                       <p class="binn-entity-item-meta">
                         Saldo {{ item.balance_label }}
-                        {% if item.collection.reference %} Ã‚Â· {{ item.collection.reference }}{% endif %}
-                        {% if item.collection.deal %} Ã‚Â· {{ item.collection.deal.title }}{% endif %}
+                        {% if item.collection.reference %} �,· {{ item.collection.reference }}{% endif %}
+                        {% if item.collection.deal %} �,· {{ item.collection.deal.title }}{% endif %}
                       </p>
                     </div>
                     <div class="binn-entity-item-side">
@@ -949,8 +950,8 @@
                       <p class="binn-entity-item-title">{{ activity.title }}</p>
                       <p class="binn-entity-item-meta">
                         {{ activity.get_activity_type_display }}
-                        {% if activity.assigned_to %} Ã‚Â· {{ activity.assigned_to.username }}{% endif %}
-                        {% if activity.due_at %} Ã‚Â· {{ activity.due_at|date:"d/m/Y H:i" }}{% endif %}
+                        {% if activity.assigned_to %} �,· {{ activity.assigned_to.username }}{% endif %}
+                        {% if activity.due_at %} �,· {{ activity.due_at|date:"d/m/Y H:i" }}{% endif %}
                       </p>
                     </div>
                   </div>
@@ -967,7 +968,7 @@
             <div class="binn-entity-section-head">
               <div>
                 <h2 class="binn-section-title">{{ labels.document_plural|default:"Documentos" }}</h2>
-                <p class="binn-entity-section-copy">Trazabilidad documental con vencimiento, categorÃƒÂ­a y storage visible.</p>
+                <p class="binn-entity-section-copy">Trazabilidad documental con vencimiento, categor�f­a y storage visible.</p>
               </div>
               {% if can_create_document %}
                 <a href="{% url 'binncrm:document_create' %}?entity={{ entity.pk }}" class="binn-record-action binn-record-action-primary">Nuevo</a>

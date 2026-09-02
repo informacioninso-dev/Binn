@@ -34,6 +34,7 @@ urlpatterns = [
     path("proposals/", views.proposals, name="proposals"),
     path("proposals/new/", views.proposal_create, name="proposal_create"),
     path("proposals/<int:pk>/edit/", views.proposal_edit, name="proposal_edit"),
+    path("proposals/<int:pk>/activate-project/", views.proposal_activate_project, name="proposal_activate_project"),
     path("collections/", views.collections, name="collections"),
     path("collections/new/", views.collection_create, name="collection_create"),
     path("collections/<int:pk>/edit/", views.collection_edit, name="collection_edit"),

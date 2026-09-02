@@ -19,7 +19,12 @@ from tenants.defaults import (
 )
 from tenants.forms import TenantEditForm
 from tenants.models import Client
-from tenants.services import TenantProvisionError, assign_tenant_membership, create_tenant
+from tenants.services import (
+    TenantProvisionError,
+    assign_tenant_membership,
+    create_tenant,
+    create_tenant_user_and_membership,
+)
 from tenants.views import SystemHealthView, SystemRuntimeHealthView
 from tenants.workspace_packs import build_group_pack_mix, build_workspace_pack
 
@@ -329,6 +334,35 @@ class TenantMembershipCapacityTests(TestCase):
 
         self.assertEqual(result.membership.pk, updated.membership.pk)
         self.assertEqual(updated.membership.role, "manager")
+
+    def test_create_tenant_user_creates_identity_and_consumes_seat(self):
+        result = create_tenant_user_and_membership(
+            tenant=self.tenant,
+            username="newoperator",
+            email="newoperator@example.com",
+            display_name="New Operator",
+            password="secure-pass-123",
+            role="operator",
+        )
+
+        self.assertTrue(result.membership_created)
+        self.assertTrue(result.user.must_rotate_password)
+        self.assertTrue(result.user.check_password("secure-pass-123"))
+        self.assertEqual(self.tenant.memberships.filter(is_active=True).count(), 1)
+
+    def test_create_tenant_user_does_not_leave_identity_when_capacity_is_full(self):
+        assign_tenant_membership(tenant=self.tenant, username="tenantowner", role="owner")
+
+        with self.assertRaises(TenantProvisionError):
+            create_tenant_user_and_membership(
+                tenant=self.tenant,
+                username="blockedoperator",
+                email="blockedoperator@example.com",
+                display_name="Blocked Operator",
+                password="secure-pass-123",
+            )
+
+        self.assertFalse(self.user_model.objects.filter(username="blockedoperator").exists())
 
 
 class TenantProvisioningServiceTests(SimpleTestCase):

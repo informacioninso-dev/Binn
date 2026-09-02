@@ -44,9 +44,14 @@ from access.permissions import (
 from access.runtime import get_request_membership
 from tenants.workspace_packs import build_workspace_pack
 from tenants.models import Client
-from tenants.forms import AddMemberForm
+from tenants.forms import AddMemberForm, TenantUserCreateForm
 from tenants.observability import record_tenant_event
-from tenants.services import TenantProvisionError, assign_tenant_membership, sync_tenant_pipelines
+from tenants.services import (
+    TenantProvisionError,
+    assign_tenant_membership,
+    create_tenant_user_and_membership,
+    sync_tenant_pipelines,
+)
 
 from .audit import record_crm_audit_event
 from .importers import import_entities_from_csv
@@ -116,6 +121,7 @@ from .timeline import (
     log_proposal_updated,
     record_timeline_event,
 )
+from .project_workflow import ProjectActivationError, activate_services_project
 from .task_presets import (
     build_task_preset_cards,
     build_task_preset_due_at,
@@ -2453,6 +2459,16 @@ def _sync_proposal_timestamps(proposal: Proposal, *, previous_status: str | None
         proposal.responded_at = None
 
 
+def _activate_services_project_if_accepted(request, proposal: Proposal):
+    if _tenant_profile(request.tenant) != "servicios" or proposal.status != Proposal.STATUS_ACCEPTED:
+        return None
+    try:
+        return activate_services_project(tenant=request.tenant, proposal=proposal, actor=request.user)
+    except ProjectActivationError as exc:
+        messages.warning(request, str(exc))
+        return None
+
+
 @login_required
 @tenant_permission_required(PERMISSION_DEALS_VIEW, capability="deals")
 def index(request):
@@ -2613,12 +2629,16 @@ def deal_filter_delete(request, pk):
     return redirect("binncrm:index")
 
 
-def _workspace_admin_context(request, *, form=None):
+def _workspace_admin_context(request, *, form=None, new_user_form=None):
+    active_memberships = request.tenant.memberships.filter(is_active=True).count()
     return {
         "tenant": request.tenant,
         "form": form,
         "memberships": request.tenant.memberships.select_related("user").order_by("user__username"),
         "member_form": AddMemberForm(),
+        "new_user_form": new_user_form or TenantUserCreateForm(),
+        "active_memberships": active_memberships,
+        "available_seats": max(request.tenant.max_users - active_memberships, 0),
     }
 
 
@@ -2626,21 +2646,32 @@ def _workspace_admin_context(request, *, form=None):
 @tenant_role_required(*CRM_ADMIN_ALLOWED_ROLES)
 def workspace_users(request):
     if request.method == "POST":
-        form = AddMemberForm(request.POST)
+        is_new_user = request.POST.get("user_action") == "create"
+        form = TenantUserCreateForm(request.POST) if is_new_user else AddMemberForm(request.POST)
         if form.is_valid():
             try:
-                result = assign_tenant_membership(
-                    tenant=request.tenant,
-                    username=form.cleaned_data["username"],
-                    role=form.cleaned_data["role"],
-                )
+                if is_new_user:
+                    result = create_tenant_user_and_membership(
+                        tenant=request.tenant,
+                        username=form.cleaned_data["username"],
+                        email=form.cleaned_data["email"],
+                        display_name=form.cleaned_data["display_name"],
+                        password=form.cleaned_data["password"],
+                        role=form.cleaned_data["role"],
+                    )
+                else:
+                    result = assign_tenant_membership(
+                        tenant=request.tenant,
+                        username=form.cleaned_data["username"],
+                        role=form.cleaned_data["role"],
+                    )
             except TenantProvisionError as exc:
                 form.add_error(None, str(exc))
             else:
                 record_tenant_event(
                     tenant=request.tenant,
                     actor=request.user,
-                    title="Acceso local actualizado",
+                    title="Usuario creado" if is_new_user else "Acceso local actualizado",
                     message=f"Se actualizo el acceso de '{result.user.username}' en la empresa.",
                     code="tenant_membership_upserted",
                     metadata={"username": result.user.username, "role": result.membership.role},
@@ -2648,7 +2679,7 @@ def workspace_users(request):
                 messages.success(request, f"Acceso de '{result.user.username}' actualizado.")
                 return redirect("binncrm:workspace_users")
         context = _workspace_admin_context(request)
-        context["member_form"] = form
+        context["new_user_form" if is_new_user else "member_form"] = form
         return render(request, "binncrm/workspace_users.html", context)
     return render(request, "binncrm/workspace_users.html", _workspace_admin_context(request))
 
@@ -3128,6 +3159,7 @@ def entity_create(request):
 @tenant_permission_required(PERMISSION_ENTITIES_VIEW, capability="entities")
 def entity_detail(request, pk):
     profile = _tenant_profile(request.tenant)
+    today = timezone.localdate()
     entity_queryset = Entity.objects.all()
     if profile == "broker":
         entity_queryset = entity_queryset.annotate(
@@ -3153,7 +3185,6 @@ def entity_detail(request, pk):
             ),
         )
     elif profile == "condominio":
-        today = timezone.localdate()
         entity_queryset = entity_queryset.annotate(
             open_collection_count=Count(
                 "collections",
@@ -3739,15 +3770,22 @@ def proposals(request):
         proposals_qs = proposals_qs.filter(status=selected_status)
 
     project_schema = get_object_schema_definition(object_key="proyecto")
-    can_create_project = bool(project_schema and project_schema.source == ObjectSchema.SOURCE_CUSTOM and _can(request, PERMISSION_OBJECTS_EDIT))
+    projects_by_proposal = {
+        project.proposal_id: project
+        for project in ObjectRecord.objects.filter(
+            object_schema=project_schema,
+            proposal__isnull=False,
+            is_active=True,
+        )
+    } if _tenant_profile(request.tenant) == "servicios" and project_schema is not None else {}
     proposal_cards = []
     for proposal in proposals_qs.order_by("-updated_at")[:100]:
         item = _build_proposal_card(proposal)
-        if can_create_project and proposal.status == Proposal.STATUS_ACCEPTED:
-            item["project_create_href"] = (
-                f"{reverse('binncrm:custom_object_record_create', kwargs={'object_key': project_schema.key})}?"
-                f"{urlencode({'entity': proposal.entity_id, 'deal': proposal.deal_id or '', 'proposal': proposal.pk, 'assessment_submission': proposal.source_assessment_id or '', 'cliente': proposal.entity.full_name, 'nombre': proposal.title, 'estado': 'kickoff'})}"
-            )
+        project = projects_by_proposal.get(proposal.pk)
+        if project is not None:
+            item["project_href"] = reverse("binncrm:custom_object_record_detail", kwargs={"object_key": project_schema.key, "pk": project.pk})
+        elif proposal.status == Proposal.STATUS_ACCEPTED and _tenant_profile(request.tenant) == "servicios":
+            item["project_activate_url"] = reverse("binncrm:proposal_activate_project", kwargs={"pk": proposal.pk})
         proposal_cards.append(item)
     return render(
         request,
@@ -3794,6 +3832,7 @@ def proposal_create(request):
             proposal.updated_by = request.user
             _sync_proposal_timestamps(proposal)
             proposal.save()
+            activation = _activate_services_project_if_accepted(request, proposal)
             log_proposal_created(
                 proposal=proposal,
                 actor=request.user,
@@ -3816,6 +3855,8 @@ def proposal_create(request):
                 },
             )
             messages.success(request, "Propuesta registrada correctamente.")
+            if activation and activation.created:
+                messages.success(request, "Se creo el proyecto, su canal operativo y el arranque de entrega.")
             return redirect("binncrm:proposals")
     else:
         form = ProposalForm(initial=initial, tenant=request.tenant)
@@ -3842,6 +3883,7 @@ def proposal_edit(request, pk):
             proposal.updated_by = request.user
             _sync_proposal_timestamps(proposal, previous_status=original_status)
             proposal.save()
+            activation = _activate_services_project_if_accepted(request, proposal)
             if changed_fields:
                 log_proposal_updated(
                     proposal=proposal,
@@ -3875,6 +3917,8 @@ def proposal_edit(request, pk):
                     },
                 )
             messages.success(request, "Propuesta actualizada correctamente.")
+            if activation and activation.created:
+                messages.success(request, "Propuesta aceptada: proyecto, canal y arranque operativo creados.")
             return redirect("binncrm:proposals")
     else:
         form = ProposalForm(instance=proposal, tenant=request.tenant)
@@ -5359,6 +5403,7 @@ def services_hub(request):
         },
     )
 
+
     context = {
         "labels": labels,
         "workspace_pack": workspace_pack,
@@ -5371,6 +5416,24 @@ def services_hub(request):
         "generated_at": timezone.localtime(now),
     }
     return render(request, "binncrm/services_hub.html", context)
+
+
+@login_required
+@tenant_permission_required(PERMISSION_PROPOSALS_EDIT, capability="proposals")
+@require_POST
+def proposal_activate_project(request, pk):
+    _require_crm_permission(request, PERMISSION_PROPOSALS_EDIT, capability="proposals")
+    proposal = get_object_or_404(Proposal.objects.select_related("entity", "deal", "deal__pipeline", "source_assessment"), pk=pk)
+    if _tenant_profile(request.tenant) != "servicios":
+        messages.error(request, "Este flujo solo esta disponible para Servicios.")
+        return redirect("binncrm:proposals")
+    try:
+        activation = activate_services_project(tenant=request.tenant, proposal=proposal, actor=request.user)
+    except ProjectActivationError as exc:
+        messages.error(request, str(exc))
+        return redirect("binncrm:proposals")
+    messages.success(request, "Proyecto operativo listo." if activation.created else "El proyecto ya estaba activo.")
+    return redirect("binncrm:custom_object_record_detail", object_key=activation.project.object_schema.key, pk=activation.project.pk)
 
 
 @login_required
@@ -6209,6 +6272,18 @@ def custom_object_record_detail(request, object_key, pk):
         }
         for field_definition in field_definitions
     ]
+    project_conversation_href = ""
+    if (
+        object_schema.key == "proyecto"
+        and _tenant_profile(request.tenant) == "servicios"
+        and request.tenant.has_capability("collab")
+        and _can(request, PERMISSION_COLLAB_VIEW)
+    ):
+        from collab.services import can_access_conversation, get_project_conversation
+
+        conversation = get_project_conversation(project=record)
+        if conversation is not None and can_access_conversation(conversation=conversation, user=request.user):
+            project_conversation_href = reverse("collab:conversation_detail", kwargs={"pk": conversation.pk})
     return render(
         request,
         "binncrm/custom_object_record_detail.html",
@@ -6218,6 +6293,7 @@ def custom_object_record_detail(request, object_key, pk):
             "record_preview": build_object_record_preview(object_schema=object_schema, record=record),
             "field_values": field_values,
             "can_edit_objects": _can(request, PERMISSION_OBJECTS_EDIT),
+            "project_conversation_href": project_conversation_href,
         },
     )
 
@@ -7051,6 +7127,10 @@ def assessment_template_detail(request, pk):
         request.POST if action in {"question", "update_question"} else None,
         instance=edit_question if action == "update_question" or edit_question else None,
     )
+    new_question_type = (request.GET.get("new_type") or "").strip()
+    allowed_question_types = {choice[0] for choice in AssessmentQuestion.TYPE_CHOICES}
+    if not action and not edit_question and new_question_type in allowed_question_types:
+        question_form.fields["question_type"].initial = new_question_type
     if action == "template" and template_form.is_valid():
         updated_template = template_form.save(commit=False)
         updated_template.updated_by = request.user

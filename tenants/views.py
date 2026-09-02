@@ -320,6 +320,15 @@ class TenantAccessListView(LoginRequiredMixin, ListView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["group_memberships"] = _active_group_memberships_for_user(self.request.user)
+        if self.request.user.is_superuser:
+            tenants = Client.objects.all()
+            groups = CorporateGroup.objects.all()
+            ctx["platform_summary"] = {
+                "tenants_total": tenants.count(),
+                "tenants_active": tenants.filter(is_active=True).count(),
+                "groups_total": groups.count(),
+                "groups_active": groups.filter(status=CorporateGroup.STATUS_ACTIVE).count(),
+            }
         return ctx
 
 

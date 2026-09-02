@@ -1,0 +1,23 @@
+<style>
+  .binn-security-flow { display: grid; place-items: start center; min-height: min(68vh, 46rem); padding: clamp(2rem, 7vh, 5.5rem) 1rem; }
+  .binn-security-card { width: min(100%, 32rem); overflow: hidden; border: 1px solid var(--binn-line); border-radius: var(--binn-radius-xl); background: var(--binn-card); box-shadow: var(--binn-shadow); }
+  .binn-security-intro { padding: 1.6rem 1.7rem 1.35rem; border-bottom: 1px solid var(--binn-line); background: linear-gradient(135deg, rgba(0, 123, 255, 0.08), rgba(255, 255, 255, 0)); }
+  .binn-security-kicker { margin: 0 0 0.45rem; color: var(--binn-accent-deep); font-size: 0.72rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+  .binn-security-title { margin: 0; color: var(--binn-ink); font-family: var(--binn-font-display); font-size: clamp(1.55rem, 4vw, 2rem); letter-spacing: -0.04em; }
+  .binn-security-copy { margin: 0.45rem 0 0; color: var(--binn-ink-soft); font-size: 0.92rem; line-height: 1.5; }
+  .binn-security-form { display: grid; gap: 1.15rem; padding: 1.5rem 1.7rem 1.7rem; }
+  .binn-security-field { display: grid; gap: 0.45rem; }
+  .binn-security-label { color: #344054; font-size: 0.84rem; font-weight: 750; }
+  .binn-security-input { width: 100%; border: 1px solid var(--binn-line-strong); border-radius: 0.82rem; outline: 0; background: #fff; color: var(--binn-ink); padding: 0.78rem 0.9rem; font-size: 0.94rem; transition: border-color 160ms ease, box-shadow 160ms ease; }
+  .binn-security-input:focus { border-color: var(--binn-accent); box-shadow: 0 0 0 3px var(--binn-accent-soft); }
+  .binn-security-input.is-invalid { border-color: #dc2626; }
+  .binn-security-error { margin: 0; color: #b42318; font-size: 0.78rem; line-height: 1.4; }
+  .binn-security-alert { margin: 0; border: 1px solid rgba(220, 38, 38, 0.2); border-radius: 0.8rem; background: #fff5f5; color: #9b1c1c; padding: 0.75rem 0.85rem; font-size: 0.82rem; line-height: 1.45; }
+  .binn-security-note { margin: 0; border: 1px solid var(--binn-line); border-radius: 0.8rem; background: #f7f9fc; color: #52647e; padding: 0.8rem 0.9rem; font-size: 0.8rem; line-height: 1.45; }
+  .binn-security-actions { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; padding-top: 0.3rem; }
+  .binn-security-link { color: #52647e; font-size: 0.84rem; font-weight: 700; text-decoration: none; }
+  .binn-security-link:hover { color: var(--binn-accent-deep); }
+  .binn-security-submit { display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 0.8rem; background: var(--binn-accent); color: #fff; cursor: pointer; padding: 0.75rem 1rem; font-size: 0.86rem; font-weight: 800; text-decoration: none; box-shadow: 0 10px 20px rgba(0, 123, 255, 0.2); }
+  .binn-security-submit:hover { filter: brightness(0.96); transform: translateY(-1px); }
+  @media (max-width: 520px) { .binn-security-flow { padding: 1rem 0; } .binn-security-card { border-radius: 1rem; } .binn-security-intro, .binn-security-form { padding-left: 1.1rem; padding-right: 1.1rem; } .binn-security-actions { align-items: stretch; flex-direction: column-reverse; } .binn-security-submit { width: 100%; } }
+</style>

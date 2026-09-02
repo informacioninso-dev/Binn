@@ -19,7 +19,11 @@
 
           <div data-collection-status="{{ column.status }}" class="kanban-stage binn-collections-drop">
             {% for card in column.collections %}
-              <article data-collection-id="{{ card.collection.pk }}" class="binn-collection-board-card {% if can_move_collections %}cursor-move{% endif %}">
+              <article
+                data-collection-id="{{ card.collection.pk }}"
+                {% if can_edit_collection %}data-collection-edit-url="{% url 'binncrm:collection_edit' card.collection.pk %}" tabindex="0" role="link" aria-label="Editar {{ card.collection.title }}"{% endif %}
+                class="binn-collection-board-card {% if can_move_collections %}cursor-move{% endif %}"
+              >
                 <div class="binn-collection-board-card-head">
                   <div class="min-w-0">
                     <p class="binn-collection-board-card-title">{{ card.collection.title }}</p>
@@ -28,7 +32,7 @@
                   <div class="binn-collection-board-card-amount-block">
                     <p class="binn-collection-board-card-amount">{{ card.balance_label }}</p>
                     {% if can_edit_collection %}
-                      <a href="{% url 'binncrm:collection_edit' card.collection.pk %}" class="binn-collection-board-card-link">Cobrar</a>
+                      <a href="{% url 'binncrm:collection_edit' card.collection.pk %}" class="binn-collection-board-card-link">Editar</a>
                     {% endif %}
                   </div>
                 </div>

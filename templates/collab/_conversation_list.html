@@ -1,7 +1,7 @@
 <style>
   .binn-channel-stack {
     display: grid;
-    gap: 1rem;
+    gap: 0.65rem;
   }
   .binn-channel-section {
     display: grid;
@@ -30,10 +30,10 @@
   }
   .binn-channel-link {
     display: grid;
-    gap: 0.45rem;
-    border-radius: 1rem;
+    gap: 0.3rem;
+    border-radius: 0.85rem;
     border: 1px solid transparent;
-    padding: 0.78rem 0.82rem;
+    padding: 0.62rem 0.7rem;
     text-decoration: none;
     transition: border-color 140ms ease, background-color 140ms ease, box-shadow 140ms ease;
   }
@@ -42,9 +42,30 @@
     background: rgba(255, 255, 255, 0.9);
   }
   .binn-channel-link.is-active {
-    border-color: rgba(37, 99, 235, 0.18);
-    background: rgba(255, 255, 255, 0.97);
-    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+    position: relative;
+    border-color: rgba(37, 99, 235, 0.34);
+    background: linear-gradient(135deg, #edf5ff 0%, #e8efff 100%);
+    box-shadow: 0 10px 24px rgba(37, 99, 235, 0.12);
+  }
+  .binn-channel-link.is-active::before {
+    position: absolute;
+    top: 0.58rem;
+    bottom: 0.58rem;
+    left: 0.22rem;
+    width: 3px;
+    border-radius: 999px;
+    background: #2563eb;
+    content: "";
+  }
+  .binn-channel-link.is-active .binn-channel-mark {
+    background: #2563eb;
+    color: #fff;
+  }
+  .binn-channel-link.is-active .binn-channel-copy strong {
+    color: #102a4c;
+  }
+  .binn-channel-link.is-active .binn-channel-preview {
+    color: #35557c;
   }
   .binn-channel-link.is-priority {
     background: linear-gradient(180deg, rgba(239, 246, 255, 0.96), rgba(255, 255, 255, 0.98));
@@ -121,9 +142,7 @@
     color: #1d4ed8;
   }
   .binn-channel-status-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.35rem;
+    display: none;
   }
   .binn-channel-status {
     display: inline-flex;
@@ -144,13 +163,10 @@
     color: #54657c;
   }
   .binn-channel-author {
-    font-size: 0.72rem;
-    color: #8693a8;
+    display: none;
   }
   .binn-channel-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.45rem;
+    display: none;
   }
   .binn-channel-actions form {
     margin: 0;
@@ -198,13 +214,13 @@
                 hx-get="{% url 'collab:conversation_panel' summary.conversation.pk %}?layout=full"
                 hx-target="#collab-panel"
                 hx-swap="outerHTML"
-                hx-push-url="true"
+                hx-push-url="{% url 'collab:inbox' %}?conversation={{ summary.conversation.pk }}"
                 onclick="document.querySelectorAll('.binn-channel-link').forEach((item) => item.classList.remove('is-active')); this.closest('.binn-channel-link').classList.add('is-active');"
               >
               <div class="binn-channel-row">
                 <div class="binn-channel-main">
                   <span class="binn-channel-mark">
-                    {% if summary.conversation.kind == "team" %}#{% elif summary.conversation.kind == "entity" %}@{% else %}${% endif %}
+                    {% if summary.conversation.kind == "team" %}#{% elif summary.conversation.kind == "entity" %}@{% elif summary.conversation.kind == "project" %}%{% else %}${% endif %}
                   </span>
                   <div class="binn-channel-copy">
                     <strong>{{ summary.conversation.title }}</strong>
@@ -271,13 +287,13 @@
               hx-get="{% url 'collab:conversation_panel' summary.conversation.pk %}?layout=full"
               hx-target="#collab-panel"
               hx-swap="outerHTML"
-              hx-push-url="true"
+              hx-push-url="{% url 'collab:inbox' %}?conversation={{ summary.conversation.pk }}"
               onclick="document.querySelectorAll('.binn-channel-link').forEach((item) => item.classList.remove('is-active')); this.closest('.binn-channel-link').classList.add('is-active');"
             >
             <div class="binn-channel-row">
               <div class="binn-channel-main">
                 <span class="binn-channel-mark">
-                  {% if summary.conversation.kind == "team" %}#{% elif summary.conversation.kind == "entity" %}@{% else %}${% endif %}
+                  {% if summary.conversation.kind == "team" %}#{% elif summary.conversation.kind == "entity" %}@{% elif summary.conversation.kind == "project" %}%{% else %}${% endif %}
                 </span>
                 <div class="binn-channel-copy">
                   <strong>{{ summary.conversation.title }}</strong>
@@ -285,6 +301,8 @@
                     {{ summary.conversation.get_kind_display }}
                     {% if summary.conversation.kind == "deal" and summary.conversation.deal and summary.conversation.deal.entity %}
                       · {{ summary.conversation.deal.entity.full_name }}
+                    {% elif summary.conversation.kind == "project" and summary.conversation.project and summary.conversation.project.entity %}
+                      Proyecto de {{ summary.conversation.project.entity.full_name }}
                     {% elif summary.conversation.kind == "entity" and summary.conversation.entity %}
                       · {{ summary.conversation.entity.full_name }}
                     {% endif %}

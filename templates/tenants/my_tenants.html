@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 
 {% block title %}Empresas | Binn{% endblock %}
-{% block main_class %}container mx-auto w-full max-w-6xl flex-1 px-4 py-6{% endblock %}
 
 {% block head_extra %}
 <style>
@@ -99,6 +98,26 @@
 
 {% block content %}
   <div class="binn-access-shell">
+    {% if request.user.is_superuser %}
+      <section class="binn-panel binn-module-header">
+        <div class="binn-module-head">
+          <div class="binn-module-copy">
+            <span class="binn-kicker">Plataforma</span>
+            <h1 class="binn-section-title mt-3">Control de empresas</h1>
+            <p class="binn-section-copy mt-2">Crea, configura y abre cada empresa sin perder el contexto de plataforma.</p>
+          </div>
+          <div class="binn-module-tools"><div class="binn-module-shortcuts"><a href="{% url 'tenants:create' %}" class="binn-btn-primary binn-btn-compact">Nuevo tenant</a><a href="{% url 'tenants:list' %}" class="binn-btn-secondary binn-btn-compact">Gestionar tenants</a><a href="{% url 'governance:group_list' %}" class="binn-btn-secondary binn-btn-compact">Ver holdings</a></div></div>
+        </div>
+      </section>
+      <section class="binn-module-metric-grid" aria-label="Resumen de plataforma">
+        <article class="binn-module-metric"><p class="binn-metric-label">Tenants activos</p><strong>{{ platform_summary.tenants_active }}</strong></article>
+        <article class="binn-module-metric"><p class="binn-metric-label">Tenants totales</p><strong>{{ platform_summary.tenants_total }}</strong></article>
+        <article class="binn-module-metric"><p class="binn-metric-label">Holdings activos</p><strong>{{ platform_summary.groups_active }}</strong></article>
+        <article class="binn-module-metric"><p class="binn-metric-label">Holdings totales</p><strong>{{ platform_summary.groups_total }}</strong></article>
+      </section>
+    {% endif %}
+
+    {% if not request.user.is_superuser %}
     <section class="binn-panel rounded-2xl p-5 sm:p-6">
       <div class="binn-access-header">
         <span class="binn-kicker">Accesos</span>
@@ -108,8 +127,12 @@
         </div>
       </div>
     </section>
+    {% endif %}
 
     <section class="binn-access-list">
+      {% if request.user.is_superuser %}
+        <div class="binn-view-section-head"><div><span class="binn-kicker">Acceso directo</span><p class="binn-view-section-copy">Abre una empresa para revisar su operacion o ajustar su configuracion.</p></div></div>
+      {% endif %}
       {% for membership in memberships %}
         <article class="binn-panel binn-access-row">
           <div class="binn-access-main">
@@ -125,7 +148,7 @@
             <div class="binn-access-meta">
               <span><strong>Acceso:</strong> {{ membership.tenant.primary_domain|default:"Acceso local" }}</span>
               <span><strong>Pantalla:</strong> {{ membership.tenant.tenant_config.labels.dashboard_title|default:"Centro de control" }}</span>
-              <span><strong>Schema:</strong> {{ membership.tenant.schema_name }}</span>
+              <span><strong>Plan:</strong> {{ membership.tenant.get_plan_display }}</span>
             </div>
           </div>
 

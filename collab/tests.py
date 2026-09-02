@@ -406,6 +406,9 @@ class MentionExtractionTests(SimpleTestCase):
 
 
 class SelectiveNotificationTests(SimpleTestCase):
+    # post_message is transactional even though these tests mock persistence.
+    databases = {"default"}
+
     @patch("collab.services.transaction.on_commit", side_effect=lambda cb: cb())
     @patch("collab.services.broadcast_tenant_collab_event")
     @patch("collab.services.record_tenant_event")

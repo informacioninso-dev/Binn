@@ -754,6 +754,58 @@
     font-weight: 800;
     padding: 0 0.24rem;
   }
+  .binn-notification-dialog {
+    width: min(94vw, 31rem);
+    max-height: min(82vh, 42rem);
+    margin: auto;
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid var(--binn-line);
+    border-radius: 1rem;
+    background: #fff;
+    box-shadow: 0 24px 64px rgba(15, 23, 42, 0.28);
+  }
+  .binn-notification-dialog::backdrop {
+    background: rgba(15, 23, 42, 0.38);
+    backdrop-filter: blur(2px);
+  }
+  .binn-notification-dialog-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.8rem 1rem;
+    border-bottom: 1px solid var(--binn-line);
+    color: var(--binn-ink);
+    font-size: 0.88rem;
+    font-weight: 800;
+  }
+  .binn-notification-dialog-close {
+    border: 0;
+    border-radius: 0.55rem;
+    background: transparent;
+    color: #52647e;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 0.35rem 0.55rem;
+  }
+  .binn-notification-dialog-close:hover {
+    background: rgba(92, 87, 255, 0.08);
+    color: var(--binn-primary);
+  }
+  .binn-notification-dialog-content {
+    max-height: calc(min(82vh, 42rem) - 3.5rem);
+    overflow-y: auto;
+    padding: 0.85rem 1rem 1rem;
+  }
+  .binn-notification-dialog-loading {
+    margin: 0;
+    padding: 1rem 0;
+    color: #718096;
+    font-size: 0.84rem;
+    text-align: center;
+  }
   .binn-sidebar {
     display: grid;
     grid-template-columns: 1fr;
@@ -1629,7 +1681,7 @@
   }
   @media (min-width: 1120px) {
     .binn-shell {
-      grid-template-columns: clamp(204px, 15vw, 224px) minmax(0, 1fr);
+      grid-template-columns: clamp(172px, 12vw, 184px) minmax(0, 1fr);
       align-items: start;
       transition: grid-template-columns 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
     }
@@ -1717,7 +1769,7 @@
       padding: 0.42rem;
     }
     .binn-sidebar-footer-label,
-    .binn-sidebar-footer .binn-btn-secondary span,
+    .binn-sidebar-footer .binn-btn-secondary .binn-sidebar-footer-copy,
     .binn-sidebar-footer .binn-sidebar-signout span {
       display: none;
     }
@@ -1871,11 +1923,11 @@
 
 {% block head_extra %}{% endblock %}
 </head>
-<body class="{% if request.user.is_authenticated and request.tenant and request.tenant.schema_name != 'public' %}binn-tenant-body {% endif %}{% block body_class %}min-h-screen text-gray-900{% endblock %}">
-<div class="{% if request.user.is_authenticated and request.tenant and request.tenant.schema_name != 'public' %}binn-shell{% else %}flex min-h-screen flex-col{% endif %}">
+<body class="{% if request.user.is_authenticated and request.tenant %}binn-tenant-body {% endif %}{% block body_class %}min-h-screen text-gray-900{% endblock %}">
+<div class="{% if request.user.is_authenticated and request.tenant %}binn-shell{% else %}flex min-h-screen flex-col{% endif %}">
   {% block page_chrome %}{% include 'partials/_navbar.html' %}{% endblock %}
 
-  <main id="content" class="{% block main_class %}{% if request.user.is_authenticated and request.tenant and request.tenant.schema_name != 'public' %}binn-shell-main{% else %}container mx-auto w-full max-w-7xl flex-1 px-4 py-6{% endif %}{% endblock %}">
+  <main id="content" class="{% block main_class %}{% if request.user.is_authenticated and request.tenant %}binn-shell-main{% else %}container mx-auto w-full max-w-7xl flex-1 px-4 py-6{% endif %}{% endblock %}">
     {% include 'partials/_flash.html' %}
     {% block content %}{% endblock %}
   </main>

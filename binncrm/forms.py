@@ -113,6 +113,13 @@ class AssessmentSubmissionCreateForm(forms.ModelForm):
     class Meta:
         model = AssessmentSubmission
         fields = ("template", "entity", "deal", "capture_mode", "expires_at")
+        labels = {
+            "template": "Plantilla de preguntas",
+            "entity": "Cliente",
+            "deal": "Oportunidad vinculada",
+            "capture_mode": "Como se respondera",
+            "expires_at": "Vigencia del enlace",
+        }
         widgets = {
             "template": forms.Select(attrs=INPUT),
             "entity": forms.Select(attrs=INPUT),
@@ -182,12 +189,23 @@ class AssessmentResponseForm(forms.Form):
                 self.fields[name] = field
                 if key in initial_answers:
                     self.initial[name] = initial_answers[key]
+                if question.get("config", {}).get("allow_comment") and qtype in {"single_choice", "multiple_choice", "boolean"}:
+                    self.fields[f"comment__{key}"] = forms.CharField(
+                        label="Comentario adicional",
+                        required=False,
+                        widget=forms.Textarea(attrs={**TEXTAREA, "rows": 2, "placeholder": "Agrega contexto si es necesario"}),
+                    )
 
 
 class AssessmentTemplateForm(forms.ModelForm):
     class Meta:
         model = AssessmentTemplate
         fields = ("name", "description", "is_active")
+        labels = {
+            "name": "Nombre de la plantilla",
+            "description": "Objetivo de la bateria",
+            "is_active": "Plantilla activa",
+        }
         widgets = {
             "name": forms.TextInput(attrs=INPUT),
             "description": forms.Textarea(attrs=TEXTAREA),
@@ -198,6 +216,11 @@ class AssessmentSectionForm(forms.ModelForm):
     class Meta:
         model = AssessmentSection
         fields = ("title", "description", "position")
+        labels = {
+            "title": "Nombre de la seccion",
+            "description": "Indicacion para el comercial",
+            "position": "Orden de la seccion",
+        }
         widgets = {
             "title": forms.TextInput(attrs=INPUT),
             "description": forms.Textarea(attrs={**TEXTAREA, "rows": 2}),
@@ -206,6 +229,12 @@ class AssessmentSectionForm(forms.ModelForm):
 
 
 class AssessmentQuestionForm(forms.ModelForm):
+    key = forms.SlugField(
+        required=False,
+        label="Codigo interno",
+        help_text="Opcional. Binn lo genera desde la pregunta si lo dejas vacio.",
+        widget=forms.TextInput(attrs=INPUT),
+    )
     choices_text = forms.CharField(
         required=False,
         label="Opciones",
@@ -214,10 +243,18 @@ class AssessmentQuestionForm(forms.ModelForm):
     )
     min_value = forms.DecimalField(required=False, label="Minimo", widget=forms.NumberInput(attrs=INPUT))
     max_value = forms.DecimalField(required=False, label="Maximo", widget=forms.NumberInput(attrs=INPUT))
+    allow_comment = forms.BooleanField(required=False, label="Permitir comentario adicional")
 
     class Meta:
         model = AssessmentQuestion
         fields = ("key", "label", "help_text", "question_type", "required", "position")
+        labels = {
+            "label": "Pregunta",
+            "help_text": "Ayuda para responder",
+            "question_type": "Tipo de respuesta",
+            "required": "Respuesta obligatoria",
+            "position": "Orden de la pregunta",
+        }
         widgets = {
             "key": forms.TextInput(attrs=INPUT),
             "label": forms.TextInput(attrs=INPUT),
@@ -232,9 +269,12 @@ class AssessmentQuestionForm(forms.ModelForm):
             self.fields["choices_text"].initial = "\n".join(str(item.get("label", item)) if isinstance(item, dict) else str(item) for item in self.instance.choices)
             self.fields["min_value"].initial = (self.instance.config or {}).get("min")
             self.fields["max_value"].initial = (self.instance.config or {}).get("max")
+            self.fields["allow_comment"].initial = bool((self.instance.config or {}).get("allow_comment"))
 
     def save(self, commit=True):
         instance = super().save(commit=False)
+        if not instance.key:
+            instance.key = slugify(instance.label).replace("-", "_")[:60] or "pregunta"
         instance.choices = [{"value": slugify(line) or line, "label": line} for line in self.cleaned_data["choices_text"].splitlines() if line.strip()]
         config = dict(instance.config or {})
         for key in ("min", "max"):
@@ -243,11 +283,11 @@ class AssessmentQuestionForm(forms.ModelForm):
                 config.pop(key, None)
             else:
                 config[key] = float(value)
+        config["allow_comment"] = bool(self.cleaned_data["allow_comment"])
         instance.config = config
         if commit:
             instance.save()
         return instance
-
 
 def _parse_pipeline_stage_lines(raw_value: str) -> list[str]:
     parts = []
@@ -408,6 +448,11 @@ class EntityForm(forms.ModelForm):
         if commit:
             instance.save()
         return instance
+
+    @property
+    def extra_fields(self):
+        """Expose dynamic fields as bound fields for Django templates."""
+        return [self[field_name] for field_name in self.extra_field_names]
 
 
 class DealForm(forms.ModelForm):

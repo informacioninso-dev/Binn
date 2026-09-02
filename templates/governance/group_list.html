@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 
 {% block title %}Holdings | Binn{% endblock %}
-{% block main_class %}container mx-auto w-full max-w-6xl flex-1 px-4 py-6{% endblock %}
 
 {% block head_extra %}
 <style>
@@ -21,43 +20,34 @@
 {% endblock %}
 
 {% block content %}
-  <div class="space-y-6">
-    <section class="grid grid-cols-1 gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-      <article class="binn-panel rounded-3xl p-6 sm:p-8">
-        <span class="binn-kicker">Governance</span>
-        <h1 class="binn-title mt-4">Opera holdings con reglas reales de visibilidad.</h1>
-        <p class="binn-subtitle mt-3">Aqui defines si un grupo vive como Islas o como Familia, quien lo administra y que empresas comparten agregados o detalle operativo.</p>
-        <div class="mt-6 flex flex-wrap gap-3">
-          <span class="binn-pill">Islas</span>
-          <span class="binn-pill">Familia</span>
-          <span class="binn-pill">Kill Switch</span>
+  <div class="binn-view-standard">
+    <section class="binn-panel binn-module-header">
+      <div class="binn-module-head">
+        <div class="binn-module-copy">
+          <span class="binn-kicker">Plataforma</span>
+          <h1 class="binn-section-title mt-3">Holdings</h1>
+          <p class="binn-section-copy mt-2">Agrupa empresas, define responsables y controla que informacion se comparte.</p>
         </div>
-      </article>
-
-      <aside class="binn-panel rounded-3xl p-6">
-        <p class="text-xs font-semibold uppercase tracking-[0.12em] text-gray-500">Accion principal</p>
-        <h2 class="mt-3 text-2xl font-semibold tracking-tight">Crear un holding nuevo</h2>
-        <p class="mt-3 text-sm leading-6 text-gray-600">Usa esta accion para modelar gobierno corporativo, billing y visibilidad entre empresas sin tocar sus datos operativos.</p>
-        <a href="{% url 'governance:group_create' %}" class="binn-btn-primary mt-5 w-full">Nuevo holding</a>
-      </aside>
+        <div class="binn-module-tools"><div class="binn-module-shortcuts"><a href="{% url 'tenants:list' %}" class="binn-btn-secondary binn-btn-compact">Tenants</a><a href="{% url 'governance:group_create' %}" class="binn-btn-primary binn-btn-compact">Nuevo holding</a></div></div>
+      </div>
     </section>
 
-    <section class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-      <article class="binn-panel rounded-2xl p-5">
+    <section class="binn-module-metric-grid">
+      <article class="binn-module-metric">
         <p class="binn-metric-label">Holdings totales</p>
-        <p class="binn-metric-value">{{ summary.total }}</p>
+        <strong>{{ summary.total }}</strong>
       </article>
-      <article class="binn-panel rounded-2xl p-5">
+      <article class="binn-module-metric">
         <p class="binn-metric-label">Activos</p>
-        <p class="binn-metric-value">{{ summary.active }}</p>
+        <strong>{{ summary.active }}</strong>
       </article>
-      <article class="binn-panel rounded-2xl p-5">
+      <article class="binn-module-metric">
         <p class="binn-metric-label">Modo Islas</p>
-        <p class="binn-metric-value">{{ summary.islands }}</p>
+        <strong>{{ summary.islands }}</strong>
       </article>
-      <article class="binn-panel rounded-2xl p-5">
+      <article class="binn-module-metric">
         <p class="binn-metric-label">Modo Familia</p>
-        <p class="binn-metric-value">{{ summary.family }}</p>
+        <strong>{{ summary.family }}</strong>
       </article>
     </section>
 

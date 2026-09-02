@@ -66,14 +66,14 @@
               </div>
             </div>
             <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-              {% for field_name in form.extra_field_names %}
+              {% for field in form.extra_fields %}
                 <div>
                   <label class="mb-1 block text-xs text-gray-500">
-                    {{ form[field_name].label }}
-                    {% if form[field_name].field.required %}<span class="text-red-600">*</span>{% endif %}
+                    {{ field.label }}
+                    {% if field.field.required %}<span class="text-red-600">*</span>{% endif %}
                   </label>
-                  {{ form[field_name] }}
-                  {% for error in form[field_name].errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+                  {{ field }}
+                  {% for error in field.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
                 </div>
               {% empty %}
                 <div class="md:col-span-2 rounded-2xl border border-dashed px-4 py-6 text-sm text-gray-500">

@@ -1,803 +1,118 @@
 {% extends "base.html" %}
-
-{% block title %}Iniciar sesion | Binn{% endblock %}
-{% block body_class %}min-h-screen overflow-x-hidden text-gray-900{% endblock %}
+{% block title %}Iniciar sesion · Binn{% endblock %}
+{% block body_class %}binn-login-body{% endblock %}
 {% block page_chrome %}{% endblock %}
 {% block page_footer %}{% endblock %}
-{% block main_class %}flex-1 px-0 py-0{% endblock %}
-
+{% block main_class %}binn-login-main{% endblock %}
 {% block head_extra %}
 <style>
-  .binn-auth-shell {
-    min-height: 100vh;
-    background:
-      linear-gradient(180deg, #f7fafc 0%, #eef4f7 48%, #f8faf6 100%);
-    color: #0b1f33;
-  }
-
-  .binn-auth-layout {
-    width: min(1180px, calc(100% - 2rem));
-    min-height: 100vh;
-    margin: 0 auto;
-    padding: 1.25rem 0;
-    display: grid;
-    gap: 1rem;
-    align-items: stretch;
-  }
-
-  .binn-auth-product,
-  .binn-auth-panel {
-    border: 1px solid rgba(11, 31, 51, 0.1);
-    border-radius: 8px;
-    box-shadow: 0 18px 42px rgba(11, 31, 51, 0.08);
-  }
-
-  .binn-auth-product {
-    order: 2;
-    overflow: hidden;
-    background: #0b1f33;
-    color: #f7fbff;
-  }
-
-  .binn-auth-panel {
-    order: 1;
-    background: rgba(255, 255, 255, 0.96);
-  }
-
-  .binn-auth-product-header,
-  .binn-auth-panel-inner {
-    padding: 1.25rem;
-  }
-
-  .binn-auth-brand {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    min-width: 0;
-  }
-
-  .binn-auth-logo {
-    width: 3rem;
-    height: 3rem;
-    border-radius: 8px;
-    flex: 0 0 auto;
-    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.16);
-  }
-
-  .binn-auth-logo svg {
-    width: 100%;
-    height: 100%;
-    display: block;
-  }
-
-  .binn-auth-brand-title {
-    display: block;
-    font-family: var(--binn-font-display);
-    font-size: 1.35rem;
-    line-height: 1.1;
-    font-weight: 800;
-    letter-spacing: 0;
-  }
-
-  .binn-auth-brand-copy {
-    display: block;
-    margin-top: 0.2rem;
-    color: rgba(247, 251, 255, 0.72);
-    font-size: 0.9rem;
-    line-height: 1.35;
-  }
-
-  .binn-auth-panel .binn-auth-brand-copy {
-    color: #607086;
-  }
-
-  .binn-auth-kicker {
-    margin-top: 2rem;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
-    border: 1px solid rgba(95, 215, 196, 0.28);
-    border-radius: 999px;
-    padding: 0.42rem 0.72rem;
-    background: rgba(95, 215, 196, 0.1);
-    color: #b9fff2;
-    font-size: 0.78rem;
-    font-weight: 800;
-    letter-spacing: 0;
-  }
-
-  .binn-auth-title {
-    margin-top: 1rem;
-    max-width: 34rem;
-    font-family: var(--binn-font-display);
-    font-size: 2.15rem;
-    line-height: 1.04;
-    font-weight: 850;
-    letter-spacing: 0;
-  }
-
-  .binn-auth-copy {
-    margin-top: 0.85rem;
-    max-width: 38rem;
-    color: rgba(247, 251, 255, 0.76);
-    font-size: 1rem;
-    line-height: 1.7;
-  }
-
-  .binn-auth-workspace-row {
-    margin-top: 1.25rem;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-  }
-
-  .binn-auth-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    border-radius: 999px;
-    padding: 0.42rem 0.7rem;
-    background: rgba(255, 255, 255, 0.08);
-    color: rgba(247, 251, 255, 0.82);
-    font-size: 0.83rem;
-    font-weight: 700;
-    white-space: nowrap;
-  }
-
-  .binn-auth-chip-dot {
-    width: 0.5rem;
-    height: 0.5rem;
-    border-radius: 999px;
-    background: #5fd7c4;
-  }
-
-  .binn-auth-board {
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-    background: #102941;
-  }
-
-  .binn-auth-board-header {
-    padding: 1rem 1.25rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  }
-
-  .binn-auth-board-title {
-    font-size: 0.95rem;
-    font-weight: 850;
-  }
-
-  .binn-auth-board-date {
-    color: rgba(247, 251, 255, 0.58);
-    font-size: 0.82rem;
-  }
-
-  .binn-auth-ops {
-    display: grid;
-    gap: 0;
-  }
-
-  .binn-auth-op {
-    display: grid;
-    grid-template-columns: 5.25rem minmax(0, 1fr);
-    gap: 0.85rem;
-    align-items: center;
-    min-height: 4.6rem;
-    padding: 0.95rem 1.25rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  }
-
-  .binn-auth-op:last-child {
-    border-bottom: 0;
-  }
-
-  .binn-auth-op-label {
-    color: rgba(247, 251, 255, 0.58);
-    font-size: 0.74rem;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 0;
-  }
-
-  .binn-auth-op-main {
-    min-width: 0;
-  }
-
-  .binn-auth-op-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-  }
-
-  .binn-auth-op-name {
-    font-weight: 850;
-    line-height: 1.25;
-  }
-
-  .binn-auth-op-status {
-    flex: 0 0 auto;
-    border-radius: 999px;
-    padding: 0.24rem 0.48rem;
-    background: rgba(255, 213, 138, 0.14);
-    color: #ffd58a;
-    font-size: 0.72rem;
-    font-weight: 800;
-  }
-
-  .binn-auth-op-copy {
-    margin-top: 0.25rem;
-    color: rgba(247, 251, 255, 0.64);
-    font-size: 0.84rem;
-    line-height: 1.45;
-  }
-
-  .binn-auth-metrics {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-  }
-
-  .binn-auth-metric {
-    min-width: 0;
-    padding: 1rem;
-    border-right: 1px solid rgba(255, 255, 255, 0.1);
-  }
-
-  .binn-auth-metric:last-child {
-    border-right: 0;
-  }
-
-  .binn-auth-metric strong {
-    display: block;
-    font-size: 1.35rem;
-    line-height: 1;
-    color: #ffffff;
-  }
-
-  .binn-auth-metric span {
-    display: block;
-    margin-top: 0.35rem;
-    color: rgba(247, 251, 255, 0.62);
-    font-size: 0.78rem;
-    line-height: 1.35;
-  }
-
-  .binn-auth-panel-inner {
-    min-height: 100%;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-  }
-
-  .binn-auth-panel-head {
-    margin-top: 2.25rem;
-  }
-
-  .binn-auth-panel-head h1 {
-    font-family: var(--binn-font-display);
-    font-size: 1.95rem;
-    line-height: 1.08;
-    font-weight: 850;
-    letter-spacing: 0;
-  }
-
-  .binn-auth-panel-head p {
-    margin-top: 0.65rem;
-    color: #5f6f83;
-    line-height: 1.65;
-  }
-
-  .binn-auth-tenant-strip {
-    margin-top: 1.1rem;
-    border: 1px solid rgba(11, 31, 51, 0.1);
-    border-radius: 8px;
-    padding: 0.85rem;
-    background: #f6faf9;
-  }
-
-  .binn-auth-tenant-strip span {
-    display: block;
-    color: #5f6f83;
-    font-size: 0.78rem;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 0;
-  }
-
-  .binn-auth-tenant-strip strong {
-    display: block;
-    margin-top: 0.22rem;
-    color: #0b1f33;
-    font-size: 0.98rem;
-    line-height: 1.3;
-  }
-
-  .binn-auth-tenant-strip small {
-    display: block;
-    margin-top: 0.2rem;
-    color: #607086;
-    font-size: 0.82rem;
-    line-height: 1.4;
-  }
-
-  .binn-auth-form {
-    margin-top: 1.45rem;
-  }
-
-  .binn-auth-field + .binn-auth-field {
-    margin-top: 1rem;
-  }
-
-  .binn-auth-label {
-    display: block;
-    margin-bottom: 0.42rem;
-    color: #203a54;
-    font-size: 0.86rem;
-    font-weight: 850;
-    letter-spacing: 0;
-  }
-
-  .binn-auth-label-row {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
-  }
-
-  .binn-auth-inline-icon,
-  .binn-auth-icon {
-    width: 1rem;
-    height: 1rem;
-    flex: 0 0 auto;
-  }
-
-  .binn-auth-input {
-    min-height: 3.35rem;
-    border-radius: 8px;
-    border-color: rgba(11, 31, 51, 0.14);
-    background: #fbfcfd;
-    color: #0b1f33;
-    font-size: 1rem;
-  }
-
-  .binn-auth-input:focus {
-    border-color: rgba(0, 123, 255, 0.58);
-    box-shadow: 0 0 0 4px rgba(0, 123, 255, 0.12);
-  }
-
-  .binn-auth-password-wrap {
-    position: relative;
-  }
-
-  .binn-auth-password-wrap .binn-auth-input {
-    padding-right: 3.8rem;
-  }
-
-  .binn-auth-toggle {
-    position: absolute;
-    top: 50%;
-    right: 0.55rem;
-    transform: translateY(-50%);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 2.45rem;
-    height: 2.45rem;
-    border: 1px solid rgba(11, 31, 51, 0.08);
-    border-radius: 8px;
-    background: #eef4f7;
-    color: #314b66;
-    cursor: pointer;
-  }
-
-  .binn-auth-toggle:hover {
-    background: #e4f2ef;
-    color: #102941;
-  }
-
-  .binn-auth-toggle:focus-visible {
-    outline: none;
-    box-shadow: 0 0 0 4px rgba(95, 215, 196, 0.18);
-  }
-
-  .binn-auth-toggle svg {
-    width: 1.1rem;
-    height: 1.1rem;
-  }
-
-  .binn-auth-toggle [data-eye-off] {
-    display: none;
-  }
-
-  .binn-auth-toggle.is-visible [data-eye-on] {
-    display: none;
-  }
-
-  .binn-auth-toggle.is-visible [data-eye-off] {
-    display: block;
-  }
-
-  .binn-auth-submit {
-    width: 100%;
-    min-height: 3.45rem;
-    margin-top: 1.25rem;
-    border-radius: 8px;
-    font-size: 1rem;
-  }
-
-  .binn-auth-submit-content {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.55rem;
-  }
-
-  .binn-auth-help {
-    margin-top: 1rem;
-    display: flex;
-    justify-content: space-between;
-    gap: 0.75rem;
-    align-items: center;
-    color: #607086;
-    font-size: 0.9rem;
-  }
-
-  .binn-auth-help a {
-    color: #005fd1;
-    font-weight: 850;
-    text-decoration: none;
-  }
-
-  .binn-auth-help a:hover {
-    text-decoration: underline;
-  }
-
-  .binn-auth-note {
-    margin-top: 1.2rem;
-    border-left: 3px solid #5fd7c4;
-    padding: 0.15rem 0 0.15rem 0.85rem;
-    color: #607086;
-    font-size: 0.9rem;
-    line-height: 1.55;
-  }
-
-  .binn-auth-error {
-    margin-top: 1.1rem;
-    border: 1px solid #fecaca;
-    border-radius: 8px;
-    background: #fff1f2;
-    padding: 0.85rem;
-    color: #b91c1c;
-    font-size: 0.9rem;
-    line-height: 1.45;
-  }
-
-  @media (min-width: 960px) {
-    .binn-auth-layout {
-      grid-template-columns: minmax(0, 1.08fr) minmax(390px, 0.82fr);
-      padding: 1.5rem 0;
-    }
-
-    .binn-auth-product,
-    .binn-auth-panel {
-      order: initial;
-    }
-
-    .binn-auth-product-header,
-    .binn-auth-panel-inner {
-      padding: 1.65rem;
-    }
-
-    .binn-auth-title {
-      font-size: 2.7rem;
-    }
-  }
-
-  @media (max-width: 640px) {
-    .binn-auth-layout {
-      width: min(100% - 1rem, 1180px);
-      padding: 0.5rem 0;
-    }
-
-    .binn-auth-product-header,
-    .binn-auth-panel-inner {
-      padding: 1rem;
-    }
-
-    .binn-auth-title {
-      font-size: 1.8rem;
-    }
-
-    .binn-auth-op {
-      grid-template-columns: 1fr;
-      gap: 0.35rem;
-    }
-
-    .binn-auth-op-head {
-      align-items: flex-start;
-      flex-direction: column;
-      gap: 0.35rem;
-    }
-
-    .binn-auth-metrics {
-      grid-template-columns: 1fr;
-    }
-
-    .binn-auth-metric {
-      border-right: 0;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-    .binn-auth-metric:last-child {
-      border-bottom: 0;
-    }
-
-    .binn-auth-help {
-      align-items: flex-start;
-      flex-direction: column;
-    }
-  }
+  .binn-login-body { min-height: 100vh; background: #f3f6fb; color: var(--binn-ink); }
+  .binn-login-main { min-height: 100vh; }
+  .binn-login-page { display: grid; min-height: 100vh; grid-template-columns: minmax(0, 1fr); }
+  .binn-login-aside { display: none; background: var(--binn-shell-dark); color: #f8fbff; padding: clamp(2rem, 6vw, 5rem); }
+  .binn-login-brand { display: inline-flex; align-items: center; gap: 0.85rem; color: inherit; text-decoration: none; }
+  .binn-login-mark { display: inline-flex; width: 3rem; height: 3rem; align-items: center; justify-content: center; border-radius: 0.9rem; background: rgba(255,255,255,0.1); color: #fff; font-family: var(--binn-font-display); font-size: 1.25rem; font-weight: 850; letter-spacing: -0.06em; }
+  .binn-login-brand-copy { display: grid; gap: 0.12rem; }
+  .binn-login-brand-copy strong { font-family: var(--binn-font-display); font-size: 1.1rem; letter-spacing: -0.04em; }
+  .binn-login-brand-copy span { color: rgba(226,232,240,0.66); font-size: 0.82rem; }
+  .binn-login-aside-content { display: grid; align-content: center; max-width: 27rem; min-height: 100%; }
+  .binn-login-aside-kicker { margin: 0 0 0.7rem; color: #7dd3fc; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+  .binn-login-aside-title { margin: 0; font-family: var(--binn-font-display); font-size: clamp(2rem, 3vw, 3.1rem); line-height: 1.03; letter-spacing: -0.055em; }
+  .binn-login-aside-copy { margin: 1rem 0 0; color: rgba(226,232,240,0.7); font-size: 1rem; line-height: 1.65; }
+  .binn-login-aside-rule { width: 3rem; height: 3px; margin-top: 2rem; border-radius: 99px; background: #38bdf8; }
+  .binn-login-panel { display: grid; place-items: center; padding: 1.25rem; }
+  .binn-login-card { width: min(100%, 27rem); }
+  .binn-login-mobile-brand { display: inline-flex; margin-bottom: 2.5rem; color: var(--binn-ink); text-decoration: none; }
+  .binn-login-mobile-brand .binn-login-mark { background: var(--binn-ink); }
+  .binn-login-mobile-brand .binn-login-brand-copy span { color: var(--binn-ink-soft); }
+  .binn-login-heading { margin: 0; font-family: var(--binn-font-display); font-size: clamp(1.7rem, 4vw, 2.15rem); letter-spacing: -0.05em; }
+  .binn-login-intro { margin: 0.5rem 0 0; color: var(--binn-ink-soft); font-size: 0.94rem; line-height: 1.55; }
+  .binn-login-tenant { margin-top: 1.4rem; padding: 0.8rem 0.9rem; border: 1px solid var(--binn-line); border-radius: 0.85rem; background: rgba(255,255,255,0.72); }
+  .binn-login-tenant-label { display: block; color: #718096; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+  .binn-login-tenant-name { display: block; margin-top: 0.22rem; color: var(--binn-ink); font-size: 0.9rem; font-weight: 800; }
+  .binn-login-form { display: grid; gap: 1rem; margin-top: 1.6rem; }
+  .binn-login-field { display: grid; gap: 0.42rem; }
+  .binn-login-label { color: #344054; font-size: 0.83rem; font-weight: 750; }
+  .binn-login-input-wrap { display: flex; align-items: center; overflow: hidden; border: 1px solid var(--binn-line-strong); border-radius: 0.82rem; background: #fff; transition: border-color 160ms ease, box-shadow 160ms ease; }
+  .binn-login-input-wrap:focus-within { border-color: var(--binn-accent); box-shadow: 0 0 0 3px var(--binn-accent-soft); }
+  .binn-login-input-wrap.is-invalid { border-color: #dc2626; }
+  .binn-login-input-wrap input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--binn-ink); padding: 0.8rem 0.9rem; font-size: 0.94rem; }
+  .binn-login-password-toggle { flex: 0 0 auto; margin-right: 0.35rem; border: 0; border-radius: 0.55rem; background: transparent; color: #52647e; cursor: pointer; font-size: 0.76rem; font-weight: 750; padding: 0.42rem 0.55rem; }
+  .binn-login-password-toggle:hover { background: rgba(0,123,255,0.08); color: var(--binn-accent-deep); }
+  .binn-login-error { margin: 0; border: 1px solid rgba(220,38,38,0.2); border-radius: 0.8rem; background: #fff5f5; color: #9b1c1c; padding: 0.75rem 0.85rem; font-size: 0.82rem; line-height: 1.45; }
+  .binn-login-field-error { margin: 0; color: #b42318; font-size: 0.77rem; }
+  .binn-login-submit { width: 100%; border: 0; border-radius: 0.82rem; background: var(--binn-accent); color: #fff; cursor: pointer; padding: 0.82rem 1rem; font-size: 0.9rem; font-weight: 800; box-shadow: 0 10px 20px rgba(0,123,255,0.18); }
+  .binn-login-submit:hover { filter: brightness(0.96); transform: translateY(-1px); }
+  .binn-login-help { margin: 0.2rem 0 0; color: var(--binn-ink-soft); font-size: 0.82rem; line-height: 1.5; text-align: center; }
+  .binn-login-help a { color: var(--binn-accent-deep); font-weight: 750; text-decoration: none; }
+  .binn-login-help a:hover { text-decoration: underline; }
+  @media (min-width: 900px) { .binn-login-page { grid-template-columns: minmax(20rem, 0.84fr) minmax(26rem, 1fr); } .binn-login-aside { display: grid; } .binn-login-mobile-brand { display: none; } .binn-login-panel { padding: clamp(2rem, 7vw, 8rem); } }
 </style>
 {% endblock %}
-
 {% block content %}
-  <section class="binn-auth-shell">
-    <div class="binn-auth-layout">
-      <section class="binn-auth-product" aria-label="Binn">
-        <div class="binn-auth-product-header">
-          <div class="binn-auth-brand">
-            <span class="binn-auth-logo" aria-hidden="true">
-              <svg viewBox="0 0 128 128" role="img">
-                <defs>
-                  <linearGradient id="binnLoginGradientA" x1="18" x2="110" y1="16" y2="112" gradientUnits="userSpaceOnUse">
-                    <stop offset="0" stop-color="#5fd7c4" />
-                    <stop offset="0.58" stop-color="#ffd58a" />
-                    <stop offset="1" stop-color="#ff845f" />
-                  </linearGradient>
-                </defs>
-                <rect width="128" height="128" rx="30" fill="url(#binnLoginGradientA)" />
-                <path d="M42 31.5c0-4.142 3.358-7.5 7.5-7.5h16c8.56 0 15.5 6.94 15.5 15.5 0 3.913-1.45 7.486-3.841 10.214C82.485 52.348 86 57.874 86 64.2 86 73.478 78.478 81 69.2 81H49.5c-4.142 0-7.5-3.358-7.5-7.5v-42Zm15 4.5v10.5h8.8c3.7 0 6.7-2.999 6.7-6.7S69.5 33 65.8 33H57Zm0 22.5V72h12.2c4.197 0 7.6-3.403 7.6-7.6s-3.403-7.6-7.6-7.6H57Z" fill="#10243d" />
-                <path d="M92.5 45c0-2.485 2.015-4.5 4.5-4.5s4.5 2.015 4.5 4.5-2.015 4.5-4.5 4.5-4.5-2.015-4.5-4.5Zm0 18c0-2.485 2.015-4.5 4.5-4.5s4.5 2.015 4.5 4.5-2.015 4.5-4.5 4.5-4.5-2.015-4.5-4.5Z" fill="#10243d" fill-opacity="0.74" />
-              </svg>
-            </span>
-            <span>
-              <span class="binn-auth-brand-title">Binn</span>
-              <span class="binn-auth-brand-copy">CRM vertical para operar ventas, seguimiento y cobros.</span>
-            </span>
-          </div>
-
-          <span class="binn-auth-kicker">
-            <svg class="binn-auth-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M4 12h10M4 17h7" />
-              <path stroke-linecap="round" stroke-linejoin="round" d="m16 15 2 2 4-5" />
-            </svg>
-            Menos ruido, mas siguiente accion
-          </span>
-
-          <h2 class="binn-auth-title">La entrada al trabajo comercial de cada dia.</h2>
-          <p class="binn-auth-copy">
-            Binn ordena clientes, oportunidades, documentos, actividades y cobranza ligera para equipos que necesitan moverse rapido sin vivir dentro de un CRM pesado.
-          </p>
-
-          <div class="binn-auth-workspace-row" aria-label="Verticales de Binn">
-            <span class="binn-auth-chip"><span class="binn-auth-chip-dot"></span>Servicios</span>
-            <span class="binn-auth-chip"><span class="binn-auth-chip-dot"></span>Broker</span>
-            <span class="binn-auth-chip"><span class="binn-auth-chip-dot"></span>Condominios</span>
-            <span class="binn-auth-chip"><span class="binn-auth-chip-dot"></span>Retail</span>
-          </div>
-        </div>
-
-        <div class="binn-auth-board" aria-label="Vista operativa de Binn">
-          <div class="binn-auth-board-header">
-            <div>
-              <strong class="binn-auth-board-title">Operacion de hoy</strong>
-              <p class="binn-auth-board-date">Pipeline, documentos y tareas del equipo</p>
-            </div>
-            <svg class="binn-auth-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M3 12h5l2-7 4 14 2-7h5" />
-            </svg>
-          </div>
-
-          <div class="binn-auth-ops">
-            <article class="binn-auth-op">
-              <span class="binn-auth-op-label">Pipeline</span>
-              <div class="binn-auth-op-main">
-                <div class="binn-auth-op-head">
-                  <strong class="binn-auth-op-name">Propuesta lista para seguimiento</strong>
-                  <span class="binn-auth-op-status">Hoy</span>
-                </div>
-                <p class="binn-auth-op-copy">Cuenta prioritaria con siguiente paso claro y responsable asignado.</p>
-              </div>
-            </article>
-
-            <article class="binn-auth-op">
-              <span class="binn-auth-op-label">WhatsApp</span>
-              <div class="binn-auth-op-main">
-                <div class="binn-auth-op-head">
-                  <strong class="binn-auth-op-name">Cliente con respuesta pendiente</strong>
-                  <span class="binn-auth-op-status">15 min</span>
-                </div>
-                <p class="binn-auth-op-copy">El historial queda junto a la ficha y no disperso entre chats.</p>
-              </div>
-            </article>
-
-            <article class="binn-auth-op">
-              <span class="binn-auth-op-label">Cobranza</span>
-              <div class="binn-auth-op-main">
-                <div class="binn-auth-op-head">
-                  <strong class="binn-auth-op-name">Documento por vencer</strong>
-                  <span class="binn-auth-op-status">Riesgo</span>
-                </div>
-                <p class="binn-auth-op-copy">Alertas visibles para renovar, cobrar o cerrar a tiempo.</p>
-              </div>
-            </article>
-          </div>
-
-          <div class="binn-auth-metrics" aria-label="Resumen de Binn">
-            <div class="binn-auth-metric">
-              <strong>4</strong>
-              <span>experiencias verticales</span>
-            </div>
-            <div class="binn-auth-metric">
-              <strong>1</strong>
-              <span>motor multi-tenant</span>
-            </div>
-            <div class="binn-auth-metric">
-              <strong>360</strong>
-              <span>contexto por cliente</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="binn-auth-panel">
-        <div class="binn-auth-panel-inner">
-          <div class="binn-auth-brand">
-            <span class="binn-auth-logo" aria-hidden="true">
-              <svg viewBox="0 0 128 128" role="img">
-                <defs>
-                  <linearGradient id="binnLoginGradientB" x1="18" x2="110" y1="16" y2="112" gradientUnits="userSpaceOnUse">
-                    <stop offset="0" stop-color="#5fd7c4" />
-                    <stop offset="0.58" stop-color="#ffd58a" />
-                    <stop offset="1" stop-color="#ff845f" />
-                  </linearGradient>
-                </defs>
-                <rect width="128" height="128" rx="30" fill="url(#binnLoginGradientB)" />
-                <path d="M42 31.5c0-4.142 3.358-7.5 7.5-7.5h16c8.56 0 15.5 6.94 15.5 15.5 0 3.913-1.45 7.486-3.841 10.214C82.485 52.348 86 57.874 86 64.2 86 73.478 78.478 81 69.2 81H49.5c-4.142 0-7.5-3.358-7.5-7.5v-42Zm15 4.5v10.5h8.8c3.7 0 6.7-2.999 6.7-6.7S69.5 33 65.8 33H57Zm0 22.5V72h12.2c4.197 0 7.6-3.403 7.6-7.6s-3.403-7.6-7.6-7.6H57Z" fill="#10243d" />
-                <path d="M92.5 45c0-2.485 2.015-4.5 4.5-4.5s4.5 2.015 4.5 4.5-2.015 4.5-4.5 4.5-4.5-2.015-4.5-4.5Zm0 18c0-2.485 2.015-4.5 4.5-4.5s4.5 2.015 4.5 4.5-2.015 4.5-4.5 4.5-4.5-2.015-4.5-4.5Z" fill="#10243d" fill-opacity="0.74" />
-              </svg>
-            </span>
-            <span>
-              <span class="binn-auth-brand-title">Binn</span>
-              <span class="binn-auth-brand-copy">Acceso seguro al espacio de trabajo.</span>
-            </span>
-          </div>
-
-          <div class="binn-auth-panel-head">
-            <h1>Inicia sesion</h1>
-            <p>Entra con tu usuario o correo. Binn te lleva al negocio correcto segun tus permisos.</p>
-          </div>
-
-          <div class="binn-auth-tenant-strip">
-            {% if request.tenant and request.tenant.schema_name != "public" %}
-              <span>Espacio activo</span>
-              <strong>{{ request.tenant.name }}</strong>
-              <small>Tu equipo entra directo a este negocio.</small>
-            {% elif requested_tenant %}
-              <span>Espacio solicitado</span>
-              <strong>{{ requested_tenant.name }}</strong>
-              <small>Vista local seleccionada para este acceso.</small>
-            {% else %}
-              <span>Acceso Binn</span>
-              <strong>Binn multiempresa</strong>
-              <small>Tu espacio aparece despues de iniciar sesion.</small>
-            {% endif %}
-          </div>
-
-          {% if form.errors %}
-            <div class="binn-auth-error">
-              {% if form.non_field_errors %}
-                {{ form.non_field_errors.0 }}
-              {% else %}
-                Usuario o contrasena invalida. Revisa tus datos e intenta otra vez.
-              {% endif %}
-            </div>
-          {% endif %}
-
-          <form method="post" novalidate class="binn-auth-form">
-            {% csrf_token %}
-            <div class="binn-auth-field">
-              <label for="id_username" class="binn-auth-label">
-                <span class="binn-auth-label-row">
-                  <svg class="binn-auth-inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M20 21a8 8 0 0 0-16 0" />
-                    <circle cx="12" cy="7" r="4" />
-                  </svg>
-                  Correo o usuario
-                </span>
-              </label>
-              {{ form.username }}
-            </div>
-
-            <div class="binn-auth-field">
-              <label for="id_password" class="binn-auth-label">
-                <span class="binn-auth-label-row">
-                  <svg class="binn-auth-inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                    <rect x="4" y="11" width="16" height="9" rx="2" />
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 11V8a4 4 0 1 1 8 0v3" />
-                  </svg>
-                  Contrasena
-                </span>
-              </label>
-              <div class="binn-auth-password-wrap">
-                {{ form.password }}
-                <button
-                  type="button"
-                  class="binn-auth-toggle"
-                  data-password-toggle
-                  aria-label="Mostrar contrasena"
-                  aria-pressed="false"
-                  title="Mostrar contrasena"
-                >
-                  <svg data-eye-on viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" />
-                    <circle cx="12" cy="12" r="3" />
-                  </svg>
-                  <svg data-eye-off viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 3 21 21" />
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M10.6 10.7A3 3 0 0 0 13.4 13.5" />
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M9.9 5.1A11.6 11.6 0 0 1 12 5c6.5 0 10 7 10 7a17.6 17.6 0 0 1-4 4.9" />
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M6.5 6.6A17.6 17.6 0 0 0 2 12s3.5 7 10 7a11.6 11.6 0 0 0 4-.7" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-            <button type="submit" class="binn-btn-primary binn-auth-submit">
-              <span class="binn-auth-submit-content">
-                <svg class="binn-auth-inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 5l7 7-7 7" />
-                </svg>
-                Entrar a Binn
-              </span>
-            </button>
-
-            <div class="binn-auth-help">
-              <span>Acceso por usuario global y permisos por empresa.</span>
-              <a href="/accounts/password/reset/">Olvide mi clave</a>
-            </div>
-          </form>
-
-          <p class="binn-auth-note">
-            Si tu usuario pertenece a varias empresas, Binn mostrara tus espacios disponibles despues del acceso.
-          </p>
-        </div>
-      </section>
+<section class="binn-login-page">
+  <aside class="binn-login-aside" aria-label="Binn">
+    <a class="binn-login-brand" href="{% url 'login' %}">
+      <span class="binn-login-mark">Bn</span>
+      <span class="binn-login-brand-copy"><strong>Binn</strong><span>Operacion comercial</span></span>
+    </a>
+    <div class="binn-login-aside-content">
+      <p class="binn-login-aside-kicker">Espacio de trabajo</p>
+      <h2 class="binn-login-aside-title">Menos ruido. Mejor seguimiento.</h2>
+      <p class="binn-login-aside-copy">Clientes, oportunidades y cobros organizados para que el equipo comercial se enfoque en el siguiente paso.</p>
+      <span class="binn-login-aside-rule" aria-hidden="true"></span>
     </div>
-  </section>
+  </aside>
+  <main class="binn-login-panel">
+    <div class="binn-login-card">
+      <a class="binn-login-brand binn-login-mobile-brand" href="{% url 'login' %}">
+        <span class="binn-login-mark">Bn</span>
+        <span class="binn-login-brand-copy"><strong>Binn</strong><span>Operacion comercial</span></span>
+      </a>
+      <h1 class="binn-login-heading">Iniciar sesion</h1>
+      <p class="binn-login-intro">Ingresa con tu usuario o correo para continuar.</p>
+      {% if request.tenant and request.tenant.schema_name != "public" or requested_tenant %}
+        <div class="binn-login-tenant">
+          <span class="binn-login-tenant-label">Espacio de trabajo</span>
+          <strong class="binn-login-tenant-name">{% if request.tenant and request.tenant.schema_name != "public" %}{{ request.tenant.name }}{% else %}{{ requested_tenant.name }}{% endif %}</strong>
+        </div>
+      {% endif %}
+      <form method="post" class="binn-login-form" novalidate>
+        {% csrf_token %}
+        {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+        {% if form.non_field_errors %}<div class="binn-login-error">{{ form.non_field_errors.0 }}</div>{% endif %}
+        <div class="binn-login-field">
+          <label class="binn-login-label" for="id_username">Correo o usuario</label>
+          <div class="binn-login-input-wrap{% if form.username.errors %} is-invalid{% endif %}">
+            <input type="text" name="username" id="id_username" value="{{ form.username.value|default_if_none:'' }}" autocomplete="username" spellcheck="false" required autofocus placeholder="usuario o correo@empresa.com">
+          </div>
+          {% if form.username.errors %}<p class="binn-login-field-error">{{ form.username.errors|striptags }}</p>{% endif %}
+        </div>
+        <div class="binn-login-field">
+          <label class="binn-login-label" for="id_password">Contrase&ntilde;a</label>
+          <div class="binn-login-input-wrap{% if form.password.errors %} is-invalid{% endif %}">
+            <input type="password" name="password" id="id_password" autocomplete="current-password" required placeholder="Tu contrase&ntilde;a">
+            <button type="button" class="binn-login-password-toggle" data-login-password-toggle aria-label="Mostrar contrase&ntilde;a">Mostrar</button>
+          </div>
+          {% if form.password.errors %}<p class="binn-login-field-error">{{ form.password.errors|striptags }}</p>{% endif %}
+        </div>
+        <button class="binn-login-submit" type="submit">Entrar a Binn</button>
+        <p class="binn-login-help"><a href="{% url 'password_reset' %}">Olvide mi contrase&ntilde;a</a></p>
+      </form>
+    </div>
+  </main>
+</section>
 {% endblock %}
-
 {% block scripts %}
-  <script>
-    document.addEventListener("DOMContentLoaded", function () {
-      const toggle = document.querySelector("[data-password-toggle]");
-      const input = document.getElementById("id_password");
-
-      if (!toggle || !input) {
-        return;
-      }
-
-      toggle.addEventListener("click", function () {
-        const visible = input.type === "text";
-        input.type = visible ? "password" : "text";
-        toggle.classList.toggle("is-visible", !visible);
-        toggle.setAttribute("aria-pressed", String(!visible));
-        toggle.setAttribute("title", visible ? "Mostrar contrasena" : "Ocultar contrasena");
-        toggle.setAttribute("aria-label", visible ? "Mostrar contrasena" : "Ocultar contrasena");
-      });
+<script>
+  document.querySelectorAll('[data-login-password-toggle]').forEach(function (button) {
+    button.addEventListener('click', function () {
+      var input = button.parentElement.querySelector('input');
+      var visible = input.type === 'text';
+      input.type = visible ? 'password' : 'text';
+      button.textContent = visible ? 'Mostrar' : 'Ocultar';
+      button.setAttribute('aria-label', visible ? 'Mostrar contrasena' : 'Ocultar contrasena');
     });
-  </script>
+  });
+</script>
 {% endblock %}

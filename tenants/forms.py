@@ -1047,6 +1047,49 @@ class AddMemberForm(forms.Form):
         return cleaned
 
 
+class TenantUserCreateForm(forms.Form):
+    display_name = forms.CharField(
+        label="Nombre",
+        max_length=160,
+        widget=forms.TextInput(attrs={**_INPUT, "placeholder": "Nombre de la persona"}),
+    )
+    username = forms.CharField(
+        label="Usuario",
+        max_length=150,
+        widget=forms.TextInput(attrs={**_INPUT, "placeholder": "usuario"}),
+    )
+    email = forms.EmailField(
+        label="Correo",
+        widget=forms.EmailInput(attrs={**_INPUT, "placeholder": "persona@empresa.com"}),
+    )
+    password = forms.CharField(
+        label="Clave temporal",
+        min_length=8,
+        widget=forms.PasswordInput(attrs={**_INPUT, "autocomplete": "new-password"}),
+    )
+    role = forms.ChoiceField(
+        label="Rol local",
+        choices=TenantMembership.ROLE_CHOICES,
+        initial=TenantMembership.ROLE_OPERATOR,
+        widget=forms.Select(attrs=_INPUT),
+    )
+
+    def clean_username(self):
+        username = (self.cleaned_data.get("username") or "").strip()
+        if _case_insensitive_username_count(username):
+            raise ValidationError("Ese usuario ya existe. Asignalo desde 'Usuario existente'.")
+        return username
+
+    def clean_email(self):
+        email = (self.cleaned_data.get("email") or "").strip().lower()
+        user_model = settings.AUTH_USER_MODEL
+        from django.apps import apps
+
+        if apps.get_model(user_model).objects.filter(email__iexact=email).exists():
+            raise ValidationError("Ese correo ya esta registrado. Usa otro correo o asigna el usuario existente.")
+        return email
+
+
 class TenantAuthenticationForm(AuthenticationForm):
     username = forms.CharField(
         label="Usuario o correo",

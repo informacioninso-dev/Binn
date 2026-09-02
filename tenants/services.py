@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from django.contrib.auth import get_user_model
+from django.db import transaction
 from django_tenants.utils import get_public_schema_name, schema_context
 
 from access.models import TenantMembership
@@ -289,6 +290,54 @@ def assign_tenant_membership(
         membership=membership,
         membership_created=membership_created,
         notices=[],
+    )
+
+
+def create_tenant_user_and_membership(
+    *,
+    tenant: Client,
+    username: str,
+    email: str,
+    display_name: str,
+    password: str,
+    role: str = TenantMembership.ROLE_OPERATOR,
+) -> TenantMembershipAssignmentResult:
+    """Create a global identity only after confirming a tenant seat is available."""
+    username = (username or "").strip()
+    email = (email or "").strip().lower()
+    display_name = (display_name or "").strip()
+    user_model = get_user_model()
+    with transaction.atomic():
+        tenant = Client.objects.select_for_update().get(pk=tenant.pk)
+        if tenant.memberships.filter(is_active=True).count() >= tenant.max_users:
+            raise TenantProvisionError(
+                f"El tenant '{tenant.name}' ya alcanzo su limite de {tenant.max_users} usuarios activos."
+            )
+        if _get_existing_user(username) is not None:
+            raise TenantProvisionError("Ese usuario ya existe. Asignalo como usuario existente.")
+        if user_model.objects.filter(email__iexact=email).exists():
+            raise TenantProvisionError("Ese correo ya esta registrado. Asigna el usuario existente.")
+        user = user_model.objects.create_user(
+            username=username,
+            email=email,
+            password=password,
+            display_name=display_name,
+            preferred_name=display_name.split(" ", 1)[0] if display_name else "",
+            must_rotate_password=True,
+        )
+        membership = TenantMembership.objects.create(
+            tenant=tenant,
+            user=user,
+            role=role,
+            is_admin=role in {TenantMembership.ROLE_OWNER, TenantMembership.ROLE_MANAGER},
+            is_active=True,
+        )
+
+    return TenantMembershipAssignmentResult(
+        user=user,
+        membership=membership,
+        membership_created=True,
+        notices=["La persona debe cambiar su clave temporal al iniciar sesion."],
     )
 
 

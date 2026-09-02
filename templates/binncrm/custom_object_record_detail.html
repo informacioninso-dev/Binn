@@ -15,6 +15,9 @@
         </div>
         <div class="flex flex-wrap gap-3">
           <a href="{% url 'binncrm:custom_object_records' object_schema.key %}" class="binn-btn-secondary binn-btn-compact">Volver</a>
+          {% if project_conversation_href %}
+            <a href="{{ project_conversation_href }}" class="binn-btn-secondary binn-btn-compact">Abrir canal</a>
+          {% endif %}
           {% if can_edit_objects %}
             <a href="{% url 'binncrm:custom_object_record_edit' object_schema.key record.pk %}" class="binn-btn-primary binn-btn-compact">Editar</a>
           {% endif %}

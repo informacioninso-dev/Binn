@@ -166,10 +166,10 @@ def _build_message_form(request, *, form=None, conversation=None, entity=None):
         tenant=request.tenant,
         current_user=request.user,
         task_context_enabled=bool(entity) or (
-            conversation is not None and conversation.kind in {Conversation.KIND_ENTITY, Conversation.KIND_DEAL}
+            conversation is not None and conversation.kind in {Conversation.KIND_ENTITY, Conversation.KIND_DEAL, Conversation.KIND_PROJECT}
         ),
         allow_task_linking=_can_link_tasks(request)
-        and (bool(entity) or (conversation is not None and conversation.kind in {Conversation.KIND_ENTITY, Conversation.KIND_DEAL})),
+        and (bool(entity) or (conversation is not None and conversation.kind in {Conversation.KIND_ENTITY, Conversation.KIND_DEAL, Conversation.KIND_PROJECT})),
     )
     message_form.fields["body"].widget.attrs["placeholder"] = (
         "Escribe una nota operativa que deje claro que paso y que sigue."
@@ -285,7 +285,7 @@ def _render_context_bootstrap_panel(request, *, layout: str = "compact", form=No
     return _apply_collab_list_refresh(response) if _is_htmx_request(request) else response
 
 
-def _render_conversation_panel(request, *, conversation, layout: str = "full", form=None):
+def _render_conversation_panel(request, *, conversation, layout: str = "full", form=None, refresh_list: bool = True):
     if not can_access_conversation(conversation=conversation, user=request.user):
         messages.error(request, "No tienes acceso a esta conversacion.")
         return redirect("collab:inbox")
@@ -301,20 +301,23 @@ def _render_conversation_panel(request, *, conversation, layout: str = "full", f
         "conversation_summary": summary,
         "current_membership": summary.membership,
         "conversation_memberships": conversation.memberships.select_related("user").filter(is_active=True).order_by("user__username"),
-        "entity": conversation.entity if conversation.kind == Conversation.KIND_ENTITY else None,
-        "deal": conversation.deal if conversation.kind == Conversation.KIND_DEAL else None,
+        "entity": conversation.entity if conversation.kind == Conversation.KIND_ENTITY else getattr(conversation.project, "entity", None),
+        "deal": conversation.deal if conversation.kind == Conversation.KIND_DEAL else getattr(conversation.project, "deal", None),
+        "project": conversation.project if conversation.kind == Conversation.KIND_PROJECT else None,
         "messages_feed": messages_feed,
         "message_form": _build_message_form(
             request,
             form=form,
             conversation=conversation,
-            entity=conversation.entity if conversation.kind == Conversation.KIND_ENTITY else None,
+            entity=conversation.entity if conversation.kind == Conversation.KIND_ENTITY else getattr(conversation.project, "entity", None),
         ),
         "layout": layout,
         "can_post_messages": _can_post_messages(request),
     }
     response = render(request, "collab/_conversation_panel.html", context)
-    return _apply_collab_list_refresh(response) if _is_htmx_request(request) else response
+    if _is_htmx_request(request) and refresh_list:
+        return _apply_collab_list_refresh(response)
+    return response
 
 
 @login_required
@@ -361,10 +364,15 @@ def inbox_list(request):
 @tenant_permission_required(PERMISSION_COLLAB_VIEW, capability="collab")
 def conversation_panel(request, pk):
     conversation = get_object_or_404(Conversation, pk=pk, is_active=True)
+    # The panel endpoint is only for HTMX swaps. A direct browser visit must load
+    # the full inbox shell instead of rendering an unstyled fragment by itself.
+    if not _is_htmx_request(request):
+        return redirect("collab:conversation_detail", pk=conversation.pk)
     return _render_conversation_panel(
         request,
         conversation=conversation,
         layout=(request.GET.get("layout") or "full").strip() or "full",
+        refresh_list=False,
     )
 
 
@@ -590,7 +598,7 @@ def conversation_post(request, pk):
         messages.error(request, "No puedes escribir en esta conversacion.")
         return redirect("collab:inbox")
 
-    task_context_enabled = conversation.kind in {Conversation.KIND_ENTITY, Conversation.KIND_DEAL}
+    task_context_enabled = conversation.kind in {Conversation.KIND_ENTITY, Conversation.KIND_DEAL, Conversation.KIND_PROJECT}
     form = MessageForm(
         request.POST,
         tenant=request.tenant,
@@ -616,7 +624,7 @@ def conversation_post(request, pk):
             form = _build_message_form(
                 request,
                 conversation=conversation,
-                entity=conversation.entity if conversation.kind == Conversation.KIND_ENTITY else None,
+                entity=conversation.entity if conversation.kind == Conversation.KIND_ENTITY else getattr(conversation.project, "entity", None),
             )
 
     return _render_conversation_panel(

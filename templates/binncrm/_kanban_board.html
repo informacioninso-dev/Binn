@@ -22,14 +22,14 @@
               <article data-deal-id="{{ card.deal.pk }}" class="binn-sales-card {% if can_move_deals %}cursor-move{% endif %}">
                 <div class="binn-sales-card-head">
                   <div class="min-w-0">
-                    <p class="binn-sales-card-title">{{ card.deal.title }}</p>
+                    {% if can_edit_deal %}<a href="{% url 'binncrm:deal_edit' card.deal.pk %}" class="binn-sales-card-title">{{ card.deal.title }}</a>{% else %}<p class="binn-sales-card-title">{{ card.deal.title }}</p>{% endif %}
                     <p class="binn-sales-card-account">{{ card.deal.entity.full_name }}</p>
                   </div>
                   <div class="binn-sales-card-amount-block">
                     <p class="binn-sales-card-amount">{{ card.amount_label }}</p>
                     <div class="binn-sales-card-actions">
                       {% if can_edit_deal %}
-                        <a href="{% url 'binncrm:deal_edit' card.deal.pk %}" class="binn-sales-card-link">Mover</a>
+                        <a href="{% url 'binncrm:deal_edit' card.deal.pk %}" class="binn-sales-card-link">Editar</a>
                       {% endif %}
                       {% if can_view_collab and can_edit_deal %}
                         <a href="{% url 'binncrm:deal_edit' card.deal.pk %}#deal-collab-panel" class="binn-sales-card-link">Canal</a>
